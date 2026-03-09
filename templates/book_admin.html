@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block title %}도서 관리{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block page_style %}
+<style>to { opacity: 1; transform: translateY(0); } }
+
+        /* 모달 스타일 */
+        .modal { transition: opacity 0.25s ease; }
+        .modal-active { pointer-events: auto; opacity: 1; }</style>
+{% endblock %}
+
+{% set active_menu = 'book_admin' %}
+
+{% block content %}
+<!-- 상단 헤더 및 탭 -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 gap-6">
+            <div>
+                <h2 class="text-3xl font-black text-slate-800 flex items-center italic tracking-tighter">
+                    <i class="fas fa-book-reader text-yuanta mr-3"></i>LIBRARY ADMIN
+                </h2>
+                <p class="text-xs text-slate-400 mt-2 font-medium uppercase tracking-widest">도서관 관리자 대시보드</p>
+            </div>
+            
+            <div class="flex space-x-2 bg-slate-100 p-1 rounded-2xl">
+                <button id="tab-approval" onclick="switchAdminView('approval')" class="px-6 py-2.5 bg-white text-slate-800 rounded-xl text-xs font-black shadow-sm transition-all">대출/예약 승인</button>
+                <button id="tab-purchase" onclick="switchAdminView('purchase')" class="px-6 py-2.5 text-slate-500 rounded-xl text-xs font-bold hover:text-slate-800 transition-all">구매 신청 관리</button>
+                <button id="tab-books" onclick="switchAdminView('books')" class="px-6 py-2.5 text-slate-500 rounded-xl text-xs font-bold hover:text-slate-800 transition-all">도서 목록 관리</button>
+            </div>
+        </header>
+
+        <!-- VIEW 1: 대출/예약 승인 관리 -->
+        <section id="view-approval" class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 flex items-center italic text-sm">
+                    <i class="fas fa-clipboard-check text-yuanta mr-2"></i>도서 대출 및 예약 접수 현황
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-6 py-4 w-20 text-center">유형</th>
+                            <th class="px-6 py-4 w-24 text-center">신청자</th>
+                            <th class="px-6 py-4">신청 도서</th>
+                            <th class="px-6 py-4 w-32 text-center">신청일</th>
+                            <th class="px-6 py-4 w-40 text-center">승인/반려</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <!-- 파이썬에서 rental_requests 리스트를 받아와 렌더링 -->
+                        {% for req in rental_requests %}
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-5 text-center">
+                                {% if req.type == '대출' %}
+                                <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded font-bold text-[10px]">대출</span>
+                                {% elif req.type == '예약' %}
+                                <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded font-bold text-[10px]">예약</span>
+                                {% else %}
+                                <span class="text-slate-600 bg-slate-100 px-2 py-1 rounded font-bold text-[10px]">{{ req.type }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-5 text-center font-bold text-slate-700">{{ req.emp_nm }}</td>
+                            <td class="px-6 py-5 font-black text-slate-800">{{ req.title }}</td>
+                            <td class="px-6 py-5 text-center text-slate-500 font-mono text-xs">{{ req.req_dt }}</td>
+                            <td class="px-6 py-5 text-center space-x-1">
+                                <button onclick="processRequest(this, '승인', '{{ req.req_seq }}')" class="px-3 py-1.5 bg-yuanta text-white rounded-lg text-[10px] font-bold hover:bg-blue-800 transition-colors">승인</button>
+                                <button onclick="processRequest(this, '반려', '{{ req.req_seq }}')" class="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="py-12 text-center text-slate-400 italic border-b border-slate-50">대기 중인 신청 내역이 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-slate-50 text-center border-t border-slate-100">
+                <p class="text-[11px] text-slate-400 italic">※ 대출 승인 시 해당 조합원의 캘린더에 일정이 동기화되며, 도서 상태가 '대출중'으로 자동 변경됩니다.</p>
+            </div>
+        </section>
+
+        <!-- VIEW 2: 구매 신청 관리 (Hidden) -->
+        <section id="view-purchase" class="hidden bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 flex items-center italic text-sm">
+                    <i class="fas fa-cart-arrow-down text-yuanta mr-2"></i>희망 도서 구매 요청 현황
+                </h3>
+            </div>
+            <div class="overflow-x-auto p-6 space-y-4">
+                <!-- 파이썬에서 purchase_requests 리스트를 받아와 렌더링 -->
+                {% for pur in purchase_requests %}
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 relative">
+                    <span class="absolute top-4 right-4 text-[10px] font-bold text-slate-400">{{ pur.req_dt }} 신청</span>
+                    <h4 class="text-lg font-black text-slate-800 mb-1">{{ pur.title }}</h4>
+                    <p class="text-xs text-slate-500 font-medium mb-4">{{ pur.author|default('-') }} | {{ pur.publisher|default('-') }} <span class="mx-2">|</span> 신청자: {{ pur.emp_nm }}</p>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 text-sm text-slate-600 mb-4">
+                        "{{ pur.reason }}"
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button onclick="processPurchase('{{ pur.req_seq }}', '승인')" class="px-5 py-2 bg-yuanta text-white rounded-xl text-[11px] font-bold hover:bg-blue-800 transition-colors">구매 승인</button>
+                        <button onclick="processPurchase('{{ pur.req_seq }}', '반려')" class="px-5 py-2 bg-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="py-12 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100">
+                    접수된 구매 신청이 없습니다.
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- VIEW 3: 도서 목록 관리 (Hidden) -->
+        <section id="view-books" class="hidden bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 flex items-center italic text-sm">
+                    <i class="fas fa-books text-yuanta mr-2"></i>등록된 도서 마스터 목록
+                </h3>
+                <button onclick="openBookModal()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-yuanta transition-all">
+                    <i class="fas fa-plus mr-1"></i>신규 도서 등록
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-6 py-4 w-20 text-center">SEQ</th>
+                            <th class="px-6 py-4">도서명 / 저자</th>
+                            <th class="px-6 py-4 w-24 text-center">보유수량</th>
+                            <th class="px-6 py-4 w-32 text-center">상태</th>
+                            <th class="px-6 py-4 w-24 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <!-- 파이썬에서 book_list 리스트를 받아와 렌더링 -->
+                        {% for book in book_list %}
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-5 text-center text-slate-400 font-mono">{{ book.book_seq }}</td>
+                            <td class="px-6 py-5">
+                                <p class="font-black text-slate-800 text-sm">
+                                    {{ book.title }}
+                                    {% if book.is_new == 'Y' %}
+                                    <span class="ml-1 text-[8px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold uppercase tracking-widest align-middle">NEW</span>
+                                    {% endif %}
+                                </p>
+                                <p class="text-[10px] text-slate-400 mt-1 font-medium">{{ book.author|default('-') }}</p>
+                            </td>
+                            <td class="px-6 py-5 text-center font-bold text-slate-600">{{ book.total_cnt }} 권</td>
+                            <td class="px-6 py-5 text-center">
+                                {% if book.use_yn == 'Y' %}
+                                <span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold">사용중(Y)</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold">미사용(N)</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-5 text-center space-x-1">
+                                <button onclick="editBook('{{ book.book_seq }}')" class="text-slate-400 hover:text-yuanta transition-colors p-2"><i class="fas fa-cog"></i></button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="py-12 text-center text-slate-400 italic border-b border-slate-50">등록된 도서가 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- 신규 도서 등록 모달 (DB 테이블 명세서 완벽 반영) -->
+    <div id="book-modal" class="modal fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none bg-slate-900/60 p-4">
+        <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden transform transition-transform duration-300 scale-95 flex flex-col max-h-[90vh]">
+            
+            <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                <h3 class="text-xl font-black text-slate-800 italic"><i class="fas fa-book-medical text-yuanta mr-2"></i>도서 입고 및 등록</h3>
+                <button onclick="closeBookModal()" class="text-slate-400 hover:text-yuanta transition-colors"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            
+            <div class="p-8 overflow-y-auto flex-1">
+                <form action="/admin/book/save" method="POST" class="space-y-6">
+                    <!-- 도서명 (TITLE) -->
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">도서명 (TITLE)</label>
+                        <input type="text" name="title" required placeholder="책 제목을 입력하세요" class="form-input">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- 저자 (AUTHOR) -->
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">저자 (AUTHOR)</label>
+                            <input type="text" name="author" class="form-input">
+                        </div>
+                        <!-- 출판사 (PUBLISHER) -->
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">출판사 (PUBLISHER)</label>
+                            <input type="text" name="publisher" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-slate-50 border border-slate-100 rounded-2xl">
+                        <!-- ISBN -->
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">ISBN 고유번호</label>
+                            <input type="text" name="isbn" placeholder="예: 9788960777330" class="form-input bg-white">
+                        </div>
+                        <!-- 보유수량 (TOTAL_CNT) -->
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">총 보유수량 (TOTAL_CNT)</label>
+                            <input type="number" name="total_cnt" value="1" min="1" required class="form-input bg-white">
+                        </div>
+                    </div>
+
+                    <!-- 상태 설정 (IS_NEW, USE_YN) -->
+                    <div class="flex items-center justify-start space-x-8 pt-2 ml-1">
+                        <label class="flex items-center space-x-2 cursor-pointer group">
+                            <input type="checkbox" name="is_new" value="Y" class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta rounded">
+                            <span class="text-xs font-bold text-slate-600 group-hover:text-yuanta transition-colors">신규 도서로 표시 (NEW 뱃지)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer group">
+                            <input type="checkbox" name="use_yn" value="Y" checked class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta rounded">
+                            <span class="text-xs font-bold text-slate-600 group-hover:text-yuanta transition-colors">대출 가능 상태로 등록 (USE_YN)</span>
+                        </label>
+                    </div>
+
+                    <div class="pt-4 text-center border-t border-slate-100 mt-6">
+                        <button type="submit" class="w-full py-4 bg-slate-800 text-white font-black rounded-2xl text-sm uppercase hover:bg-yuanta shadow-xl shadow-slate-200 transition-all tracking-widest">
+                            DB에 등록하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block page_script %}
+<script>
+        function switchAdminView(view) {
+            const views = ['approval', 'purchase', 'books'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                const tab = document.getElementById(`tab-${v}`);
+                if(v === view) {
+                    el.classList.remove('hidden');
+                    tab.className = "px-6 py-2.5 bg-white text-slate-800 rounded-xl text-xs font-black shadow-sm transition-all";
+                } else {
+                    el.classList.add('hidden');
+                    tab.className = "px-6 py-2.5 text-slate-500 rounded-xl text-xs font-bold hover:text-slate-800 transition-all";
+                }
+            });
+        }
+
+        // [프론트엔드 액션 시뮬레이션용 업데이트]
+        function processRequest(btnElement, action, reqId) {
+            if(confirm(`해당 신청을 [${action}] 처리하시겠습니까?`)) {
+                // 향후 백엔드 API 연동 위치: fetch(`/api/book/request/${reqId}`, { method: 'POST', body: JSON.stringify({ action: action }) })
+                btnElement.parentElement.innerHTML = `<span class="text-xs font-bold text-slate-400">처리완료 (${action})</span>`;
+            }
+        }
+
+        function processPurchase(reqId, action) {
+            if(confirm(`이 구매 신청을 [${action}] 처리하시겠습니까?`)) {
+                // 향후 백엔드 연동 위치
+                alert(`처리되었습니다.`);
+                // UI 상에서 해당 박스 숨기기 등 처리 가능
+            }
+        }
+
+        function editBook(bookSeq) {
+            // 도서 수정 로직 (기존 정보 로드 후 모달 오픈 등)
+            alert(`도서 고유번호 [${bookSeq}] 설정 창을 엽니다.`);
+        }
+
+        function openBookModal() {
+            const modal = document.getElementById('book-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.children[0].classList.remove('scale-95');
+        }
+
+        function closeBookModal() {
+            const modal = document.getElementById('book-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.children[0].classList.add('scale-95');
+        }
+    </script>
+{% endblock %}

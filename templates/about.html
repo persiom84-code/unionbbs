@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block title %} - 조합소개{% endblock %}
+
+{% block page_style %}
+.org-card {
+    background:#fff; border-radius:18px; border:1px solid #e8eef5;
+    padding:20px; text-align:center; position:relative;
+    transition:all .15s; box-shadow:0 1px 4px rgba(0,0,0,.05);
+}
+.org-card:hover { box-shadow:0 4px 16px rgba(0,71,157,.1); border-color:#00479d; }
+.org-connector { width:2px; height:24px; background:#cbd5e1; margin:0 auto; }
+.edit-overlay {
+    display:none; position:absolute; inset:0; background:rgba(0,71,157,.85);
+    border-radius:18px; align-items:center; justify-content:center;
+    cursor:pointer;
+}
+.org-card:hover .edit-overlay { display:flex; }
+{% endblock %}
+
+{% set active_menu = 'about' %}
+
+{% block content %}
+
+<!-- 페이지 헤더 -->
+<div class="page-header">
+    <div>
+        <div class="page-title"><i class="fas fa-info-circle"></i>조합소개</div>
+        <div class="page-subtitle">유안타증권 노동조합 조직 구성 및 안내</div>
+    </div>
+    {% if current_user and current_user.user_level == 0 %}
+    <button class="btn-primary" onclick="openModal('modal-slogan')">
+        <i class="fas fa-cog"></i>슬로건/인사말 수정
+    </button>
+    {% endif %}
+</div>
+
+<!-- 슬로건 -->
+<div class="card" style="padding:36px;text-align:center;margin-bottom:16px;position:relative;overflow:hidden;">
+    <span style="font-size:9px;font-weight:800;color:#00479d;text-transform:uppercase;letter-spacing:.4em;opacity:.5;display:block;margin-bottom:12px;">Union Slogan</span>
+    <h2 id="slogan-display" style="font-size:22px;font-weight:900;color:#0f172a;font-style:italic;line-height:1.5;">
+        {{ slogan_text | default('"조합원의 가치를 높이고, 더 나은 미래를 함께 만듭니다."') }}
+    </h2>
+    <i class="fas fa-quote-right" style="position:absolute;right:-16px;bottom:-16px;font-size:80px;color:#f1f5f9;"></i>
+</div>
+
+<!-- 위원장 인사말 -->
+<div class="card" style="padding:32px;display:grid;grid-template-columns:220px 1fr;gap:32px;margin-bottom:16px;align-items:start;">
+    <div style="text-align:center;position:relative;">
+        <div style="aspect-ratio:3/4;background:#f1f5f9;border-radius:18px;overflow:hidden;border:1px solid #e8eef5;display:flex;align-items:center;justify-content:center;max-width:200px;margin:0 auto;">
+            {% if chairman_img %}
+            <img id="chairman-img-display" src="{{ chairman_img }}" style="width:100%;height:100%;object-fit:cover;" alt="위원장">
+            {% else %}
+            <i class="fas fa-user-tie" id="chairman-img-placeholder" style="font-size:56px;color:#cbd5e1;"></i>
+            {% endif %}
+        </div>
+        <p style="font-size:18px;font-weight:900;color:#0f172a;margin-top:14px;font-style:italic;">위원장 <span id="chairman-nm-display">{{ chairman_nm | default('미등록') }}</span></p>
+        <p style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-top:4px;">Chairman of Union</p>
+    </div>
+    <div>
+        <h3 style="font-size:18px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <span style="width:36px;height:3px;background:#00479d;border-radius:4px;display:inline-block;"></span>
+            조합원 여러분께 드리는 글
+        </h3>
+        <div id="greeting-display" style="font-size:14px;color:#475569;line-height:2;white-space:pre-line;">{{ greeting_text | default('유안타증권 노동조합은 변화하는 금융 환경 속에서도\n조합원 여러분의 권익을 최우선으로 생각합니다.\n\n본 게시판은 우리 모두의 투명한 소통과 연대를 위한 공간입니다.\n현장의 목소리가 노조 운영의 밑거름이 될 수 있도록 늘 경청하겠습니다.\n\n함께하는 힘, 더 강한 유안타 노동조합을 만들어갑니다.') }}</div>
+    </div>
+</div>
+
+<!-- 조직도 -->
+<div class="card" style="padding:32px;margin-bottom:16px;">
+    <div style="text-align:center;margin-bottom:32px;">
+        <h3 style="font-size:20px;font-weight:900;color:#0f172a;font-style:italic;text-transform:uppercase;letter-spacing:-.3px;">Organization Chart</h3>
+        <p style="font-size:11px;color:#94a3b8;margin-top:6px;font-weight:600;">유안타증권 노동조합 조직 구성 및 담당자</p>
+    </div>
+
+    <!-- 위원장 -->
+    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:8px;">
+        <div style="background:#00479d;color:#fff;border-radius:18px;padding:20px 32px;text-align:center;width:220px;position:relative;box-shadow:0 8px 24px rgba(0,71,157,.3);">
+            <p style="font-size:9px;color:#fcd34d;font-weight:800;text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;">Chairman</p>
+            <p style="font-size:16px;font-weight:700;font-style:italic;">{{ chairman_nm | default('미등록') }}</p>
+            {% if current_user and current_user.user_level == 0 %}
+            <button onclick="openModal('modal-chairman')" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.2);border:none;color:#fff;width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:10px;" title="편집">
+                <i class="fas fa-cog"></i>
+            </button>
+            {% endif %}
+        </div>
+        <div class="org-connector"></div>
+    </div>
+
+    <!-- 수석·부위원장 -->
+    <div style="display:flex;justify-content:center;gap:16px;margin-bottom:8px;">
+        {% for exec in [('Senior Vice', senior_vice), ('Vice Chairman', vice_chairman)] %}
+        <div class="org-card" style="width:180px;">
+            <p style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">{{ exec[0] }}</p>
+            <p style="font-size:14px;font-weight:700;color:#1e293b;">{{ exec[1] | default('미등록') }}</p>
+            {% if current_user and current_user.user_level == 0 %}
+            <div class="edit-overlay" onclick="openModal('modal-exec-{{ loop.index }}')">
+                <i class="fas fa-cog" style="color:#fff;font-size:18px;"></i>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="org-connector" style="margin-bottom:16px;"></div>
+
+    <!-- 집행위원 -->
+    <div style="border-top:1px dashed #e2e8f0;padding-top:24px;margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h4 style="font-size:14px;font-weight:900;color:#334155;"><i class="fas fa-users-cog" style="color:#00479d;margin-right:8px;"></i>집행위원회</h4>
+            {% if current_user and current_user.user_level == 0 %}
+            <button class="btn-primary" style="font-size:10px;padding:6px 14px;" onclick="openModal('modal-executives')">
+                <i class="fas fa-cog"></i>집행위원 관리
+            </button>
+            {% endif %}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
+            {% if executives %}
+                {% for exec in executives %}
+                <div class="org-card" style="padding:14px;">
+                    <div style="width:36px;height:36px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+                        <i class="fas fa-user" style="color:#94a3b8;font-size:14px;"></i>
+                    </div>
+                    <p style="font-size:12px;font-weight:700;color:#1e293b;font-style:italic;">{{ exec.emp_nm }}</p>
+                    <p style="font-size:9px;color:#94a3b8;margin-top:3px;font-weight:600;">집행위원</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="grid-column:1/-1;padding:32px;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+                    <i class="fas fa-users" style="font-size:24px;display:block;margin-bottom:8px;"></i>
+                    등록된 집행위원이 없습니다.{% if current_user and current_user.user_level == 0 %} (관리자: 집행위원 관리에서 추가하세요){% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 대의원 -->
+    <div style="border-top:1px dashed #e2e8f0;padding-top:24px;margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h4 style="font-size:14px;font-weight:900;color:#334155;"><i class="fas fa-user-friends" style="color:#00479d;margin-right:8px;"></i>대의원회</h4>
+            {% if current_user and current_user.user_level == 0 %}
+            <button class="btn-primary" style="font-size:10px;padding:6px 14px;" onclick="openModal('modal-delegates')">
+                <i class="fas fa-cog"></i>대의원 관리
+            </button>
+            {% endif %}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
+            {% if delegates %}
+                {% for d in delegates %}
+                <div class="org-card" style="padding:0;overflow:hidden;">
+                    <div style="padding:16px 12px 10px;">
+                        <div style="width:40px;height:40px;background:#f1f5f9;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+                            <i class="fas fa-user-tag" style="color:#94a3b8;font-size:14px;"></i>
+                        </div>
+                        <p style="font-size:12px;font-weight:800;color:#1e293b;font-style:italic;">{{ d.emp_nm }}</p>
+                    </div>
+                    <div style="background:#f8fafc;padding:6px;border-top:1px solid #f1f5f9;">
+                        <span style="font-size:9px;font-weight:800;color:#00479d;text-transform:uppercase;letter-spacing:.05em;">{{ d.union_dept_cd | default('분회미지정') }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="grid-column:1/-1;padding:32px;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+                    <i class="fas fa-user-friends" style="font-size:24px;display:block;margin-bottom:8px;"></i>
+                    등록된 대의원이 없습니다.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 회계감사 -->
+    <div style="border-top:1px dashed #e2e8f0;padding-top:24px;">
+        <h4 style="font-size:14px;font-weight:900;color:#334155;margin-bottom:16px;"><i class="fas fa-search-dollar" style="color:#00479d;margin-right:8px;"></i>회계감사</h4>
+        <div style="display:flex;justify-content:center;gap:16px;">
+            {% if auditors %}
+                {% for a in auditors %}
+                <div class="org-card" style="width:160px;">
+                    <div style="width:44px;height:44px;background:#f1f5f9;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+                        <i class="fas fa-user-check" style="color:#94a3b8;font-size:16px;"></i>
+                    </div>
+                    <p style="font-size:13px;font-weight:700;color:#1e293b;font-style:italic;">{{ a.emp_nm }}</p>
+                    <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:700;text-transform:uppercase;">Auditor</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding:24px;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">등록된 회계감사가 없습니다.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ 관리자 모달: 슬로건/인사말 수정 ═══ -->
+{% if current_user and current_user.user_level == 0 %}
+<div id="modal-slogan" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">슬로건 / 인사말 수정</h3>
+            <button onclick="closeModal('modal-slogan')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <form action="/admin/about/save" method="POST">
+            <input type="hidden" name="section" value="slogan">
+            <div style="margin-bottom:16px;">
+                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">조합 슬로건</label>
+                <input type="text" name="slogan_text" value="{{ slogan_text | default('') }}" class="form-input" placeholder="슬로건을 입력하세요">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">위원장 인사말</label>
+                <textarea name="greeting_text" rows="6" class="form-input" style="resize:vertical;" placeholder="인사말을 입력하세요">{{ greeting_text | default('') }}</textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeModal('modal-slogan')">취소</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ 관리자 모달: 위원장 정보 수정 ═══ -->
+<div id="modal-chairman" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">위원장 정보 수정</h3>
+            <button onclick="closeModal('modal-chairman')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <form action="/admin/about/save" method="POST">
+            <input type="hidden" name="section" value="chairman">
+            <div style="margin-bottom:16px;">
+                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">위원장 성명</label>
+                <input type="text" name="chairman_nm" value="{{ chairman_nm | default('') }}" class="form-input" placeholder="성명 입력">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">사번 (TB_USER에서 연결)</label>
+                <input type="text" name="chairman_emp_no" class="form-input" placeholder="사번 입력 시 자동 연결">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="closeModal('modal-chairman')">취소</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══ 관리자 모달: 집행위원 관리 ═══ -->
+<div id="modal-executives" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">집행위원 관리</h3>
+            <button onclick="closeModal('modal-executives')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:12px;color:#64748b;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:10px;">
+            <i class="fas fa-info-circle" style="color:#00479d;margin-right:6px;"></i>
+            집행위원 지정은 <strong>사용자 관리</strong>에서 해당 조합원의 레벨을 <strong>LV.1(집행위원)</strong>로 변경하여 적용됩니다.
+        </p>
+        <div style="max-height:300px;overflow-y:auto;">
+            <table class="data-table">
+                <thead><tr><th>성명</th><th>사번</th><th>분회</th></tr></thead>
+                <tbody>
+                    {% if executives %}
+                        {% for e in executives %}
+                        <tr>
+                            <td style="font-weight:700;">{{ e.emp_nm }}</td>
+                            <td style="font-family:monospace;color:#64748b;">{{ e.emp_no }}</td>
+                            <td>{{ e.union_dept_cd | default('-') }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:24px;">등록된 집행위원이 없습니다.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+            <button class="btn-secondary" onclick="closeModal('modal-executives')">닫기</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ 관리자 모달: 대의원 관리 ═══ -->
+<div id="modal-delegates" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">대의원 관리</h3>
+            <button onclick="closeModal('modal-delegates')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:12px;color:#64748b;margin-bottom:16px;background:#f8fafc;padding:10px 14px;border-radius:10px;">
+            <i class="fas fa-info-circle" style="color:#00479d;margin-right:6px;"></i>
+            대의원 지정은 <strong>사용자 관리</strong>에서 해당 조합원의 레벨을 <strong>LV.2(대의원)</strong>로 변경하여 적용됩니다.
+        </p>
+        <div style="max-height:300px;overflow-y:auto;">
+            <table class="data-table">
+                <thead><tr><th>성명</th><th>사번</th><th>분회</th></tr></thead>
+                <tbody>
+                    {% if delegates %}
+                        {% for d in delegates %}
+                        <tr>
+                            <td style="font-weight:700;">{{ d.emp_nm }}</td>
+                            <td style="font-family:monospace;color:#64748b;">{{ d.emp_no }}</td>
+                            <td>{{ d.union_dept_cd | default('-') }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:24px;">등록된 대의원이 없습니다.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+            <button class="btn-secondary" onclick="closeModal('modal-delegates')">닫기</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block page_script %}
+<script>
+function openModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+// 모달 외부 클릭 닫기
+document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', function(e) {
+        if (e.target === this) closeModal(this.id);
+    });
+});
+</script>
+{% endblock %}

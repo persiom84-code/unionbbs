@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% block title %} - 콘도 신청{% endblock %}
+
+{% set active_menu = 'condo' %}
+{%- set lv = (current_user.user_level if current_user else 99) | int -%}
+
+{% block content %}
+
+<!-- 페이지 헤더 -->
+<div class="page-header">
+    <div>
+        <div class="page-title"><i class="fas fa-hotel"></i>콘도 신청</div>
+        <div class="page-subtitle">조합원 휴양시설 이용 신청 — 승인 후 확정</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start;">
+
+    <!-- ══ 좌측: 신청 폼 ══ -->
+    <div class="card" style="padding:28px;">
+        <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:20px;">
+            <i class="fas fa-search" style="color:#00479d;margin-right:8px;"></i>리조트 선택 및 신청
+        </h3>
+
+        <form action="/condo/apply" method="POST" id="condoApplyForm">
+
+            <!-- Step 1: 지역 선택 -->
+            <div style="margin-bottom:18px;">
+                <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">1</span>
+                    대분류 — 지역 선택
+                </label>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    {% for code, nm in region_map.items() %}
+                    <span class="filter-btn {% if sel_region == code %}active{% endif %}"
+                          onclick="setFilter('region','{{ code }}',this)">{{ nm }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Step 2: 브랜드 선택 -->
+            <div style="margin-bottom:18px;">
+                <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">2</span>
+                    중분류 — 브랜드 선택
+                </label>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;" id="brand-filters">
+                    {% for code, nm in brand_map.items() %}
+                    <span class="filter-btn brand-filter-btn {% if sel_brand == code %}active{% endif %}"
+                          data-brand="{{ code }}"
+                          onclick="setFilter('brand','{{ code }}',this)">{{ nm }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Step 3: 리조트 선택 (테이블) -->
+            <div style="margin-bottom:18px;">
+                <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">3</span>
+                    소분류 — 리조트 선택
+                </label>
+                <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                <th style="padding:10px 12px;text-align:center;width:36px;font-size:11px;font-weight:700;color:#94a3b8;"></th>
+                                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;">리조트명</th>
+                                <th style="padding:10px 10px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;width:64px;">지역</th>
+                                <th style="padding:10px 10px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;width:64px;">브랜드</th>
+                                <th style="padding:10px 10px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;width:70px;">객실</th>
+                            </tr>
+                        </thead>
+                        <tbody id="condoTableBody">
+                            {% for c in condo_list %}
+                            <tr class="condo-row"
+                                data-seq="{{ c.condo_seq }}"
+                                data-region="{{ c.region_cd }}"
+                                data-brand="{{ c.brand_cd }}"
+                                data-nm="{{ c.condo_nm }}"
+                                data-desc="{{ c.description or '' }}"
+                                onclick="selectCondo(this)"
+                                style="cursor:pointer;border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:12px 12px;text-align:center;">
+                                    <div class="row-radio" style="width:16px;height:16px;border:2px solid #cbd5e1;border-radius:50%;margin:auto;transition:all .15s;"></div>
+                                </td>
+                                <td style="padding:12px 14px;">
+                                    <p style="font-weight:700;color:#1e293b;margin-bottom:2px;">{{ c.condo_nm }}</p>
+                                    <p style="font-size:11px;color:#94a3b8;">{{ c.location }}</p>
+                                </td>
+                                <td style="padding:12px 10px;text-align:center;">
+                                    <span style="font-size:10px;font-weight:600;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:5px;">{{ region_map.get(c.region_cd,'') }}</span>
+                                </td>
+                                <td style="padding:12px 10px;text-align:center;">
+                                    <span style="font-size:10px;font-weight:600;color:#00479d;background:#eff6ff;padding:2px 6px;border-radius:5px;">{{ brand_map.get(c.brand_cd,'') }}</span>
+                                </td>
+                                <td style="padding:12px 10px;text-align:center;font-weight:700;color:#334155;font-size:13px;">{{ c.total_room }}실</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">등록된 리조트가 없습니다.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <input type="hidden" name="condo_seq" id="selected_condo_seq">
+            </div>
+
+            <!-- Step 4: 객실유형 선택 -->
+            <div id="room-section" style="display:none;margin-bottom:18px;">
+                <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">4</span>
+                    소분류 — 객실유형 선택
+                </label>
+                <div id="condo-desc-box" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1d4ed8;font-weight:600;">
+                    <i class="fas fa-info-circle" style="margin-right:6px;"></i><span id="condo-desc-text"></span>
+                </div>
+                <div id="room-list" style="display:grid;gap:8px;"></div>
+                <input type="hidden" name="room_seq" id="selected_room_seq">
+            </div>
+
+            <!-- 날짜 + 제출 -->
+            <div id="date-section" style="display:none;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">체크인 *</label>
+                        <input type="date" name="check_in" class="form-input" required id="checkInDate">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">체크아웃 *</label>
+                        <input type="date" name="check_out" class="form-input" required id="checkOutDate">
+                    </div>
+                </div>
+                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#c2410c;font-weight:600;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+                    신청 후 관리자 승인 시 확정됩니다. 신청 후 3일 이내 미승인 시 자동 취소됩니다.
+                </div>
+                <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px;">
+                    <i class="fas fa-check"></i>예약 신청하기
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ══ 우측: 내 예약 현황 ══ -->
+    <div class="card" style="padding:24px;">
+        <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:16px;">
+            <i class="fas fa-list" style="color:#00479d;margin-right:8px;"></i>내 예약 현황
+        </h3>
+        {% if my_reserves %}
+            {% for r, c, rm in my_reserves %}
+            <div style="border:1px solid #e8eef5;border-radius:12px;padding:14px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:13px;font-weight:700;color:#1e293b;">{{ c.condo_nm }}</span>
+                    <span class="badge {% if r.status=='CONFIRM' %}badge-green{% elif r.status=='CANCEL' %}badge-gray{% else %}badge-yellow{% endif %}">
+                        {% if r.status=='CONFIRM' %}승인완료{% elif r.status=='CANCEL' %}취소{% else %}검토중{% endif %}
+                    </span>
+                </div>
+                {% if rm %}
+                <p style="font-size:11px;color:#00479d;font-weight:600;margin-bottom:4px;">
+                    <i class="fas fa-door-open" style="margin-right:4px;"></i>{{ rm.room_type }}
+                </p>
+                {% endif %}
+                <p style="font-size:11px;color:#64748b;margin-bottom:2px;">
+                    <i class="fas fa-calendar" style="margin-right:4px;"></i>
+                    {{ r.check_in.strftime('%Y.%m.%d') if r.check_in else '-' }} ~
+                    {{ r.check_out.strftime('%Y.%m.%d') if r.check_out else '-' }}
+                </p>
+                <p style="font-size:10px;color:#94a3b8;font-family:monospace;">신청 {{ r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-' }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div style="padding:40px 0;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+            <i class="fas fa-calendar-times" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+            신청 내역이 없습니다.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.filter-btn {
+    display:inline-block;padding:6px 14px;border:1.5px solid #e2e8f0;border-radius:20px;
+    font-size:12px;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s;user-select:none;
+}
+.filter-btn:hover { border-color:#00479d;color:#00479d;background:#eff6ff; }
+.filter-btn.active { background:#00479d;border-color:#00479d;color:#fff; }
+.condo-row:hover { background:#f8faff !important; }
+.condo-row.selected { background:#eff6ff !important; }
+.room-card { border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .15s; }
+.room-card:hover { border-color:#93c5fd;background:#f0f9ff; }
+.room-card.selected { border-color:#00479d;background:#eff6ff; }
+</style>
+{% endblock %}
+
+{% block page_script %}
+<script>
+let selRegion = '{{ sel_region }}';
+let selBrand  = '{{ sel_brand }}';
+
+function setFilter(type, code, el) {
+    if (type === 'region') {
+        selRegion = code;
+        document.querySelectorAll('.filter-btn:not(.brand-filter-btn)').forEach(b => b.classList.remove('active'));
+    } else {
+        selBrand = code;
+        document.querySelectorAll('.brand-filter-btn').forEach(b => b.classList.remove('active'));
+    }
+    el.classList.add('active');
+    filterCondos();
+    resetFromCondo();
+}
+
+function filterCondos() {
+    document.querySelectorAll('.condo-row').forEach(row => {
+        const rm = selRegion === 'ALL' || row.dataset.region === selRegion;
+        const bm = selBrand  === 'ALL' || row.dataset.brand  === selBrand;
+        row.style.display = (rm && bm) ? '' : 'none';
+    });
+}
+
+function selectCondo(row) {
+    document.querySelectorAll('.condo-row').forEach(r => r.classList.remove('selected'));
+    document.querySelectorAll('.row-radio').forEach(r => { r.style.background=''; r.style.borderColor='#cbd5e1'; });
+    row.classList.add('selected');
+    row.querySelector('.row-radio').style.background = '#00479d';
+    row.querySelector('.row-radio').style.borderColor = '#00479d';
+
+    const seq  = row.dataset.seq;
+    const nm   = row.dataset.nm;
+    const desc = row.dataset.desc;
+
+    document.getElementById('selected_condo_seq').value = seq;
+    document.getElementById('condo-desc-text').textContent = nm + (desc ? ' — ' + desc : '');
+    document.getElementById('room-section').style.display = 'block';
+    document.getElementById('date-section').style.display = 'none';
+    document.getElementById('selected_room_seq').value = '';
+    document.getElementById('room-list').innerHTML =
+        '<p style="color:#94a3b8;font-size:13px;padding:4px 0;"><i class="fas fa-spinner fa-spin"></i> 객실 정보 로딩 중...</p>';
+
+    fetch('/api/condo/rooms?condo_seq=' + seq)
+        .then(r => r.json())
+        .then(rooms => {
+            const list = document.getElementById('room-list');
+            if (!rooms.length) {
+                list.innerHTML = '<p style="color:#94a3b8;font-size:13px;">등록된 객실 유형이 없습니다.</p>';
+                document.getElementById('date-section').style.display = 'block';
+                return;
+            }
+            list.innerHTML = rooms.map(r => `
+                <div class="room-card" id="rc-${r.room_seq}" onclick="selectRoom(${r.room_seq})">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                        <span style="font-size:13px;font-weight:800;color:#1e293b;">${r.room_type}</span>
+                        <span style="font-size:11px;color:#16a34a;font-weight:700;background:#f0fdf4;padding:2px 8px;border-radius:6px;">
+                            <i class="fas fa-door-open"></i> 잔여 ${r.avail_cnt}실
+                        </span>
+                    </div>
+                    ${r.description ? `<p style="font-size:12px;color:#64748b;margin-bottom:6px;">${r.description}</p>` : ''}
+                    ${r.amenities ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                        ${r.amenities.split(',').map(a => `<span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:4px;font-weight:600;">${a.trim()}</span>`).join('')}
+                    </div>` : ''}
+                    <p style="font-size:11px;color:#94a3b8;"><i class="fas fa-users" style="margin-right:3px;"></i>최대 ${r.capacity}인</p>
+                </div>`).join('');
+        });
+}
+
+function selectRoom(roomSeq) {
+    document.querySelectorAll('.room-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('rc-' + roomSeq).classList.add('selected');
+    document.getElementById('selected_room_seq').value = roomSeq;
+    document.getElementById('date-section').style.display = 'block';
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('checkInDate').min = today;
+    document.getElementById('checkOutDate').min = today;
+}
+
+function resetFromCondo() {
+    document.querySelectorAll('.condo-row').forEach(r => r.classList.remove('selected'));
+    document.querySelectorAll('.row-radio').forEach(r => { r.style.background=''; r.style.borderColor='#cbd5e1'; });
+    document.getElementById('selected_condo_seq').value = '';
+    document.getElementById('room-section').style.display = 'none';
+    document.getElementById('date-section').style.display = 'none';
+}
+
+document.getElementById('checkInDate')?.addEventListener('change', function() {
+    const d = new Date(this.value); d.setDate(d.getDate()+1);
+    document.getElementById('checkOutDate').min = d.toISOString().split('T')[0];
+    if (document.getElementById('checkOutDate').value <= this.value)
+        document.getElementById('checkOutDate').value = '';
+});
+
+filterCondos();
+</script>
+{% endblock %}

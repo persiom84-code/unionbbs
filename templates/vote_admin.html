@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}투표 관리{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block page_style %}
+<style>to { opacity: 1; transform: translateY(0); } }
+
+        
+        
+
+        /* 체크박스/라디오 커스텀 */
+        .custom-radio:checked { background-color: #00479d; border-color: #00479d; }
+        .custom-checkbox:checked { background-color: #00479d; border-color: #00479d; }</style>
+{% endblock %}
+
+{% set active_menu = 'vote_admin' %}
+
+{% block content %}
+<!-- 헤더 영역 -->
+        <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-center md:text-left">
+                <h2 class="text-3xl font-black italic tracking-tighter text-slate-800 flex items-center justify-center md:justify-start">
+                    <i class="fas fa-cogs text-yuanta mr-3"></i>VOTE ADMIN
+                </h2>
+                <p class="text-sm text-slate-400 mt-2 font-medium">투표 안건 생성 및 현황 관리</p>
+            </div>
+            
+            <div class="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                <button id="tab-list" onclick="switchTab('list')" class="px-6 py-3 bg-white text-slate-800 rounded-xl text-sm font-bold shadow-sm transition-all">전체 현황</button>
+                <button id="tab-create" onclick="switchTab('create')" class="px-6 py-3 text-slate-500 rounded-xl text-sm font-bold hover:text-slate-800 transition-all">새 투표 생성</button>
+            </div>
+        </div>
+
+        <!-- 뷰 1: 투표 현황 (목록) -->
+        <div id="view-list" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-50 bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 flex items-center italic text-sm">
+                    <i class="fas fa-list-ul text-yuanta mr-2"></i>등록된 투표 안건
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-6 py-4 w-16 text-center">SEQ</th>
+                            <th class="px-6 py-4">안건명 / 대상</th>
+                            <th class="px-6 py-4 w-48 text-center">투표 기간</th>
+                            <th class="px-6 py-4 w-32 text-center">투표율</th>
+                            <th class="px-6 py-4 w-24 text-center">상태</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-slate-50">
+                        {% for vote in admin_votes %}
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-4 text-center text-slate-400 font-mono">{{ vote.vote_seq }}</td>
+                            <td class="px-6 py-4">
+                                <p class="font-black text-slate-700 text-base mb-1">{{ vote.title }}</p>
+                                <p class="text-[11px] text-slate-500 font-bold bg-slate-100 inline-block px-2 py-0.5 rounded">{{ vote.target_group }}</p>
+                            </td>
+                            <td class="px-6 py-4 text-center text-slate-500 text-xs">{{ vote.start_dt }}<br>~ {{ vote.end_dt }}</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="text-yuanta font-black text-base">{{ vote.participation_rate }}%</span>
+                                <span class="block text-[10px] text-slate-400 mt-1">({{ vote.participant_cnt }}/{{ vote.total_voters }})</span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                {% if vote.status == '진행중' %}
+                                <span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold">진행중</span>
+                                {% else %}
+                                <span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold">종료</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-16 text-center text-slate-400 font-medium">생성된 투표 안건이 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 뷰 2: 새 투표 생성 -->
+        <div id="view-create" class="hidden space-y-6">
+            <form action="/admin/vote/create" method="POST" class="space-y-6">
+                
+                <!-- 1. 기본 정보 박스 -->
+                <div class="bg-white rounded-[2rem] p-8 md:p-10 shadow-sm border border-slate-100 space-y-6">
+                    <h3 class="text-xl font-black text-slate-800 flex items-center border-b border-slate-100 pb-4">
+                        <span class="w-8 h-8 rounded-full bg-yuanta text-white flex items-center justify-center text-sm mr-3">1</span> 기본 정보 설정
+                    </h3>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">투표 안건명 (제목)</label>
+                        <input type="text" name="title" required placeholder="예: 2024년 임금협상 잠정합의안 찬반 투표" class="form-input text-lg font-bold">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">상세 설명</label>
+                        <textarea name="description" rows="3" placeholder="조합원들에게 안내할 상세 내용을 작성하세요." class="form-input resize-none"></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1"><i class="far fa-calendar-plus mr-1"></i>시작 일시</label>
+                            <input type="datetime-local" name="start_dt" required class="form-input bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1"><i class="far fa-calendar-check mr-1"></i>종료 일시</label>
+                            <input type="datetime-local" name="end_dt" required class="form-input bg-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 대상 그룹 박스 -->
+                <div class="bg-white rounded-[2rem] p-8 md:p-10 shadow-sm border border-slate-100 space-y-6">
+                    <h3 class="text-xl font-black text-slate-800 flex items-center border-b border-slate-100 pb-4">
+                        <span class="w-8 h-8 rounded-full bg-yuanta text-white flex items-center justify-center text-sm mr-3">2</span> 투표권 부여 (대상 지정)
+                    </h3>
+                    
+                    <div class="flex gap-6 mb-6">
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50 w-40">
+                            <input type="radio" name="target_type" value="ALL" checked onclick="toggleBranchBox(false)" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700">전 조합원</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50 w-48">
+                            <input type="radio" name="target_type" value="SPECIFIC" onclick="toggleBranchBox(true)" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700">특정 분회 지정</span>
+                        </label>
+                    </div>
+
+                    <!-- 동적 렌더링 분회 리스트 -->
+                    <div id="branch-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5">
+                        <p class="text-xs text-slate-500 font-bold mb-2"><i class="fas fa-sitemap mr-1"></i> 권역별 선택 (체크한 분회 소속 조합원만 투표 가능)</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {% for region, branches in region_dict.items() %}
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                                <label class="flex items-center font-black text-slate-800 text-sm mb-3 pb-2 border-b border-slate-100 cursor-pointer">
+                                    <input type="checkbox" onchange="toggleGroup(this, 'region-{{ loop.index }}')" class="custom-checkbox w-4 h-4 mr-2"> 
+                                    {{ region }} (전체)
+                                </label>
+                                <div class="space-y-2 pl-2 region-{{ loop.index }}">
+                                    {% for branch in branches %}
+                                    <label class="flex items-center text-sm text-slate-600 cursor-pointer hover:text-yuanta transition-colors">
+                                        <input type="checkbox" name="target_dept" value="{{ branch.seq }}" class="custom-checkbox w-4 h-4 mr-2"> 
+                                        {{ branch.name }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="col-span-full py-4 text-sm text-slate-400 italic">DB에 등록된 분회 마스터 데이터가 없습니다.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 항목 설정 박스 -->
+                <div class="bg-white rounded-[2rem] p-8 md:p-10 shadow-sm border border-slate-100 space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <h3 class="text-xl font-black text-slate-800 flex items-center">
+                            <span class="w-8 h-8 rounded-full bg-yuanta text-white flex items-center justify-center text-sm mr-3">3</span> 투표 선택지(항목) 설정
+                        </h3>
+                        <button type="button" onclick="addVoteItem()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-all">
+                            <i class="fas fa-plus mr-1"></i>항목 추가
+                        </button>
+                    </div>
+
+                    <div id="vote-items-container" class="space-y-4 max-w-2xl">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-400 shrink-0">1</div>
+                            <input type="text" name="vote_items[]" required placeholder="예: 찬성" class="form-input text-left">
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-400 shrink-0">2</div>
+                            <input type="text" name="vote_items[]" required placeholder="예: 반대" class="form-input text-left">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 제출 버튼 -->
+                <div class="text-center pt-4">
+                    <button type="submit" class="px-20 py-5 bg-slate-800 hover:bg-yuanta text-white rounded-[1.5rem] font-black text-lg transition-all shadow-xl active:scale-95 tracking-widest">
+                        안건 생성 및 배포
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+{% endblock %}
+
+{% block page_script %}
+<script>
+        function switchTab(tab) {
+            const list = document.getElementById('view-list');
+            const create = document.getElementById('view-create');
+            const tabList = document.getElementById('tab-list');
+            const tabCreate = document.getElementById('tab-create');
+
+            const activeClass = "px-6 py-3 bg-white text-slate-800 rounded-xl text-sm font-bold shadow-sm transition-all";
+            const inactiveClass = "px-6 py-3 text-slate-500 rounded-xl text-sm font-bold hover:text-slate-800 transition-all";
+
+            if (tab === 'list') {
+                list.classList.remove('hidden');
+                create.classList.add('hidden');
+                tabList.className = activeClass;
+                tabCreate.className = inactiveClass;
+            } else {
+                list.classList.add('hidden');
+                create.classList.remove('hidden');
+                tabCreate.className = activeClass;
+                tabList.className = inactiveClass;
+            }
+        }
+
+        function toggleBranchBox(show) {
+            const box = document.getElementById('branch-selection-box');
+            if (show) {
+                box.classList.remove('hidden');
+                box.classList.add('fade-in');
+            } else {
+                box.classList.add('hidden');
+                // 숨길 때 모든 체크박스 해제
+                box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            }
+        }
+
+        function toggleGroup(checkbox, groupClass) {
+            const items = document.querySelectorAll(`.${groupClass} input[type="checkbox"]`);
+            items.forEach(item => item.checked = checkbox.checked);
+        }
+
+        let itemCount = 2;
+        function addVoteItem() {
+            itemCount++;
+            const container = document.getElementById('vote-items-container');
+            const div = document.createElement('div');
+            div.className = "flex items-center gap-3 fade-in";
+            div.innerHTML = `
+                <div class="item-num w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-slate-400 shrink-0">${itemCount}</div>
+                <input type="text" name="vote_items[]" required placeholder="항목 입력" class="form-input text-left">
+                <button type="button" onclick="this.parentElement.remove(); renumberItems();" class="w-10 h-10 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors shrink-0">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function renumberItems() {
+            const container = document.getElementById('vote-items-container');
+            const nums = container.querySelectorAll('.item-num');
+            itemCount = 0;
+            nums.forEach(num => {
+                itemCount++;
+                num.textContent = itemCount;
+            });
+        }
+    </script>
+{% endblock %}

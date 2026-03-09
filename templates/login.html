@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNION BBS - 로그인</title>
+    <!-- ■ External CDN Resources (Internet) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        body { font-family: 'Pretendard', sans-serif; }
+        .bg-yuanta { background-color: #00479d; }
+        .text-yuanta { color: #00479d; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col items-center justify-center p-6 text-slate-800">
+
+    <div class="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 transition-all duration-300 hover:shadow-blue-100">
+        
+        <!-- 상단 헤더 섹션 -->
+        <div class="bg-yuanta p-10 text-center text-white">
+            <h1 class="text-4xl font-black tracking-tighter mb-1 italic">UNION BBS</h1>
+            <p class="text-blue-100 text-lg font-medium opacity-90">유안타증권 노동조합</p>
+        </div>
+
+        <!-- 로그인 폼 영역 -->
+        <div class="p-10">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-4 mb-6 rounded-r-lg text-sm flex items-center animate-pulse">
+                    <i class="fas fa-info-circle mr-3"></i>
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form action="/login" method="POST" class="space-y-6">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <!-- 사번 입력창 -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">사번 (EMP ID)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400">
+                            <i class="fas fa-id-card"></i>
+                        </span>
+                        <input type="text" name="emp_no" required placeholder="사번을 입력하세요" autocomplete="username"
+                               class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm">
+                    </div>
+                </div>
+
+                <!-- 비밀번호 입력창 -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">비밀번호 (PASSWORD)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" name="password" required placeholder="비밀번호를 입력하세요" autocomplete="current-password"
+                               class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm">
+                    </div>
+                    <div class="flex justify-end mt-2">
+                        <span class="text-[11px] text-blue-600 font-medium">* 최초 로그인 시 비밀번호는 사번과 동일합니다.</span>
+                    </div>
+                </div>
+
+                <!-- 로그인 버튼 -->
+                <button type="submit" class="w-full bg-yuanta text-white font-bold py-5 rounded-2xl hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all transform active:scale-[0.97] text-lg">
+                    조합원 로그인
+                </button>
+            </form>
+        </div>
+
+        <!-- 하단 퀵 메뉴 (수정된 섹션) -->
+        <div class="bg-gray-50 p-8 border-t border-gray-100 flex justify-around items-start">
+            <!-- 콘도 예약: 비조합원 전용 서비스 -->
+            <a href="/condo/guest" class="flex flex-col items-center group transition-all duration-200 w-1/2">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 mb-3 group-hover:bg-blue-50 group-hover:scale-110 transition-all">
+                    <i class="fas fa-hotel text-yuanta text-xl"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-600 group-hover:text-yuanta text-center">비조합원 전용<br>콘도 예약</span>
+            </a>
+
+            <!-- 가입 문의: 이메일 작성 기능 추가 -->
+            <a href="mailto:union_admin@yuanta.co.kr?subject=[가입문의] 유안타증권 노동조합 가입 상담 요청&body=성명: %0D%0A부서: %0D%0A연락처: %0D%0A%0D%0A문의내용을 여기에 작성해주세요." class="flex flex-col items-center group transition-all duration-200 w-1/2">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 mb-3 group-hover:bg-orange-50 group-hover:scale-110 transition-all">
+                    <i class="fas fa-envelope text-orange-500 text-xl"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-600 group-hover:text-orange-600 text-center">노동조합<br>가입 문의</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="mt-12 te

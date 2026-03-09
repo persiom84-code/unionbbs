@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNION BBS - 비밀번호 변경 필요</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        body { font-family: 'Pretendard', sans-serif; }
+        .bg-yuanta { background-color: #00479d; }
+        .text-yuanta { color: #00479d; }
+        .form-input {
+            width: 100%; padding: .875rem 1.25rem; border: 1px solid #e2e8f0;
+            border-radius: .75rem; outline: none; transition: all .2s;
+            background: #f8fafc; font-weight: 600; color: #334155;
+        }
+        .form-input:focus { border-color: #00479d; box-shadow: 0 0 0 3px rgba(0,71,157,.1); background: #fff; }
+        .rule-item { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: #94a3b8; }
+        .rule-item.ok { color: #16a34a; }
+        .rule-item.ok .icon::before { content: '\f058'; }
+        .rule-item .icon { font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: .75rem; }
+        .rule-item .icon::before { content: '\f111'; font-weight: 400; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md">
+
+        <!-- 경고 배너 -->
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6 flex items-start gap-4">
+            <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                <i class="fas fa-shield-exclamation text-amber-500"></i>
+            </div>
+            <div>
+                <p class="font-black text-amber-800 text-sm">초기 비밀번호 변경 필요</p>
+                <p class="text-amber-600 text-xs mt-1 leading-relaxed">
+                    보안을 위해 최초 로그인 시 비밀번호를 반드시 변경해야 합니다.<br>
+                    사번과 다른 새 비밀번호를 설정해주세요.
+                </p>
+            </div>
+        </div>
+
+        <!-- 카드 -->
+        <div class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+
+            <!-- 헤더 -->
+            <div class="bg-yuanta px-8 py-6 text-white">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/20">
+                        <i class="fas fa-key text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-black text-lg">비밀번호 변경</h1>
+                        <p class="text-blue-200 text-xs font-medium">
+                            {{ current_user.emp_nm }} ({{ current_user.emp_no }})
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 플래시 메시지 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="px-8 pt-5">
+                {% for category, message in messages %}
+                <div class="flex items-center gap-2 p-3 rounded-xl text-xs font-bold
+                    {{ 'bg-red-50 text-red-600 border border-red-100' if category == 'error' else 'bg-blue-50 text-blue-600 border border-blue-100' }}">
+                    <i class="fas {{ 'fa-circle-xmark' if category == 'error' else 'fa-circle-info' }}"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- 폼 -->
+            <form method="POST" action="/pwd/force-change" id="pwdForm" class="px-8 py-6 space-y-5">
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest">새 비밀번호</label>
+                    <div class="relative">
+                        <input type="password" name="new_password" id="newPwd"
+                            oninput="checkRules()"
+                            class="form-input pr-12" placeholder="8자리 이상 입력" autocomplete="new-password">
+                        <button type="button" onclick="toggleVis('newPwd', this)"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
+                            <i class="fas fa-eye text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- 비밀번호 강도 규칙 -->
+                    <div class="mt-3 space-y-1.5 px-1" id="rules">
+                        <div class="rule-item" id="rule-len"><span class="icon"></span>8자리 이상</div>
+                        <div class="rule-item" id="rule-noEmpNo"><span class="icon"></span>사번과 다른 비밀번호</div>
+                        <div class="rule-item" id="rule-mixed"><span class="icon"></span>영문 + 숫자 조합 권장</div>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest">새 비밀번호 확인</label>
+                    <div class="relative">
+                        <input type="password" name="new_password_confirm" id="cfmPwd"
+                            oninput="checkMatch()"
+                            class="form-input pr-12" placeholder="동일하게 재입력" autocomplete="new-password">
+                        <button type="button" onclick="toggleVis('cfmPwd', this)"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">
+                            <i class="fas fa-eye text-sm"></i>
+                        </button>
+                    </div>
+                    <p id="match-msg" class="text-xs font-bold px-1 hidden"></p>
+                </div>
+
+                <button type="submit" id="submitBtn"
+                    class="w-full py-4 bg-yuanta text-white font-black rounded-2xl text-sm
+                           hover:bg-blue-800 transition-all shadow-lg shadow-blue-100 active:scale-95 mt-2">
+                    <i class="fas fa-lock mr-2"></i>비밀번호 변경 완료
+                </button>
+
+                <p class="text-center text-[10px] text-slate-300 font-medium">
+                    변경 후 모든 서비스를 정상 이용할 수 있습니다.
+                </p>
+            </form>
+        </div>
+
+        <!-- 로고 -->
+        <p class="text-center text-xs text-slate-300 font-bold mt-6 tracking-widest italic uppercase">
+            UNION BBS · Yuanta Securities
+        </p>
+    </div>
+
+    <script>
+        const empNo = '{{ current_user.emp_no }}';
+
+        function toggleVis(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon  = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        function setRule(id, ok) {
+            const el = document.getElementById(id);
+            if (ok) el.classList.add('ok'); else el.classList.remove('ok');
+        }
+
+        function checkRules() {
+            const val = document.getElementById('newPwd').value;
+            setRule('rule-len',     val.length >= 8);
+            setRule('rule-noEmpNo', val !== empNo && val.length > 0);
+            setRule('rule-mixed',   /[a-zA-Z]/.test(val) && /[0-9]/.test(val));
+            checkMatch();
+        }
+
+        function checkMatch() {
+            const pw  = document.getElementById('newPwd').value;
+            const cfm = document.getElementById('cfmPwd').value;
+            const msg = document.getElementById('match-msg');
+            if (!cfm) { msg.classList.add('hidden'); return; }
+            msg.classList.remove('hidden');
+            if (pw === cfm) {
+                msg.textContent = '✓ 비밀번호가 일치합니다.';
+                msg.className = 'text-xs font-bold px-1 text-green-600';
+            } else {
+                msg.textContent = '✗ 비밀번호가 일치하지 않습니다.';
+                msg.className = 'text-xs font-bold px-1 text-red-500';
+            }
+        }
+    </script>
+</body>
+</html>

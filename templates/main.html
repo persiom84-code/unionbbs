@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %} - 대시보드{% endblock %}
+
+{% block page_style %}
+.dash-card {
+    background: #fff; border-radius: 20px;
+    border: 1px solid #e8eef5;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    overflow: hidden; display: flex; flex-direction: column;
+}
+.dash-card-head {
+    padding: 16px 22px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fafbfc;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.dash-card-title { font-size: 11px; font-weight: 800; color: #00479d; text-transform: uppercase; letter-spacing: .1em; }
+.dash-card-body  { padding: 16px 22px; flex: 1; }
+.notice-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 10px; transition: background .12s; cursor: pointer; }
+.notice-row:hover { background: #eff6ff; }
+.welfare-tile {
+    background: #f8fafc; border-radius: 16px; border: 1px solid #e8eef5;
+    padding: 24px 16px; text-align: center; cursor: pointer; transition: all .15s;
+}
+.welfare-tile:hover { background: #fff; border-color: #00479d; box-shadow: 0 4px 16px rgba(0,71,157,.12); }
+.welfare-tile:hover .tile-icon { background: #eff6ff; }
+.tile-icon { width: 48px; height: 48px; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); transition: background .15s; }
+.stat-ring { position: relative; display: flex; align-items: center; justify-content: center; }
+{% endblock %}
+
+{% set active_menu = 'dashboard' %}
+
+{% block content %}
+<!-- 상단 헤더 -->
+<div style="background:#fff;border-radius:20px;border:1px solid #e8eef5;padding:24px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden;">
+    <div>
+        <h2 style="font-size:26px;font-weight:900;color:#0f172a;font-style:italic;letter-spacing:-.5px;">Dashboard</h2>
+        <p style="font-size:12px;color:#94a3b8;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:6px;">
+            <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;animation:pulse 2s infinite;"></span>
+            유안타증권 노동조합 시스템 정상 가동 중
+        </p>
+    </div>
+    <div style="text-align:right;">
+        <p style="font-size:9px;font-weight:800;color:#00479d;text-transform:uppercase;letter-spacing:.3em;margin-bottom:4px;">Today</p>
+        <p style="font-size:18px;font-weight:900;color:#334155;">{{ current_date_str | default('-') }}</p>
+    </div>
+    <i class="fas fa-shield-alt" style="position:absolute;right:-20px;bottom:-20px;font-size:100px;color:#f1f5f9;"></i>
+</div>
+
+<!-- 4대 카드 그리드 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+    <!-- 1. 공지사항 -->
+    <div class="dash-card">
+        <div class="dash-card-head">
+            <span class="dash-card-title"><i class="fas fa-bullhorn" style="margin-right:8px;"></i>공지사항</span>
+            <a href="/notice" style="font-size:10px;font-weight:700;color:#94a3b8;text-decoration:none;letter-spacing:.1em;text-transform:uppercase;" onmouseover="this.style.color='#00479d'" onmouseout="this.style.color='#94a3b8'">More →</a>
+        </div>
+        <div class="dash-card-body">
+            {% if notice_list %}
+                {% for item in notice_list %}
+                <a href="/notice/view/{{ item.notice_seq }}" class="notice-row" style="text-decoration:none;">
+                    <div style="display:flex;align-items:center;gap:10px;overflow:hidden;min-width:0;">
+                        <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:{% if item.notice_type == 'FLASH' %}#3b82f6{% else %}#cbd5e1{% endif %};"></span>
+                        <span style="font-size:13px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.title }}</span>
+                    </div>
+                    <span style="font-size:10px;color:#cbd5e1;font-family:monospace;flex-shrink:0;margin-left:8px;">{{ item.reg_dt.strftime('%m.%d') if item.reg_dt else '-' }}</span>
+                </a>
+                {% endfor %}
+            {% else %}
+                <div style="padding:48px 0;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+                    <i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:12px;"></i>
+                    등록된 공지사항이 없습니다.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. 오늘 일정 -->
+    <div class="dash-card">
+        <div class="dash-card-head">
+            <span class="dash-card-title"><i class="fas fa-calendar-check" style="margin-right:8px;"></i>오늘 일정</span>
+            <a href="/schedule" style="font-size:10px;font-weight:700;color:#94a3b8;text-decoration:none;letter-spacing:.1em;text-transform:uppercase;" onmouseover="this.style.color='#00479d'" onmouseout="this.style.color='#94a3b8'">More →</a>
+        </div>
+        <div class="dash-card-body">
+            {% if today_schedule %}
+                <div style="border-left:2px solid #e0eaf6;padding-left:20px;display:flex;flex-direction:column;gap:18px;margin-top:4px;">
+                    {% for item in today_schedule %}
+                    <div style="position:relative;">
+                        <div style="position:absolute;left:-26px;top:3px;width:10px;height:10px;background:#00479d;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #00479d;"></div>
+                        <p style="font-size:10px;font-weight:800;color:#00479d;font-family:monospace;text-transform:uppercase;">{{ item.start_dt.strftime('%H:%M') if item.start_dt else '' }}</p>
+                        <p style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px;">{{ item.title }}</p>
+                        {% if item.location %}
+                        <p style="font-size:11px;color:#94a3b8;margin-top:2px;font-style:italic;"><i class="fas fa-map-marker-alt" style="margin-right:4px;"></i>{{ item.location }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="padding:48px 0;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+                    <i class="fas fa-calendar-times" style="font-size:32px;display:block;margin-bottom:12px;"></i>
+                    오늘 예정된 일정이 없습니다.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 3. 복지 바로가기 -->
+    <div class="dash-card">
+        <div class="dash-card-head">
+            <span class="dash-card-title"><i class="fas fa-heart" style="margin-right:8px;"></i>복지 바로가기</span>
+        </div>
+        <div class="dash-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="welfare-tile" onclick="location.href='/condo'">
+                <div class="tile-icon">
+                    <i class="fas fa-hotel" style="color:#00479d;font-size:18px;"></i>
+                </div>
+                <p style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Resort</p>
+                <p style="font-size:22px;font-weight:900;color:#0f172a;">{{ condo_count | default(0) }}<span style="font-size:10px;color:#94a3b8;font-weight:600;margin-left:2px;">건</span></p>
+                <p style="font-size:9px;color:#94a3b8;margin-top:2px;">내 예약 현황</p>
+            </div>
+            <div class="welfare-tile" onclick="location.href='/book'">
+                <div class="tile-icon">
+                    <i class="fas fa-book" style="color:#00479d;font-size:18px;"></i>
+                </div>
+                <p style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Library</p>
+                <p style="font-size:22px;font-weight:900;color:#0f172a;">{{ book_count | default(0) }}<span style="font-size:10px;color:#94a3b8;font-weight:600;margin-left:2px;">권</span></p>
+                <p style="font-size:9px;color:#94a3b8;margin-top:2px;">대출 중인 도서</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 전자투표 -->
+    <div class="dash-card">
+        <div class="dash-card-head">
+            <span class="dash-card-title"><i class="fas fa-vote-yea" style="margin-right:8px;"></i>전자투표</span>
+            <a href="/vote" style="font-size:10px;font-weight:700;color:#94a3b8;text-decoration:none;letter-spacing:.1em;text-transform:uppercase;" onmouseover="this.style.color='#00479d'" onmouseout="this.style.color='#94a3b8'">More →</a>
+        </div>
+        <div class="dash-card-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;text-align:center;">
+            {% if ongoing_vote %}
+            <div style="width:100%;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <span style="font-size:8px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:20px;font-weight:900;letter-spacing:.05em;">LIVE</span>
+                    <span style="font-size:8px;color:#94a3b8;font-weight:600;">진행 중인 투표</span>
+                </div>
+                <p style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:14px;text-align:left;">{{ ongoing_vote.title }}</p>
+                <div style="background:#f1f5f9;border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px;">
+                    <div style="background:#00479d;height:100%;border-radius:20px;transition:width .6s ease;width:{{ (ongoing_vote.vote_cnt / ongoing_vote.total_cnt * 100)|round|int if ongoing_vote.total_cnt > 0 else 0 }}%;"></div>
+                </div>
+                <p style="font-size:10px;color:#94a3b8;font-weight:700;text-align:right;margin-bottom:16px;">투표율 {{ (ongoing_vote.vote_cnt / ongoing_vote.total_cnt * 100)|round(1) if ongoing_vote.total_cnt > 0 else 0 }}%</p>
+                <a href="/vote" class="btn-primary" style="width:100%;justify-content:center;padding:12px;">
+                    <i class="fas fa-check-circle"></i>투표 참여하기
+                </a>
+            </div>
+            {% else %}
+            <div>
+                <div style="width:64px;height:64px;background:#f8fafc;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;border:1px solid #e8eef5;">
+                    <i class="fas fa-poll-h" style="font-size:28px;color:#cbd5e1;"></i>
+                </div>
+                <p style="font-size:14px;font-weight:700;color:#475569;margin-bottom:16px;">현재 진행 중인 투표가 없습니다.</p>
+                <a href="/vote" class="btn-secondary" style="text-decoration:none;">
+                    <i class="fas fa-history"></i>투표 이력 보기
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+</style>
+{% endblock %}

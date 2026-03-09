@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %} - 사용자 관리{% endblock %}
+
+{% block page_style %}
+.pwd-warn  { color: #d97706; }
+.pwd-ok    { color: #16a34a; }
+.pwd-never { color: #94a3b8; }
+.badge { display:inline-block; padding:.2rem .6rem; border-radius:.5rem; font-size:.625rem; font-weight:800; }
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- 헤더 -->
+    <div class="content-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-black italic tracking-tighter text-slate-800 flex items-center">
+                <i class="fas fa-users-cog text-yuanta mr-3"></i>USER ADMIN
+            </h2>
+            <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">사용자 계정 및 비밀번호 관리</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 font-medium">총 <strong class="text-slate-700">{{ user_rows|length }}</strong>명</span>
+        </div>
+    </div>
+
+    <!-- 알림 배너: 초기비번 or 만료 인원 경고 -->
+    {% set init_cnt = user_rows | selectattr('pwd_init_yn','eq','Y') | list | length %}
+    {% set warn_cnt = user_rows | selectattr('pwd_warn') | list | length %}
+    {% if init_cnt > 0 or warn_cnt > 0 %}
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4">
+        <i class="fas fa-triangle-exclamation text-amber-500 text-xl shrink-0"></i>
+        <div class="text-sm">
+            {% if init_cnt > 0 %}
+            <span class="font-black text-amber-800">초기 비밀번호 미변경 {{ init_cnt }}명</span>
+            <span class="text-amber-600 font-medium ml-2">— 아직 비밀번호를 변경하지 않은 계정입니다.</span>
+            {% endif %}
+            {% if warn_cnt > 0 %}
+            <span class="font-black text-amber-800 ml-4">80일 이상 미변경 {{ warn_cnt }}명</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 사용자 목록 테이블 -->
+    <div class="content-card overflow-hidden">
+        <div class="p-5 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+            <h3 class="font-bold text-slate-700 text-sm flex items-center">
+                <i class="fas fa-list text-yuanta mr-2"></i>전체 계정 목록
+            </h3>
+            <p class="text-[10px] text-slate-400 font-medium italic">
+                비밀번호 초기화 시 해당 사용자 다음 로그인에서 강제 변경이 요구됩니다.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    <tr>
+                        <th class="px-5 py-4 w-28">사번</th>
+                        <th class="px-5 py-4 w-28">이름</th>
+                        <th class="px-5 py-4 w-24 text-center">권한</th>
+                        <th class="px-5 py-4 w-24 text-center">계정상태</th>
+                        <th class="px-5 py-4 w-24 text-center">비번상태</th>
+                        <th class="px-5 py-4 w-36 text-center">마지막 변경일</th>
+                        <th class="px-5 py-4 w-32 text-center">비번 초기화</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for u in user_rows %}
+                    <tr class="hover:bg-slate-50/50 transition-colors" id="row-{{ u.emp_no }}">
+                        <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ u.emp_no }}</td>
+                        <td class="px-5 py-4 font-bold text-slate-800">{{ u.emp_nm }}</td>
+                        <td class="px-5 py-4 text-center">
+                            <span class="badge
+                                {% if u.user_level == 0 %} bg-red-50 text-red-600
+                                {% elif u.user_level == 1 %} bg-blue-50 text-blue-600
+                                {% elif u.user_level == 2 %} bg-purple-50 text-purple-600
+                                {% elif u.user_level == 3 %} bg-teal-50 text-teal-600
+                                {% else %} bg-slate-100 text-slate-500 {% endif %}">
+                                {% if u.user_level == 0 %}관리자
+                                {% elif u.user_level == 1 %}집행위원
+                                {% elif u.user_level == 2 %}대의원
+                                {% elif u.user_level == 3 %}분회장
+                                {% else %}조합원{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            {% if u.acct_lock_yn == 'Y' %}
+                            <span class="badge bg-red-50 text-red-600">잠금</span>
+                            {% else %}
+                            <span class="badge bg-emerald-50 text-emerald-600">정상</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            {% if u.pwd_init_yn == 'Y' %}
+                            <span class="badge bg-amber-50 text-amber-600">초기비번</span>
+                            {% elif u.pwd_warn %}
+                            <span class="badge bg-orange-50 text-orange-600">만료임박</span>
+                            {% else %}
+                            <span class="badge bg-slate-100 text-slate-400">정상</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-center text-xs font-mono
+                            {% if u.pwd_warn %} text-orange-500 font-bold
+                            {% elif u.pwd_chg_dt == '미변경' %} text-slate-300
+                            {% else %} text-slate-400 {% endif %}">
+                            {{ u.pwd_chg_dt }}
+                            {% if u.pwd_days is not none %}
+                            <span class="block text-[9px] {% if u.pwd_warn %}text-orange-400{% else %}text-slate-300{% endif %}">
+                                ({{ u.pwd_days }}일 경과)
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            <button onclick="resetPwd('{{ u.emp_no }}', '{{ u.emp_nm }}')"
+                                class="px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600
+                                       text-slate-500 rounded-lg text-[10px] font-black transition-all
+                                       border border-transparent hover:border-red-200">
+                                <i class="fas fa-rotate-left mr-1"></i>초기화
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="py-16 text-center text-slate-300 text-sm italic">
+                            등록된 사용자가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 확인 모달 -->
+<div id="modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-red-50 border-b border-red-100 px-6 py-5">
+            <h3 class="font-black text-red-700 flex items-center gap-2">
+                <i class="fas fa-triangle-exclamation"></i>비밀번호 초기화 확인
+            </h3>
+        </div>
+        <div class="p-6">
+            <p class="text-sm text-slate-600 leading-relaxed" id="modal-msg"></p>
+            <p class="text-xs text-slate-400 mt-3 bg-slate-50 p-3 rounded-xl">
+                초기화 후 해당 직원은 <strong class="text-slate-600">다음 로그인 시 반드시 새 비밀번호를 설정</strong>해야 합니다.
+            </p>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">
+                취소
+            </button>
+            <button id="modal-confirm" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all">
+                초기화 실행
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 결과 토스트 -->
+<div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 hidden">
+    <div class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-2xl flex items-center gap-2">
+        <i id="toast-icon" class="fas fa-check-circle text-green-400"></i>
+        <span id="toast-msg"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_script %}
+<script>
+    let pendingEmpNo = null;
+
+    function resetPwd(empNo, empNm) {
+        pendingEmpNo = empNo;
+        document.getElementById('modal-msg').innerHTML =
+            `<strong class="text-slate-800">${empNm} (${empNo})</strong> 님의 비밀번호를 <strong class="text-red-600">사번(${empNo})으로 초기화</strong>하시겠습니까?`;
+        const modal = document.getElementById('modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        pendingEmpNo = null;
+    }
+
+    document.getElementById('modal-confirm').addEventListener('click', async () => {
+        if (!pendingEmpNo) return;
+        closeModal();
+
+        const fd = new FormData();
+        fd.append('emp_no', pendingEmpNo);
+
+        const res  = await fetch('/admin/user/reset-pwd', { method: 'POST', body: fd });
+        const data = await res.json();
+        showToast(data.ok, data.msg);
+
+        if (data.ok) {
+            // 해당 행의 비번상태 배지 업데이트
+            const row = document.getElementById('row-' + pendingEmpNo);
+            if (row) {
+                const badgeCell = row.querySelectorAll('td')[4];
+                badgeCell.innerHTML = '<span class="badge bg-amber-50 text-amber-600">초기비번</span>';
+                const dateCell = row.querySelectorAll('td')[5];
+                dateCell.innerHTML = '<span class="text-slate-300">미변경</span>';
+            }
+        }
+    });
+
+    function showToast(ok, msg) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-msg').textContent  = msg;
+        const icon = document.getElementById('toast-icon');
+        icon.className = ok
+            ? 'fas fa-check-circle text-green-400'
+            : 'fas fa-circle-xmark text-red-400';
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+</script>
+{% endblock %}

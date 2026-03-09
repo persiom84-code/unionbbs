@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block title %} - 전자투표{% endblock %}
+
+{% block page_style %}
+.vote-option input:checked + .option-card {
+    background: #eff6ff; border-color: #00479d;
+    box-shadow: 0 0 0 2px rgba(0,71,157,.2);
+}
+.option-card {
+    border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 14px 18px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; gap: 12px;
+}
+.option-card:hover { border-color: #93c5fd; background: #f8fbff; }
+.progress-bar { background: #e8eef5; border-radius: 20px; height: 10px; overflow: hidden; }
+.progress-fill { background: #00479d; height: 100%; border-radius: 20px; transition: width .6s ease; }
+{% endblock %}
+
+{% set active_menu = 'vote' %}
+
+{% block content %}
+
+<!-- 페이지 헤더 -->
+<div class="page-header">
+    <div>
+        <div class="page-title"><i class="fas fa-vote-yea"></i>전자투표</div>
+        <div class="page-subtitle">조합원 전자투표 시스템 — 실명 인증 후 참여 가능</div>
+    </div>
+</div>
+
+<!-- 탭 -->
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="tab-btn active" id="tab-active" onclick="switchTab('active')">진행 중인 투표</button>
+    <button class="tab-btn" id="tab-archive" onclick="switchTab('archive')">투표 결과 보기</button>
+</div>
+
+<!-- ══ 진행 중인 투표 ══ -->
+<div id="view-active">
+    {% if active_votes %}
+        {% for vote in active_votes %}
+        <div class="card" style="padding:28px;margin-bottom:16px;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;">
+                <div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:8px;background:#ef4444;color:#fff;padding:3px 8px;border-radius:20px;font-weight:900;letter-spacing:.05em;">LIVE</span>
+                        <span style="font-size:10px;color:#94a3b8;font-weight:600;">{{ vote.start_dt.strftime('%Y.%m.%d') if vote.start_dt else '' }} ~ {{ vote.end_dt.strftime('%Y.%m.%d') if vote.end_dt else '' }}</span>
+                    </div>
+                    <h3 style="font-size:18px;font-weight:900;color:#0f172a;">{{ vote.title }}</h3>
+                    {% if vote.content %}
+                    <p style="font-size:13px;color:#64748b;margin-top:8px;line-height:1.7;">{{ vote.content }}</p>
+                    {% endif %}
+                </div>
+                <div style="text-align:center;flex-shrink:0;">
+                    <p style="font-size:28px;font-weight:900;color:#00479d;">{{ vote.participation_rate }}%</p>
+                    <p style="font-size:10px;color:#94a3b8;font-weight:600;">투표율</p>
+                    <p style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">{{ vote.vote_cnt }}/{{ vote.total_cnt }}명</p>
+                </div>
+            </div>
+
+            {% if vote.has_voted %}
+            <!-- 이미 투표 완료 -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;text-align:center;">
+                <i class="fas fa-check-circle" style="color:#16a34a;font-size:20px;margin-bottom:8px;display:block;"></i>
+                <p style="font-size:14px;font-weight:700;color:#15803d;">투표에 참여하셨습니다. 감사합니다.</p>
+            </div>
+            {% else %}
+            <!-- 투표 폼 -->
+            <form action="/vote/submit" method="POST">
+                <input type="hidden" name="vote_seq" value="{{ vote.vote_seq }}">
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                    {% for item in vote.items %}
+                    <label style="cursor:pointer;">
+                        <input type="radio" name="selected_item" value="{{ item.item_seq }}" style="display:none;" required>
+                        <div class="option-card">
+                            <div style="width:20px;height:20px;border:2px solid #cbd5e1;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;">
+                                <div style="width:8px;height:8px;background:#00479d;border-radius:50%;display:none;"></div>
+                            </div>
+                            <span style="font-size:14px;font-weight:700;color:#1e293b;">{{ item.item_nm }}</span>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div style="background:#fafbfc;border:1px solid #e8eef5;border-radius:12px;padding:16px;margin-bottom:16px;">
+                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">
+                        <i class="fas fa-lock" style="margin-right:4px;"></i>비밀번호 인증 (보안 투표 확인용)
+                    </label>
+                    <input type="password" name="auth_password" class="form-input" placeholder="현재 비밀번호 입력" required>
+                </div>
+                <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px;">
+                    <i class="fas fa-paper-plane"></i>투표하기
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="card" style="padding:64px;text-align:center;">
+        <div style="width:72px;height:72px;background:#f8fafc;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;border:1px solid #e8eef5;">
+            <i class="fas fa-poll-h" style="font-size:32px;color:#cbd5e1;"></i>
+        </div>
+        <p style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px;">현재 진행 중인 투표가 없습니다.</p>
+        <p style="font-size:12px;color:#94a3b8;">새로운 투표 안건은 집행위원회 의결 후 등록됩니다.</p>
+        {% if current_user and current_user.user_level <= 1 %}
+        <a href="/admin/vote" class="btn-primary" style="display:inline-flex;margin-top:20px;text-decoration:none;">
+            <i class="fas fa-plus"></i>투표 생성 (관리자)
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══ 투표 결과 아카이브 ══ -->
+<div id="view-archive" style="display:none;">
+    {% if archive_votes %}
+        {% for vote in archive_votes %}
+        <div class="card" style="padding:28px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+                <div>
+                    <span class="badge badge-gray" style="margin-bottom:8px;display:inline-flex;">종료</span>
+                    <h3 style="font-size:16px;font-weight:900;color:#0f172a;">{{ vote.title }}</h3>
+                    <p style="font-size:11px;color:#94a3b8;margin-top:4px;">{{ vote.start_dt.strftime('%Y.%m.%d') if vote.start_dt else '-' }} ~ {{ vote.end_dt.strftime('%Y.%m.%d') if vote.end_dt else '-' }}</p>
+                </div>
+                <div style="text-align:center;">
+                    <p style="font-size:24px;font-weight:900;color:#64748b;">{{ vote.participation_rate }}%</p>
+                    <p style="font-size:10px;color:#94a3b8;">최종 투표율 ({{ vote.participant_cnt }}/{{ vote.total_voters }}명)</p>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                {% for r in vote.results %}
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:13px;font-weight:{% if r.is_max %}800{% else %}600{% endif %};color:{% if r.is_max %}#00479d{% else %}#475569{% endif %};">
+                            {{ r.item_name }}
+                            {% if r.is_max %}<i class="fas fa-crown" style="color:#f59e0b;margin-left:6px;font-size:10px;"></i>{% endif %}
+                        </span>
+                        <span style="font-size:14px;font-weight:800;color:{% if r.is_max %}#00479d{% else %}#94a3b8{% endif %};">{{ r.percent }}% <span style="font-size:10px;font-weight:600;">({{ r.vote_cnt }}표)</span></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:{{ r.percent }}%;{% if not r.is_max %}opacity:.4;{% endif %}"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="card" style="padding:48px;text-align:center;color:#94a3b8;">
+        <i class="fas fa-archive" style="font-size:32px;margin-bottom:12px;display:block;"></i>
+        종료된 투표 결과가 없습니다.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block page_script %}
+<script>
+function switchTab(tab) {
+    const tabs = ['active', 'archive'];
+    tabs.forEach(t => {
+        document.getElementById('view-' + t).style.display = t === tab ? 'block' : 'none';
+        document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    });
+}
+// 라디오 버튼 커스텀 스타일
+document.querySelectorAll('.vote-option input, label input[type=radio]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('input[name="selected_item"]').forEach(r => {
+            const dot = r.parentElement.querySelector('.option-card > div > div');
+            if (dot) dot.style.display = r.checked ? 'block' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

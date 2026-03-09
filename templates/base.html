@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNION BBS{% block title %}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block head_extra %}{% endblock %}
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { font-family: 'Pretendard', sans-serif; background: #f1f5f9; display: flex; }
+
+        /* ── 유안타 브랜드 컬러 ── */
+        .bg-yuanta   { background-color: #00479d; }
+        .text-yuanta { color: #00479d; }
+        .border-yuanta { border-color: #00479d; }
+        .hover\:bg-yuanta:hover { background-color: #00479d; }
+        .hover\:text-yuanta:hover { color: #00479d; }
+
+        /* ── 사이드바 ── */
+        #sidebar {
+            width: 220px;
+            min-width: 220px;
+            background: #00479d;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 50;
+            box-shadow: 4px 0 20px rgba(0,0,0,.15);
+        }
+        .sidebar-logo {
+            padding: 20px 16px;
+            border-bottom: 1px solid rgba(255,255,255,.12);
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .sidebar-nav::-webkit-scrollbar { width: 3px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
+        .nav-section {
+            font-size: 9px; font-weight: 800;
+            color: rgba(147,197,253,.55);
+            padding: 14px 20px 4px;
+            text-transform: uppercase; letter-spacing: .18em;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            margin: 1px 8px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: rgba(255,255,255,.65);
+            text-decoration: none;
+            transition: all .15s;
+            cursor: pointer;
+        }
+        .nav-item:hover  { background: rgba(255,255,255,.13); color: #fff; }
+        .nav-item.active { background: rgba(255,255,255,.2); color: #fff; font-weight: 700; }
+        .nav-item i      { width: 16px; font-size: 11px; flex-shrink: 0; text-align: center; }
+        .sidebar-foot {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,.1);
+            background: rgba(0,0,0,.18);
+            flex-shrink: 0;
+        }
+
+        /* ── 콘텐츠 ── */
+        #content-wrap {
+            margin-left: 220px;
+            flex: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .page-body {
+            flex: 1;
+            padding: 24px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* ── 공통 카드 ── */
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #e8eef5;
+            box-shadow: 0 1px 4px rgba(0,0,0,.05);
+        }
+
+        /* ── 폼 ── */
+        .form-input {
+            width: 100%; padding: 10px 14px;
+            border: 1px solid #e2e8f0; border-radius: 10px;
+            outline: none; transition: all .2s;
+            background: #f8fafc; font-weight: 600;
+            color: #334155; font-size: 14px;
+            font-family: 'Pretendard', sans-serif;
+        }
+        .form-input:focus { border-color: #00479d; box-shadow: 0 0 0 3px rgba(0,71,157,.1); background: #fff; }
+        .form-input:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+        select.form-input { cursor: pointer; }
+
+        /* ── 버튼 ── */
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 9px 20px; background: #00479d; color: #fff;
+            border: none; border-radius: 10px; font-size: 12px;
+            font-weight: 700; cursor: pointer; transition: all .15s;
+            font-family: 'Pretendard', sans-serif;
+        }
+        .btn-primary:hover { background: #003a82; }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 9px 20px; background: #f1f5f9; color: #475569;
+            border: none; border-radius: 10px; font-size: 12px;
+            font-weight: 700; cursor: pointer; transition: all .15s;
+            font-family: 'Pretendard', sans-serif;
+        }
+        .btn-secondary:hover { background: #e2e8f0; }
+
+        /* ── 페이지 헤더 ── */
+        .page-header {
+            background: #fff; border-radius: 20px;
+            border: 1px solid #e8eef5;
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap;
+        }
+        .page-title {
+            font-size: 22px; font-weight: 900;
+            color: #0f172a; font-style: italic;
+            letter-spacing: -.5px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .page-title i { color: #00479d; }
+        .page-subtitle { font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 4px; }
+
+        /* ── 탭 ── */
+        .tab-group {
+            display: flex; gap: 4px;
+            background: #f1f5f9; padding: 4px; border-radius: 12px;
+        }
+        .tab-btn {
+            padding: 8px 18px; border-radius: 9px; font-size: 11px;
+            font-weight: 700; cursor: pointer; border: none; transition: all .15s;
+            font-family: 'Pretendard', sans-serif;
+        }
+        .tab-btn.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .tab-btn:not(.active) { background: transparent; color: #64748b; }
+
+        /* ── 뱃지 ── */
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+        .badge-red    { background: #fef2f2; color: #dc2626; }
+        .badge-blue   { background: #eff6ff; color: #2563eb; }
+        .badge-green  { background: #f0fdf4; color: #16a34a; }
+        .badge-yellow { background: #fefce8; color: #ca8a04; }
+        .badge-gray   { background: #f8fafc; color: #64748b; }
+
+        /* ── 테이블 ── */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th {
+            background: #f8fafc; color: #64748b;
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .05em;
+            padding: 12px 16px; text-align: left;
+            border-bottom: 1px solid #e8eef5;
+        }
+        .data-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #334155; }
+        .data-table tbody tr { transition: background .12s; }
+        .data-table tbody tr:hover { background: #f8fafc; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+
+        /* ── 모달 ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.45); z-index: 200;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 20px;
+            padding: 32px; width: 90%; max-width: 520px;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+        }
+
+        /* ── 페이드인 ── */
+        .fade-in { animation: fadeIn .3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── 플래시 메시지 ── */
+        .flash-msg {
+            background: #eff6ff; border: 1px solid #bfdbfe;
+            color: #1d4ed8; padding: 12px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; margin-bottom: 16px;
+        }
+        .flash-msg.error { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+
+        {% block page_style %}{% endblock %}
+    </style>
+</head>
+<body>
+
+{%- set lv = (current_user.user_level if current_user else 99) | int -%}
+{%- set am = active_menu | default('dashboard') -%}
+
+<!-- ════════════════ 사이드바 ════════════════ -->
+<aside id="sidebar">
+
+    <!-- 로고 -->
+    <div class="sidebar-logo">
+        <p style="font-size:17px;font-weight:900;font-style:italic;letter-spacing:-.5px;color:#fbbf24;">UNION BBS</p>
+        <p style="font-size:8px;opacity:.45;color:#bfdbfe;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-top:2px;">Yuanta Securities Union</p>
+    </div>
+
+    <!-- 네비게이션 -->
+    <nav class="sidebar-nav">
+
+        <a href="/" class="nav-item {% if am=='dashboard' %}active{% endif %}">
+            <i class="fas fa-th-large"></i>대시보드
+        </a>
+
+        <p class="nav-section">Union Info</p>
+        <a href="/about" class="nav-item {% if am=='about' %}active{% endif %}">
+            <i class="fas fa-info-circle"></i>조합소개
+        </a>
+
+        <p class="nav-section">Main Menu</p>
+        <a href="/notice" class="nav-item {% if am=='notice' %}active{% endif %}">
+            <i class="fas fa-bullhorn"></i>공지사항
+        </a>
+        <a href="/schedule" class="nav-item {% if am=='schedule' %}active{% endif %}">
+            <i class="fas fa-calendar-alt"></i>일정/캘린더
+        </a>
+        <a href="/board" class="nav-item {% if am=='board' %}active{% endif %}">
+            <i class="fas fa-comments"></i>자유게시판
+        </a>
+
+        <p class="nav-section">Welfare</p>
+        <a href="/condo" class="nav-item {% if am=='condo' %}active{% endif %}">
+            <i class="fas fa-hotel"></i>콘도 신청
+        </a>
+        <a href="/book" class="nav-item {% if am=='book' %}active{% endif %}">
+            <i class="fas fa-book"></i>도서 대출
+        </a>
+
+        <p class="nav-section">Governance</p>
+        <a href="/vote" class="nav-item {% if am=='vote' %}active{% endif %}">
+            <i class="fas fa-vote-yea"></i>
+            <span style="flex:1">전자투표</span>
+            <span style="font-size:8px;background:#ef4444;color:#fff;padding:2px 6px;border-radius:20px;font-weight:900;letter-spacing:.02em;">VOTE</span>
+        </a>
+
+        {% if lv <= 1 %}
+        <p class="nav-section">Admin</p>
+        <a href="/admin/vote" class="nav-item {% if am=='admin_vote' %}active{% endif %}">
+            <i class="fas fa-poll"></i>투표 관리
+        </a>
+        <a href="/admin/condo" class="nav-item {% if am=='admin_condo' %}active{% endif %}">
+            <i class="fas fa-concierge-bell"></i>콘도 관리
+        </a>
+        <a href="/admin/book" class="nav-item {% if am=='admin_book' %}active{% endif %}">
+            <i class="fas fa-book-medical"></i>도서 관리
+        </a>
+        <a href="/admin/user/list" class="nav-item {% if am=='admin_user' %}active{% endif %}">
+            <i class="fas fa-users-cog"></i>사용자 관리
+        </a>
+        {% endif %}
+    </nav>
+
+    <!-- 사용자 정보 -->
+    <div class="sidebar-foot">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:0 4px;">
+            <div style="width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);flex-shrink:0;">
+                <i class="fas fa-user" style="color:#fff;font-size:12px;"></i>
+            </div>
+            <div style="overflow:hidden;">
+                <p style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ current_user.emp_nm if current_user else '-' }}</p>
+                <p style="font-size:9px;color:#fcd34d;font-family:monospace;font-weight:700;">
+                    LV.{{ lv }} ·
+                    {%- if lv==0 %} 관리자
+                    {%- elif lv==1 %} 집행위원
+                    {%- elif lv==2 %} 대의원
+                    {%- elif lv==3 %} 분회장
+                    {%- elif lv==4 %} 조합원
+                    {%- else %} 비조합원{%- endif %}
+                </p>
+            </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+            <a href="/profile/edit" style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:700;padding:7px;border-radius:8px;text-decoration:none;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+                <i class="fas fa-cog" style="margin-right:4px;"></i>설정
+            </a>
+            <a href="/logout" style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:700;padding:7px;border-radius:8px;text-decoration:none;transition:background .15s;" onmouseover="this.style.background='rgba(220,38,38,.5)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+                <i class="fas fa-sign-out-alt" style="margin-right:4px;"></i>로그아웃
+            </a>
+        </div>
+    </div>
+</aside>
+
+<!-- ════════════════ 콘텐츠 영역 ════════════════ -->
+<div id="content-wrap">
+    <div class="page-body fade-in">
+
+        <!-- 플래시 메시지 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="flash-msg {% if cat == 'error' %}error{% endif %}">
+                <i class="fas {% if cat == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}" style="margin-right:8px;"></i>{{ msg }}
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+{% block page_script %}{% endblock %}
+</body>
+</html>

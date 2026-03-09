@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+{% block title %}자유게시판{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block page_style %}
+<style>/* 폼 요소 커스텀 */
+        
+        
+
+        /* 게시판 행 호버 애니메이션 */
+        .board-row { transition: all 0.2s ease; cursor: pointer; }
+        .board-row:hover { background-color: #f8fafc; transform: translateX(4px); }
+
+        
+         to { opacity: 1; transform: translateY(0); } }</style>
+{% endblock %}
+
+{% set active_menu = 'board' %}
+
+{% block content %}
+<!-- 상단 헤더 및 뷰 전환 컨트롤 -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 gap-6">
+            <div>
+                <h2 class="text-3xl font-black text-slate-800 flex items-center italic tracking-tighter">
+                    <i class="fas fa-comments text-yuanta mr-3"></i>UNION BOARD
+                </h2>
+                <p class="text-xs text-slate-400 mt-2 font-medium uppercase tracking-widest">조합원 소통과 연대를 위한 자유게시판</p>
+            </div>
+            
+            <div class="flex space-x-3 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                <button id="btn-list" onclick="switchView('list')" class="px-6 py-3 bg-white text-slate-800 rounded-xl text-sm font-bold shadow-sm transition-all hidden">
+                    <i class="fas fa-list mr-2"></i>목록 보기
+                </button>
+                <button id="btn-write" onclick="switchView('write')" class="px-6 py-3 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800 shadow-lg shadow-blue-100 transition-all">
+                    <i class="fas fa-pen-nib mr-2"></i>새 글 작성
+                </button>
+            </div>
+        </header>
+
+        <!-- VIEW 1: 게시글 목록 -->
+        <section id="view-list" class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+            <!-- 검색 바 -->
+            <div class="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                    Total <span class="text-yuanta text-sm font-black">{{ total_count|default(0) }}</span>
+                </div>
+                <div class="relative w-full sm:w-80">
+                    <form action="/board/search" method="GET">
+                        <input type="text" name="keyword" placeholder="제목 또는 내용을 검색하세요" class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-yuanta/20 font-bold text-slate-600 shadow-sm">
+                        <button type="submit" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-yuanta">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 목록 테이블 -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-white text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b-2 border-slate-100">
+                        <tr>
+                            <th class="px-6 py-4 w-20 text-center">번호</th>
+                            <th class="px-6 py-4">제목</th>
+                            <th class="px-6 py-4 w-32 text-center">작성자</th>
+                            <th class="px-6 py-4 w-32 text-center">등록일</th>
+                            <th class="px-6 py-4 w-20 text-center">조회</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-slate-50">
+                        <!-- 파이썬에서 board_list 렌더링 -->
+                        {% for post in board_list %}
+                        <!-- 향후 백엔드 라우팅 시 location.href='/board/view/{{ post.post_seq }}' 형태로 변경 권장 -->
+                        <tr class="board-row" onclick="viewDetail('{{ post.post_seq }}')">
+                            <td class="px-6 py-5 text-center text-slate-400 font-mono text-xs">{{ post.post_seq }}</td>
+                            <td class="px-6 py-5">
+                                <span class="font-bold text-slate-700 hover:text-yuanta transition-colors">{{ post.title }}</span>
+                                {% if post.comment_cnt > 0 %}
+                                <span class="ml-2 px-1.5 py-0.5 bg-blue-50 text-yuanta rounded-md text-[10px] font-black">[{{ post.comment_cnt }}]</span>
+                                {% endif %}
+                                {% if post.is_new %}
+                                <span class="ml-1 px-1.5 py-0.5 bg-red-50 text-red-500 rounded-md text-[8px] font-black uppercase">New</span>
+                                {% endif %}
+                                <!-- 블라인드 처리된 게시글 표시 (관리자만 확인 가능하거나 특수 처리) -->
+                                {% if post.status == 'BLIND' %}
+                                <span class="ml-1 px-1.5 py-0.5 bg-slate-200 text-slate-500 rounded-md text-[8px] font-black uppercase">블라인드</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-5 text-center">
+                                {% if post.is_anonymous == 'Y' %}
+                                <span class="text-slate-400 font-bold text-xs"><i class="fas fa-mask mr-1 opacity-50"></i>익명</span>
+                                {% else %}
+                                <span class="text-slate-600 font-bold text-xs">{{ post.author_nm }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-5 text-center text-slate-400 font-mono text-xs">{{ post.reg_dt }}</td>
+                            <td class="px-6 py-5 text-center text-slate-400 text-xs">{{ post.view_cnt }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="py-20 text-center text-slate-400 italic">
+                                <i class="fas fa-inbox text-4xl mb-4 block text-slate-200"></i>
+                                등록된 게시글이 없습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 페이징 (백엔드 연동 영역) -->
+            {% if total_count > 0 %}
+            <div class="p-6 border-t border-slate-100 flex justify-center">
+                <div class="flex space-x-1">
+                    <!-- 실제 구현 시 pagination 변수 활용 -->
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors"><i class="fas fa-chevron-left text-xs"></i></button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg bg-yuanta text-white font-bold shadow-md">1</button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors"><i class="fas fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- VIEW 2: 게시글 작성 폼 -->
+        <section id="view-write" class="hidden bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-12">
+            <h3 class="text-xl font-black text-slate-800 mb-8 border-b border-slate-100 pb-4">
+                <i class="fas fa-edit text-yuanta mr-2"></i>새 게시글 작성
+            </h3>
+            
+            <form action="/board/save" method="POST" class="space-y-6">
+                <!-- 익명 옵션 -->
+                <div class="flex justify-end">
+                    <label class="flex items-center space-x-2 cursor-pointer group bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                        <input type="checkbox" name="is_anonymous" value="Y" class="w-4 h-4 text-yuanta focus:ring-yuanta rounded border-slate-300">
+                        <span class="text-xs font-bold text-slate-600 group-hover:text-yuanta transition-colors"><i class="fas fa-user-secret mr-1"></i>익명으로 작성하기</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">제목</label>
+                    <input type="text" name="title" required placeholder="제목을 입력하세요 (최대 100자)" class="form-input text-lg font-bold">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">내용</label>
+                    <textarea name="content" rows="15" required placeholder="조합원들과 자유롭게 의견을 나누어 보세요. 상호 존중하는 문화를 만들어갑니다." 
+                              class="form-input resize-none leading-relaxed text-slate-700 min-h-[300px]"></textarea>
+                </div>
+
+                <div class="pt-6 text-center">
+                    <button type="submit" class="px-16 py-4 bg-slate-800 text-white rounded-2xl text-sm font-black hover:bg-yuanta shadow-xl shadow-slate-200 transition-all tracking-widest uppercase">
+                        게시글 등록
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- VIEW 3: 게시글 상세 보기 (댓글 포함) - 백엔드 렌더링 가정 -->
+        <section id="view-detail" class="hidden space-y-6">
+            <!-- 본문 영역 -->
+            <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-12 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-yuanta"></div>
+                
+                <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-6 leading-tight" id="detail-title">
+                    {{ post_detail.title|default('') }}
+                </h2>
+                
+                <div class="flex flex-wrap items-center justify-between pb-6 border-b border-slate-100 gap-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                            {% if post_detail and post_detail.is_anonymous == 'Y' %}
+                            <i class="fas fa-mask"></i>
+                            {% else %}
+                            <i class="fas fa-user"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-700" id="detail-author">
+                                {% if post_detail and post_detail.is_anonymous == 'Y' %}익명{% else %}{{ post_detail.author_nm|default('') }}{% endif %}
+                            </p>
+                            <p class="text-[10px] text-slate-400 font-mono" id="detail-date">{{ post_detail.reg_dt|default('') }}</p>
+                        </div>
+                    </div>
+                    <div class="text-[11px] font-bold text-slate-400 space-x-3 flex items-center">
+                        <span><i class="far fa-eye mr-1"></i>조회 <span id="detail-views">{{ post_detail.view_cnt|default(0) }}</span></span>
+                        <span class="text-yuanta"><i class="far fa-comment-dots mr-1"></i>댓글 <span id="detail-comments">{{ post_detail.comment_cnt|default(0) }}</span></span>
+                    </div>
+                </div>
+
+                <!-- 글 내용 -->
+                <div class="py-8 text-slate-700 leading-loose min-h-[200px]" id="detail-content">
+                    {{ post_detail.content|safe if post_detail else '' }}
+                </div>
+
+                <!-- 게시글 하단 액션 -->
+                <div class="flex justify-between items-center pt-6 border-t border-slate-50">
+                    <button class="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors"><i class="fas fa-exclamation-triangle mr-1"></i>신고</button>
+                    
+                    <!-- [마스터 요청] 관리자(LV.0) 전용 게시물 제어 버튼 -->
+                    {% if current_user and current_user.user_level == 0 %}
+                    <div class="flex space-x-2">
+                        <button onclick="adminAction('blind', '{{ post_detail.post_seq if post_detail else '' }}')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">
+                            <i class="fas fa-eye-slash mr-1"></i>블라인드
+                        </button>
+                        <button onclick="adminAction('delete', '{{ post_detail.post_seq if post_detail else '' }}')" class="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
+                            <i class="fas fa-trash-alt mr-1"></i>강제 삭제
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 댓글 영역 -->
+            <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 md:p-10">
+                <h4 class="text-sm font-black text-slate-700 mb-6 flex items-center">
+                    <i class="fas fa-comments text-yuanta mr-2"></i>댓글 <span class="text-yuanta ml-1">{{ post_detail.comment_cnt|default(0) }}</span>
+                </h4>
+                
+                <!-- 댓글 작성 폼 -->
+                <form action="/board/comment/save" method="POST" class="mb-10 bg-slate-50 p-4 rounded-2xl border border-slate-200 focus-within:border-yuanta focus-within:bg-white transition-all">
+                    <input type="hidden" name="post_seq" value="{{ post_detail.post_seq if post_detail else '' }}">
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <textarea name="comment" rows="2" required placeholder="댓글을 남겨주세요. (상호 존중과 배려의 글을 부탁드립니다.)" class="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder-slate-400"></textarea>
+                        <div class="flex flex-col justify-between items-end gap-2 shrink-0">
+                            <label class="flex items-center space-x-1 cursor-pointer group">
+                                <input type="checkbox" name="is_anonymous" value="Y" class="w-3 h-3 text-yuanta focus:ring-yuanta rounded border-slate-300">
+                                <span class="text-[10px] font-bold text-slate-500 group-hover:text-yuanta">익명</span>
+                            </label>
+                            <button type="submit" class="px-6 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-yuanta transition-all">등록</button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- 댓글 목록 렌더링 -->
+                <div class="space-y-6">
+                    {% for comment in comment_list %}
+                    <div class="flex space-x-4 group">
+                        <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 shrink-0 mt-1">
+                            {% if comment.is_anonymous == 'Y' %}
+                            <i class="fas fa-mask text-xs"></i>
+                            {% else %}
+                            <i class="fas fa-user text-xs"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-baseline justify-between mb-1">
+                                <div class="space-x-2">
+                                    <span class="text-xs font-black {{ 'text-slate-500' if comment.is_anonymous == 'Y' else 'text-slate-700' }}">
+                                        {% if comment.is_anonymous == 'Y' %}익명{% else %}{{ comment.author_nm }}{% endif %}
+                                    </span>
+                                    <span class="text-[9px] text-slate-400 font-mono">{{ comment.reg_dt }}</span>
+                                </div>
+                                <!-- [마스터 요청] 관리자(LV.0) 전용 댓글 삭제 버튼 -->
+                                {% if current_user and current_user.user_level == 0 %}
+                                <button onclick="deleteComment('{{ comment.comment_seq }}')" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                                    <i class="fas fa-times text-xs"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <p class="text-sm text-slate-600 leading-relaxed">{{ comment.content }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="py-8 text-center text-slate-400 text-sm italic">
+                        첫 번째 댓글을 남겨보세요.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+    </div>
+{% endblock %}
+
+{% block page_script %}
+<script>
+        function switchView(view) {
+            const list = document.getElementById('view-list');
+            const write = document.getElementById('view-write');
+            const detail = document.getElementById('view-detail');
+            const btnList = document.getElementById('btn-list');
+            const btnWrite = document.getElementById('btn-write');
+
+            // 뷰 숨김/표시 초기화
+            list.classList.add('hidden');
+            write.classList.add('hidden');
+            detail.classList.add('hidden');
+            
+            if (view === 'list') {
+                list.classList.remove('hidden');
+                btnList.classList.add('hidden');
+                btnWrite.classList.remove('hidden');
+            } else if (view === 'write') {
+                write.classList.remove('hidden');
+                btnList.classList.remove('hidden');
+                btnWrite.classList.add('hidden');
+            } else if (view === 'detail') {
+                detail.classList.remove('hidden');
+                btnList.classList.remove('hidden');
+                btnWrite.classList.remove('hidden');
+            }
+        }
+
+        // 행 클릭 시 상세 보기로 전환
+        function viewDetail(postSeq) {
+            // 실제 백엔드 연동 시에는 아래 주석을 해제하여 페이지를 이동시킵니다.
+            // window.location.href = '/board/view/' + postSeq;
+            
+            // 현재는 UI 시뮬레이션용으로 전환만 시킵니다.
+            switchView('detail');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 관리자 전용 액션 제어
+        function adminAction(action, postSeq) {
+            const actionNm = action === 'blind' ? '블라인드' : '삭제';
+            if(confirm(`이 게시글을 정말로 ${actionNm} 처리하시겠습니까?`)) {
+                // 향후 백엔드 연동: fetch(`/admin/board/${action}/${postSeq}`, { method: 'POST' })
+                alert(`${actionNm} 처리가 완료되었습니다.`);
+            }
+        }
+
+        function deleteComment(commentSeq) {
+            if(confirm('이 댓글을 강제로 삭제하시겠습니까?')) {
+                // 향후 백엔드 연동: fetch(`/admin/comment/delete/${commentSeq}`, { method: 'POST' })
+                alert('댓글이 삭제되었습니다.');
+            }
+        }
+    </script>
+{% endblock %}
