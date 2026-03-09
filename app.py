@@ -1,6 +1,6 @@
 """
 UnionBBS - Flask 메인 애플리케이션
-SQLite (테스트) / Oracle (운영) 전환 가능
+SQLite (테스트) / PostgreSQL (운영) 전환 가능
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -13,9 +13,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 
 # ── DB 설정 ──────────────────────────────────────────────
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 'sqlite:///unionbbs.db'
-)
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///unionbbs.db')
+# Railway PostgreSQL은 postgresql:// 로 시작하는데 SQLAlchemy는 postgresql+psycopg2:// 필요
+if DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
+elif DATABASE_URL.startswith('postgresql://'):
+    DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg2://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -664,7 +669,6 @@ def admin_book():
 
     purchase_list = BookRequest.query.filter_by(use_yn='Y').order_by(BookRequest.reg_dt.desc()).all()
     book_list     = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
-
     my_rentals = []
     return render_template('book.html',
         current_user=current_user,
@@ -996,9 +1000,9 @@ def about():
     delegates    = User.query.filter_by(user_level=2, use_yn='Y').all()
     chairman     = User.query.filter_by(user_level=0, use_yn='Y').first()
     auditors     = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()
-    slogan_text  = None
+    slogan_text   = None
     greeting_text = None
-    senior_vice  = None
+    senior_vice   = None
     vice_chairman = None
     return render_template('about.html',
         current_user=current_user,
@@ -1018,7 +1022,7 @@ def about():
 @level_required(0)
 def admin_about_save():
     section = request.form.get('section')
-    flash(f'저장되었습니다. (section: {section}) — 설정 테이블 연동 후 영구 반영됩니다.')
+    flash(f'저장되었습니다. (section: {section})')
     return redirect(url_for('about'))
 
 
@@ -1031,8 +1035,8 @@ def admin_about_save():
 def profile_edit():
     current_user = get_current_user()
     if request.method == 'POST':
-        new_pwd    = request.form.get('new_password', '')
-        cur_pwd    = request.form.get('current_password', '')
+        new_pwd = request.form.get('new_password', '')
+        cur_pwd = request.form.get('current_password', '')
 
         try:
             pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
@@ -1060,7 +1064,7 @@ def profile_edit():
 
 
 # ══════════════════════════════════════════════════════════
-# Routes - 비밀번호 강제 변경 (최초 로그인)
+# Routes - 비밀번호 강제 변경
 # ══════════════════════════════════════════════════════════
 
 @app.route('/pwd/force-change', methods=['GET', 'POST'])
@@ -1080,13 +1084,13 @@ def force_pwd_change():
             flash('사번과 동일한 비밀번호는 사용할 수 없습니다.', 'error')
         else:
             hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
-            current_user.pwd_hash     = hashed
-            current_user.pwd_chg_dt   = date.today()
-            current_user.pwd_init_yn  = 'N'
-            current_user.mod_dt       = datetime.now()
+            current_user.pwd_hash    = hashed
+            current_user.pwd_chg_dt  = date.today()
+            current_user.pwd_init_yn = 'N'
+            current_user.mod_dt      = datetime.now()
             db.session.commit()
             session.pop('force_pwd_change', None)
-            flash('비밀번호가 변경되었습니다. 서비스를 이용하실 수 있습니다.', 'success')
+            flash('비밀번호가 변경되었습니다.', 'success')
             return redirect(url_for('main'))
 
     return render_template('force_pwd_change.html', current_user=current_user)
@@ -1102,9 +1106,9 @@ def admin_reset_pwd():
         return jsonify({'ok': False, 'msg': f'사번 {target_emp_no} 사용자를 찾을 수 없습니다.'})
 
     hashed = bcrypt.hashpw(target_emp_no.encode(), bcrypt.gensalt()).decode()
-    target_user.pwd_hash    = hashed
-    target_user.pwd_init_yn = 'Y'
-    target_user.pwd_chg_dt  = None
+    target_user.pwd_hash     = hashed
+    target_user.pwd_init_yn  = 'Y'
+    target_user.pwd_chg_dt   = None
     target_user.pwd_fail_cnt = 0
     target_user.acct_lock_yn = 'N'
     target_user.mod_dt       = datetime.now()
@@ -1140,180 +1144,50 @@ def admin_user_list():
 
 
 # ══════════════════════════════════════════════════════════
-# DB 초기화
+# DB 초기화 (관리자 계정 + 공통코드만)
 # ══════════════════════════════════════════════════════════
 
 def init_db():
-    """DB 테이블 생성 + 테스트용 목데이터 삽입 (최초 1회)"""
     db.create_all()
 
     if User.query.first():
-        print("DB already initialized - skipping mock data")
+        print("DB already initialized - skipping")
         return
 
-    print("Inserting mock data...")
+    print("Creating initial data...")
 
     def make_pw(raw):
         return bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
 
+    # 공통코드
     db.session.add_all([
         Code(code_grp='EMP_TYPE', code_cd='01', code_nm='종합직', sort_order=1),
         Code(code_grp='EMP_TYPE', code_cd='02', code_nm='일반직', sort_order=2),
         Code(code_grp='EMP_TYPE', code_cd='03', code_nm='기술직', sort_order=3),
-        Code(code_grp='RANK', code_cd='R01', code_nm='부장',  sort_order=1),
-        Code(code_grp='RANK', code_cd='R02', code_nm='차장',  sort_order=2),
-        Code(code_grp='RANK', code_cd='R03', code_nm='과장',  sort_order=3),
-        Code(code_grp='RANK', code_cd='R04', code_nm='대리',  sort_order=4),
-        Code(code_grp='RANK', code_cd='R05', code_nm='사원',  sort_order=5),
+        Code(code_grp='RANK', code_cd='R01', code_nm='부장', sort_order=1),
+        Code(code_grp='RANK', code_cd='R02', code_nm='차장', sort_order=2),
+        Code(code_grp='RANK', code_cd='R03', code_nm='과장', sort_order=3),
+        Code(code_grp='RANK', code_cd='R04', code_nm='대리', sort_order=4),
+        Code(code_grp='RANK', code_cd='R05', code_nm='사원', sort_order=5),
     ])
 
-    db.session.add_all([
-        UnionDept(union_dept_cd='UD01', union_dept_nm='서울본사분회',   sort_order=1),
-        UnionDept(union_dept_cd='UD02', union_dept_nm='강남지점분회',   sort_order=2),
-        UnionDept(union_dept_cd='UD03', union_dept_nm='부산지역분회',   sort_order=3),
-        UnionDept(union_dept_cd='UD04', union_dept_nm='대구지역분회',   sort_order=4),
-    ])
-
-    users = [
-        User(emp_no='EMP001', emp_nm='김관리', gender='M',
-             birth_dt=date(1975, 3, 15), phone_no='010-1111-0001',
-             email='admin@yuanta.com', dept_cd='D001', union_dept_cd='UD01',
-             emp_type_cd='01', rank_cd='R01', user_level=0,
-             term_start=date(2024,1,1), term_end=date(2025,12,31),
-             pwd_hash=make_pw('EMP001'), pwd_chg_dt=date.today(), pwd_init_yn='N', use_yn='Y'),
-        User(emp_no='EMP002', emp_nm='이집행', gender='M',
-             birth_dt=date(1978, 6, 20), phone_no='010-1111-0002',
-             email='exec@yuanta.com', dept_cd='D002', union_dept_cd='UD01',
-             emp_type_cd='01', rank_cd='R02', user_level=1,
-             term_start=date(2024,1,1), term_end=date(2025,12,31),
-             pwd_hash=make_pw('EMP002'), pwd_init_yn='Y', use_yn='Y'),
-        User(emp_no='EMP003', emp_nm='박대의', gender='F',
-             birth_dt=date(1982, 9, 5), phone_no='010-1111-0003',
-             email='delegate@yuanta.com', dept_cd='D003', union_dept_cd='UD02',
-             emp_type_cd='01', rank_cd='R03', user_level=2,
-             term_start=date(2024,1,1), term_end=date(2025,12,31),
-             pwd_hash=make_pw('EMP003'), pwd_init_yn='Y', use_yn='Y'),
-        User(emp_no='EMP004', emp_nm='최분회', gender='M',
-             birth_dt=date(1980, 12, 1), phone_no='010-1111-0004',
-             email='chair@yuanta.com', dept_cd='D004', union_dept_cd='UD03',
-             emp_type_cd='02', rank_cd='R03', user_level=3,
-             term_start=date(2024,1,1), term_end=date(2025,12,31),
-             pwd_hash=make_pw('EMP004'), pwd_init_yn='Y', use_yn='Y'),
-        User(emp_no='EMP005', emp_nm='정조합', gender='F',
-             birth_dt=date(1990, 4, 18), phone_no='010-1111-0005',
-             email='member@yuanta.com', dept_cd='D005', union_dept_cd='UD02',
-             emp_type_cd='01', rank_cd='R04', user_level=4,
-             pwd_hash=make_pw('EMP005'), pwd_init_yn='Y', use_yn='Y'),
-        User(emp_no='EMP006', emp_nm='한조합', gender='M',
-             birth_dt=date(1993, 7, 22), phone_no='010-1111-0006',
-             email='member2@yuanta.com', dept_cd='D003', union_dept_cd='UD01',
-             emp_type_cd='01', rank_cd='R05', user_level=4,
-             pwd_hash=make_pw('EMP006'), pwd_init_yn='Y', use_yn='Y'),
-    ]
-    db.session.add_all(users)
-    db.session.flush()
-
-    db.session.add_all([
-        Notice(notice_type='FLASH', title='[노조속보] 2025년 임금협상 잠정합의 안내',
-               content='2025년 임금협상 잠정합의가 완료되었습니다.',
-               is_push='Y', view_cnt=128, reg_user='EMP001'),
-        Notice(notice_type='SCHEDULE', title='3월 분회장 간담회 일정 안내',
-               content='3월 분회장 정기 간담회가 아래 일정으로 개최됩니다.',
-               view_cnt=45, reg_user='EMP001'),
-        Notice(notice_type='FLASH', title='[노조속보] 4월 대의원 대회 소집 공고',
-               content='정기 대의원 대회 소집을 공고합니다.',
-               view_cnt=67, reg_user='EMP002'),
-        Notice(notice_type='ELECTION', title='제15대 집행위원회 선거 공고',
-               content='제15대 집행위원회 임원 선거를 아래와 같이 공고합니다.',
-               view_cnt=203, reg_user='EMP001'),
-        Notice(notice_type='SCHEDULE', title='2025 노동절 기념 행사 안내',
-               content='5.1 노동절을 맞아 기념 행사를 진행합니다.',
-               view_cnt=89, reg_user='EMP002'),
-    ])
-
-    db.session.add_all([
-        Schedule(title='정기 대의원 대회', content='2025년 1분기 정기 대의원 대회',
-                 start_dt=datetime(2025,3,20,14,0), end_dt=datetime(2025,3,20,17,0),
-                 location='본사 대회의실 2층', schedule_type='MEETING', reg_user='EMP001'),
-        Schedule(title='임금협상 교섭위원회',
-                 start_dt=datetime(2025,4,5,10,0), end_dt=datetime(2025,4,5,12,0),
-                 location='14층 소회의실', schedule_type='NEGOTIATION', reg_user='EMP001'),
-        Schedule(title='노동절 기념 행사',
-                 start_dt=datetime(2025,5,1,11,0), end_dt=datetime(2025,5,1,15,0),
-                 location='여의도공원 잔디광장', schedule_type='EVENT', reg_user='EMP002'),
-    ])
-
-    db.session.add_all([
-        Board(title='신입 조합원 가입 인사드립니다', emp_no='EMP005',
-              content='안녕하세요! 이번에 조합에 가입하게 된 정조합입니다.', view_cnt=24),
-        Board(title='콘도 이용 후기 - 설악산 한화리조트', emp_no='EMP006',
-              content='지난 주 설악산 한화리조트 이용했는데 정말 좋았습니다.', view_cnt=51),
-        Board(title='도서 추천 - 노동법 관련 좋은 책 있으면 알려주세요', emp_no='EMP003',
-              content='노동법 공부 하려는데 좋은 도서 추천 부탁드립니다.', view_cnt=18),
-    ])
-
-    vote = Vote(
-        title='2025년 임금인상 잠정합의안 찬반 투표',
-        content='2025년 임금협상 잠정합의안에 대한 전체 조합원 찬반 투표입니다.',
-        start_dt=datetime(2025,3,10,9,0),
-        end_dt=datetime(2025,3,25,18,0),
-        vote_status='OPEN',
-        total_cnt=6,
-        vote_cnt=3,
-        reg_user='EMP001'
+    # 관리자 계정 1개만 생성 (나머지는 관리자가 UI에서 등록)
+    db.session.add(
+        User(emp_no='ADMIN', emp_nm='시스템관리자', gender='M',
+             email='admin@yuanta.com', dept_cd='D001',
+             user_level=0,
+             pwd_hash=make_pw('Admin1234!'),
+             pwd_chg_dt=date.today(),
+             pwd_init_yn='N',
+             use_yn='Y')
     )
-    db.session.add(vote)
-    db.session.flush()
-    db.session.add_all([
-        VoteItem(vote_seq=vote.vote_seq, item_nm='찬성', item_cnt=2, sort_order=1),
-        VoteItem(vote_seq=vote.vote_seq, item_nm='반대', item_cnt=1, sort_order=2),
-    ])
-
-    condos = [
-        Condo(condo_nm='설악산 한화리조트', region_cd='GANGWON', brand_cd='HANWHA',
-              location='강원 속초시', description='설악산 인근 4성급 리조트.', total_room=5),
-        Condo(condo_nm='제주 소노벨', region_cd='JEOLLA', brand_cd='SONO',
-              location='제주 서귀포시', description='제주 남쪽 바다 전망 프리미엄 콘도', total_room=3),
-        Condo(condo_nm='지리산 대명비발디파크', region_cd='GYEONGSANG', brand_cd='LOTTE',
-              location='경남 함양군', description='지리산 자락 휴양 콘도.', total_room=4),
-        Condo(condo_nm='수원 소노캄', region_cd='METRO', brand_cd='SONO',
-              location='경기 수원시', description='수도권 접근 편리.', total_room=3),
-    ]
-    db.session.add_all(condos)
-    db.session.flush()
-
-    room_data = [
-        CondoRoom(condo_seq=condos[0].condo_seq, room_type='스탠다드룸', capacity=4,
-                  description='기본형 객실.', amenities='TV,냉장고,에어컨,욕조', total_cnt=3, avail_cnt=3),
-        CondoRoom(condo_seq=condos[0].condo_seq, room_type='패밀리스위트', capacity=6,
-                  description='가족형 대형 객실.', amenities='TV,냉장고,에어컨,욕조,주방', total_cnt=2, avail_cnt=2),
-        CondoRoom(condo_seq=condos[1].condo_seq, room_type='오션뷰 디럭스', capacity=4,
-                  description='바다 전망 프리미엄 객실.', amenities='TV,냉장고,에어컨,욕조,발코니', total_cnt=2, avail_cnt=2),
-        CondoRoom(condo_seq=condos[1].condo_seq, room_type='마운틴뷰 스탠다드', capacity=4,
-                  description='한라산 전망 기본 객실.', amenities='TV,냉장고,에어컨', total_cnt=1, avail_cnt=1),
-        CondoRoom(condo_seq=condos[2].condo_seq, room_type='온천 스위트', capacity=4,
-                  description='개인 온천 욕조 포함.', amenities='TV,냉장고,에어컨,노천탕', total_cnt=2, avail_cnt=2),
-        CondoRoom(condo_seq=condos[2].condo_seq, room_type='스탠다드룸', capacity=4,
-                  description='기본형 객실.', amenities='TV,냉장고,에어컨', total_cnt=2, avail_cnt=2),
-        CondoRoom(condo_seq=condos[3].condo_seq, room_type='시티뷰 스탠다드', capacity=4,
-                  description='수원 시내 전망 기본 객실.', amenities='TV,냉장고,에어컨', total_cnt=3, avail_cnt=3),
-    ]
-    db.session.add_all(room_data)
-
-    books = [
-        Book(title='노동법 실무', author='김노동', publisher='법문사', isbn='9788901001', total_cnt=2, avail_cnt=1, is_new='Y'),
-        Book(title='단체교섭의 이론과 실제', author='박교섭', publisher='노동출판', isbn='9788901002', total_cnt=1, avail_cnt=1),
-        Book(title='조직문화 혁신', author='이문화', publisher='경영출판사', isbn='9788901003', total_cnt=1, avail_cnt=0),
-        Book(title='협상의 기술', author='최협상', publisher='비즈북스', isbn='9788901004', total_cnt=2, avail_cnt=2, is_new='Y'),
-        Book(title='직장인 법률 상식', author='정법률', publisher='법률신문사', isbn='9788901005', total_cnt=1, avail_cnt=1),
-    ]
-    db.session.add_all(books)
 
     db.session.commit()
-    print("Mock data inserted successfully!")
+    print("Initial setup complete!")
+    print("Admin: ADMIN / Admin1234!")
 
 
-# ── gunicorn 포함 모든 실행 환경에서 DB 초기화 ──────────
+# ── 모든 실행 환경에서 DB 초기화 ──────────────────────────
 with app.app_context():
     init_db()
 
