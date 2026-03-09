@@ -16,8 +16,6 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///unionbbs.db'
 )
-# Oracle 전환 시:
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'oracle+oracledb://user:pw@host:1521/service'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -44,8 +42,8 @@ class User(db.Model):
     term_start    = db.Column(db.Date)
     term_end      = db.Column(db.Date)
     pwd_hash      = db.Column(db.String(256), nullable=False)
-    pwd_chg_dt    = db.Column(db.Date)                          # 마지막 비밀번호 변경일
-    pwd_init_yn   = db.Column(db.String(1), default='Y')        # Y=초기비번(강제변경 필요)
+    pwd_chg_dt    = db.Column(db.Date)
+    pwd_init_yn   = db.Column(db.String(1), default='Y')
     pwd_fail_cnt  = db.Column(db.Integer, default=0)
     acct_lock_yn  = db.Column(db.String(1), default='N')
     use_yn        = db.Column(db.String(1), default='Y')
@@ -174,8 +172,8 @@ class Condo(db.Model):
     __tablename__ = 'TB_CONDO'
     condo_seq   = db.Column(db.Integer, primary_key=True, autoincrement=True)
     condo_nm    = db.Column(db.String(100), nullable=False)
-    region_cd   = db.Column(db.String(10))   # 대분류: METRO/GANGWON/CHUNGCHEONG/JEOLLA/GYEONGSANG
-    brand_cd    = db.Column(db.String(10))   # 중분류: SONO/HANWHA/LOTTE/ANTO
+    region_cd   = db.Column(db.String(10))
+    brand_cd    = db.Column(db.String(10))
     location    = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     total_room  = db.Column(db.Integer, default=0)
@@ -186,12 +184,12 @@ class CondoRoom(db.Model):
     __tablename__ = 'TB_CONDO_ROOM'
     room_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
     condo_seq   = db.Column(db.Integer, db.ForeignKey('TB_CONDO.condo_seq'), nullable=False)
-    room_type   = db.Column(db.String(50), nullable=False)   # 객실유형명 (예: 스탠다드, 디럭스)
-    capacity    = db.Column(db.Integer, default=4)           # 수용 인원
-    description = db.Column(db.Text)                         # 객실 상세 설명
-    amenities   = db.Column(db.String(500))                  # 편의시설 (콤마구분)
-    total_cnt   = db.Column(db.Integer, default=1)           # 총 객실 수
-    avail_cnt   = db.Column(db.Integer, default=1)           # 예약 가능 객실
+    room_type   = db.Column(db.String(50), nullable=False)
+    capacity    = db.Column(db.Integer, default=4)
+    description = db.Column(db.Text)
+    amenities   = db.Column(db.String(500))
+    total_cnt   = db.Column(db.Integer, default=1)
+    avail_cnt   = db.Column(db.Integer, default=1)
     use_yn      = db.Column(db.String(1), default='Y')
 
 class CondoReserve(db.Model):
@@ -305,11 +303,10 @@ def login():
             flash('계정이 잠겨 있습니다. 관리자에게 문의하세요.')
             return render_template('login.html')
 
-        # 비밀번호 검증 (bcrypt)
         try:
             pw_match = bcrypt.checkpw(password.encode(), user.pwd_hash.encode())
         except Exception:
-            pw_match = (password == emp_no)  # mock: 최초 비밀번호 = 사번
+            pw_match = (password == emp_no)
 
         if pw_match:
             user.pwd_fail_cnt = 0
@@ -319,13 +316,11 @@ def login():
             session['user_level'] = user.user_level
             session['user_seq']   = user.user_seq
 
-            # 초기 비밀번호(사번) 강제 변경
             if user.pwd_init_yn == 'Y':
                 session['force_pwd_change'] = True
                 flash('초기 비밀번호를 반드시 변경해야 합니다.', 'warning')
                 return redirect(url_for('force_pwd_change'))
 
-            # 90일 만료 경고
             if user.pwd_chg_dt:
                 days_since = (date.today() - user.pwd_chg_dt).days
                 if days_since >= 90:
@@ -362,7 +357,6 @@ def main():
     notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
     ongoing_vote = Vote.query.filter_by(vote_status='ONGOING', use_yn='Y').first()
 
-    # 오늘 일정
     today_start = datetime.combine(date.today(), datetime.min.time())
     today_end   = datetime.combine(date.today(), datetime.max.time())
     today_schedule = Schedule.query.filter(
@@ -371,7 +365,6 @@ def main():
         Schedule.use_yn == 'Y'
     ).order_by(Schedule.start_dt).all()
 
-    # 복지 카운트
     condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
     book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
 
@@ -433,7 +426,6 @@ def notice_save():
     )
     db.session.add(notice)
 
-    # 일정 연동 처리
     if request.form.get('event_date'):
         schedule = Schedule(
             title         = request.form.get('title'),
@@ -552,7 +544,6 @@ def vote():
     active_votes  = Vote.query.filter_by(vote_status='ONGOING', use_yn='Y').all()
     archive_votes = Vote.query.filter_by(vote_status='CLOSED', use_yn='Y').all()
 
-    # 각 투표에 항목 및 참여 여부 추가
     for v in active_votes:
         v.items            = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
         v.has_voted        = VoteHistory.query.filter_by(vote_seq=v.vote_seq, emp_no=current_user.emp_no).first() is not None
@@ -587,7 +578,6 @@ def vote_submit():
     item_seq     = request.form.get('selected_item')
     auth_pwd     = request.form.get('auth_password', '')
 
-    # 비밀번호 재확인
     try:
         pw_match = bcrypt.checkpw(auth_pwd.encode(), current_user.pwd_hash.encode())
     except Exception:
@@ -597,7 +587,6 @@ def vote_submit():
         flash('비밀번호 인증에 실패했습니다.')
         return redirect(url_for('vote'))
 
-    # 중복 투표 확인
     already = VoteHistory.query.filter_by(vote_seq=vote_seq, emp_no=current_user.emp_no).first()
     if already:
         flash('이미 투표하셨습니다.')
@@ -892,7 +881,6 @@ def condo_room_add():
         use_yn      = 'Y'
     )
     db.session.add(room)
-    # update parent condo total_room
     condo = Condo.query.get(request.form.get('condo_seq'))
     if condo:
         condo.total_room = CondoRoom.query.filter_by(condo_seq=condo.condo_seq, use_yn='Y').count() + 1
@@ -940,7 +928,6 @@ def book_rental(book_seq):
     if b.avail_cnt <= 0:
         flash('현재 대출 가능한 도서가 없습니다.')
         return redirect(url_for('book'))
-    from datetime import timedelta
     rental = BookRental(
         book_seq  = book_seq,
         emp_no    = current_user.emp_no,
@@ -1008,9 +995,8 @@ def about():
     executives   = User.query.filter_by(user_level=1, use_yn='Y').all()
     delegates    = User.query.filter_by(user_level=2, use_yn='Y').all()
     chairman     = User.query.filter_by(user_level=0, use_yn='Y').first()
-    auditors     = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()  # 회계감사: 별도 구분 컬럼 추가 전 임시
-    # 조합소개 설정 (TB_CODE 또는 별도 설정 테이블에서 불러올 수 있음 - 현재는 기본값)
-    slogan_text  = None  # TODO: 설정 테이블 연동
+    auditors     = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()
+    slogan_text  = None
     greeting_text = None
     senior_vice  = None
     vice_chairman = None
@@ -1031,13 +1017,9 @@ def about():
 @app.route('/admin/about/save', methods=['POST'])
 @level_required(0)
 def admin_about_save():
-    # TODO: 설정 테이블(TB_CONFIG 등) 생성 후 실제 저장 로직 구현
-    # 현재는 flash만 표시
     section = request.form.get('section')
     flash(f'저장되었습니다. (section: {section}) — 설정 테이블 연동 후 영구 반영됩니다.')
     return redirect(url_for('about'))
-
-
 
 
 # ══════════════════════════════════════════════════════════
@@ -1084,7 +1066,6 @@ def profile_edit():
 @app.route('/pwd/force-change', methods=['GET', 'POST'])
 @login_required
 def force_pwd_change():
-    """최초 로그인(초기비번) 시 강제 변경 페이지"""
     current_user = get_current_user()
 
     if request.method == 'POST':
@@ -1101,7 +1082,7 @@ def force_pwd_change():
             hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
             current_user.pwd_hash     = hashed
             current_user.pwd_chg_dt   = date.today()
-            current_user.pwd_init_yn  = 'N'   # 강제변경 완료
+            current_user.pwd_init_yn  = 'N'
             current_user.mod_dt       = datetime.now()
             db.session.commit()
             session.pop('force_pwd_change', None)
@@ -1114,7 +1095,6 @@ def force_pwd_change():
 @app.route('/admin/user/reset-pwd', methods=['POST'])
 @level_required(1)
 def admin_reset_pwd():
-    """관리자: 특정 사용자 비밀번호 초기화 (사번으로 리셋)"""
     target_emp_no = request.form.get('emp_no', '').strip()
     target_user   = User.query.filter_by(emp_no=target_emp_no, use_yn='Y').first()
 
@@ -1123,10 +1103,10 @@ def admin_reset_pwd():
 
     hashed = bcrypt.hashpw(target_emp_no.encode(), bcrypt.gensalt()).decode()
     target_user.pwd_hash    = hashed
-    target_user.pwd_init_yn = 'Y'          # 다음 로그인 시 강제변경 요구
+    target_user.pwd_init_yn = 'Y'
     target_user.pwd_chg_dt  = None
     target_user.pwd_fail_cnt = 0
-    target_user.acct_lock_yn = 'N'         # 잠금도 함께 해제
+    target_user.acct_lock_yn = 'N'
     target_user.mod_dt       = datetime.now()
     db.session.commit()
 
@@ -1136,7 +1116,6 @@ def admin_reset_pwd():
 @app.route('/admin/user/list')
 @level_required(1)
 def admin_user_list():
-    """관리자: 사용자 목록 조회 (비번 초기화 포함)"""
     current_user = get_current_user()
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
     today = date.today()
@@ -1169,15 +1148,14 @@ def init_db():
     db.create_all()
 
     if User.query.first():
-        print("✅ DB 이미 초기화됨 - 목데이터 삽입 스킵")
+        print("DB already initialized - skipping mock data")
         return
 
-    print("📦 목데이터 삽입 중...")
+    print("Inserting mock data...")
 
     def make_pw(raw):
         return bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
 
-    # ── 공통코드 ──────────────────────────────────
     db.session.add_all([
         Code(code_grp='EMP_TYPE', code_cd='01', code_nm='종합직', sort_order=1),
         Code(code_grp='EMP_TYPE', code_cd='02', code_nm='일반직', sort_order=2),
@@ -1189,7 +1167,6 @@ def init_db():
         Code(code_grp='RANK', code_cd='R05', code_nm='사원',  sort_order=5),
     ])
 
-    # ── 조합 분회 ─────────────────────────────────
     db.session.add_all([
         UnionDept(union_dept_cd='UD01', union_dept_nm='서울본사분회',   sort_order=1),
         UnionDept(union_dept_cd='UD02', union_dept_nm='강남지점분회',   sort_order=2),
@@ -1197,8 +1174,6 @@ def init_db():
         UnionDept(union_dept_cd='UD04', union_dept_nm='대구지역분회',   sort_order=4),
     ])
 
-    # ── 사용자 (비밀번호 = 사번) ──────────────────
-    # LV0:관리자 / LV1:집행위원 / LV2:대의원 / LV3:분회장 / LV4:조합원
     users = [
         User(emp_no='EMP001', emp_nm='김관리', gender='M',
              birth_dt=date(1975, 3, 15), phone_no='010-1111-0001',
@@ -1238,26 +1213,24 @@ def init_db():
     db.session.add_all(users)
     db.session.flush()
 
-    # ── 공지사항 ──────────────────────────────────
     db.session.add_all([
         Notice(notice_type='FLASH', title='[노조속보] 2025년 임금협상 잠정합의 안내',
-               content='2025년 임금협상 잠정합의가 완료되었습니다. 상세 내용은 첨부 파일을 참고해주시기 바랍니다.',
+               content='2025년 임금협상 잠정합의가 완료되었습니다.',
                is_push='Y', view_cnt=128, reg_user='EMP001'),
         Notice(notice_type='SCHEDULE', title='3월 분회장 간담회 일정 안내',
-               content='3월 분회장 정기 간담회가 아래 일정으로 개최됩니다. 일시: 2025년 3월 20일(목) 오후 2시 / 장소: 본사 대회의실 2층',
+               content='3월 분회장 정기 간담회가 아래 일정으로 개최됩니다.',
                view_cnt=45, reg_user='EMP001'),
         Notice(notice_type='FLASH', title='[노조속보] 4월 대의원 대회 소집 공고',
                content='정기 대의원 대회 소집을 공고합니다.',
                view_cnt=67, reg_user='EMP002'),
         Notice(notice_type='ELECTION', title='제15대 집행위원회 선거 공고',
-               content='제15대 집행위원회 임원 선거를 아래와 같이 공고합니다. 선거일: 2025년 5월 2일(금) / 후보등록: 4월 14일 ~ 4월 18일',
+               content='제15대 집행위원회 임원 선거를 아래와 같이 공고합니다.',
                view_cnt=203, reg_user='EMP001'),
         Notice(notice_type='SCHEDULE', title='2025 노동절 기념 행사 안내',
-               content='5.1 노동절을 맞아 기념 행사를 진행합니다. 전 조합원의 참여를 부탁드립니다.',
+               content='5.1 노동절을 맞아 기념 행사를 진행합니다.',
                view_cnt=89, reg_user='EMP002'),
     ])
 
-    # ── 일정 ──────────────────────────────────────
     db.session.add_all([
         Schedule(title='정기 대의원 대회', content='2025년 1분기 정기 대의원 대회',
                  start_dt=datetime(2025,3,20,14,0), end_dt=datetime(2025,3,20,17,0),
@@ -1270,20 +1243,18 @@ def init_db():
                  location='여의도공원 잔디광장', schedule_type='EVENT', reg_user='EMP002'),
     ])
 
-    # ── 게시판 ────────────────────────────────────
     db.session.add_all([
         Board(title='신입 조합원 가입 인사드립니다', emp_no='EMP005',
-              content='안녕하세요! 이번에 조합에 가입하게 된 정조합입니다. 잘 부탁드립니다.', view_cnt=24),
+              content='안녕하세요! 이번에 조합에 가입하게 된 정조합입니다.', view_cnt=24),
         Board(title='콘도 이용 후기 - 설악산 한화리조트', emp_no='EMP006',
-              content='지난 주 설악산 한화리조트 이용했는데 정말 좋았습니다. 다들 이용해보세요!', view_cnt=51),
+              content='지난 주 설악산 한화리조트 이용했는데 정말 좋았습니다.', view_cnt=51),
         Board(title='도서 추천 - 노동법 관련 좋은 책 있으면 알려주세요', emp_no='EMP003',
               content='노동법 공부 하려는데 좋은 도서 추천 부탁드립니다.', view_cnt=18),
     ])
 
-    # ── 투표 ──────────────────────────────────────
     vote = Vote(
         title='2025년 임금인상 잠정합의안 찬반 투표',
-        content='2025년 임금협상 잠정합의안에 대한 전체 조합원 찬반 투표입니다. 찬성: 기본급 3.5% 인상 + 복지포인트 10만원 증액 / 반대: 재협상 요구',
+        content='2025년 임금협상 잠정합의안에 대한 전체 조합원 찬반 투표입니다.',
         start_dt=datetime(2025,3,10,9,0),
         end_dt=datetime(2025,3,25,18,0),
         vote_status='OPEN',
@@ -1298,32 +1269,30 @@ def init_db():
         VoteItem(vote_seq=vote.vote_seq, item_nm='반대', item_cnt=1, sort_order=2),
     ])
 
-    # ── 콘도 시설 ─────────────────────────────────
     condos = [
         Condo(condo_nm='설악산 한화리조트', region_cd='GANGWON', brand_cd='HANWHA',
-              location='강원 속초시', description='설악산 인근 4성급 리조트. 케이블카 5분 거리.', total_room=5),
+              location='강원 속초시', description='설악산 인근 4성급 리조트.', total_room=5),
         Condo(condo_nm='제주 소노벨', region_cd='JEOLLA', brand_cd='SONO',
               location='제주 서귀포시', description='제주 남쪽 바다 전망 프리미엄 콘도', total_room=3),
         Condo(condo_nm='지리산 대명비발디파크', region_cd='GYEONGSANG', brand_cd='LOTTE',
-              location='경남 함양군', description='지리산 자락 휴양 콘도. 온천시설 완비.', total_room=4),
+              location='경남 함양군', description='지리산 자락 휴양 콘도.', total_room=4),
         Condo(condo_nm='수원 소노캄', region_cd='METRO', brand_cd='SONO',
-              location='경기 수원시', description='수도권 접근 편리. 수원화성 인근.', total_room=3),
+              location='경기 수원시', description='수도권 접근 편리.', total_room=3),
     ]
     db.session.add_all(condos)
     db.session.flush()
 
-    # 객실 유형 등록
     room_data = [
         CondoRoom(condo_seq=condos[0].condo_seq, room_type='스탠다드룸', capacity=4,
-                  description='기본형 객실. 더블베드 1개 + 소파베드 포함.', amenities='TV,냉장고,에어컨,욕조', total_cnt=3, avail_cnt=3),
+                  description='기본형 객실.', amenities='TV,냉장고,에어컨,욕조', total_cnt=3, avail_cnt=3),
         CondoRoom(condo_seq=condos[0].condo_seq, room_type='패밀리스위트', capacity=6,
-                  description='가족형 대형 객실. 침대 2개 + 거실 분리형.', amenities='TV,냉장고,에어컨,욕조,주방', total_cnt=2, avail_cnt=2),
+                  description='가족형 대형 객실.', amenities='TV,냉장고,에어컨,욕조,주방', total_cnt=2, avail_cnt=2),
         CondoRoom(condo_seq=condos[1].condo_seq, room_type='오션뷰 디럭스', capacity=4,
-                  description='바다 전망 프리미엄 객실. 발코니 포함.', amenities='TV,냉장고,에어컨,욕조,발코니', total_cnt=2, avail_cnt=2),
+                  description='바다 전망 프리미엄 객실.', amenities='TV,냉장고,에어컨,욕조,발코니', total_cnt=2, avail_cnt=2),
         CondoRoom(condo_seq=condos[1].condo_seq, room_type='마운틴뷰 스탠다드', capacity=4,
                   description='한라산 전망 기본 객실.', amenities='TV,냉장고,에어컨', total_cnt=1, avail_cnt=1),
         CondoRoom(condo_seq=condos[2].condo_seq, room_type='온천 스위트', capacity=4,
-                  description='개인 온천 욕조 포함 프리미엄 객실.', amenities='TV,냉장고,에어컨,노천탕', total_cnt=2, avail_cnt=2),
+                  description='개인 온천 욕조 포함.', amenities='TV,냉장고,에어컨,노천탕', total_cnt=2, avail_cnt=2),
         CondoRoom(condo_seq=condos[2].condo_seq, room_type='스탠다드룸', capacity=4,
                   description='기본형 객실.', amenities='TV,냉장고,에어컨', total_cnt=2, avail_cnt=2),
         CondoRoom(condo_seq=condos[3].condo_seq, room_type='시티뷰 스탠다드', capacity=4,
@@ -1331,7 +1300,6 @@ def init_db():
     ]
     db.session.add_all(room_data)
 
-    # ── 도서 ──────────────────────────────────────
     books = [
         Book(title='노동법 실무', author='김노동', publisher='법문사', isbn='9788901001', total_cnt=2, avail_cnt=1, is_new='Y'),
         Book(title='단체교섭의 이론과 실제', author='박교섭', publisher='노동출판', isbn='9788901002', total_cnt=1, avail_cnt=1),
@@ -1342,18 +1310,12 @@ def init_db():
     db.session.add_all(books)
 
     db.session.commit()
-    print("✅ 목데이터 삽입 완료!")
-    print("=" * 40)
-    print("테스트 계정 (비밀번호 = 사번)")
-    print("  EMP001 / EMP001  →  관리자 (LV0)")
-    print("  EMP002 / EMP002  →  집행위원 (LV1)")
-    print("  EMP003 / EMP003  →  대의원 (LV2)")
-    print("  EMP004 / EMP004  →  분회장 (LV3)")
-    print("  EMP005 / EMP005  →  조합원 (LV4)")
-    print("=" * 40)
+    print("Mock data inserted successfully!")
 
+
+# ── gunicorn 포함 모든 실행 환경에서 DB 초기화 ──────────
+with app.app_context():
+    init_db()
 
 if __name__ == '__main__':
-    with app.app_context():
-        init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
