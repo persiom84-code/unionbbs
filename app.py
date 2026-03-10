@@ -15,7 +15,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 # ── DB 설정 ──────────────────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
-    raise RuntimeError("DB_URL environment variable is not set!")
+    raise RuntimeError("DATABASE_URL environment variable is not set!")
 
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
@@ -1192,6 +1192,18 @@ def init_db():
 # ── 모든 실행 환경에서 DB 초기화 ──────────────────────────
 with app.app_context():
     init_db()
+
+@app.route('/admin/migrate')
+@level_required(0)
+def migrate():
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE "TB_VOTE" ADD COLUMN IF NOT EXISTS reg_dt TIMESTAMP DEFAULT NOW()'))
+            conn.commit()
+        return '마이그레이션 완료!'
+    except Exception as e:
+        return f'오류: {str(e)}'
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
