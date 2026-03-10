@@ -1,6 +1,6 @@
 """
 UnionBBS - Flask 메인 애플리케이션
-SQLite (테스트) / PostgreSQL (운영) 전환 가능
+PostgreSQL (운영) 전용
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -13,8 +13,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 
 # ── DB 설정 ──────────────────────────────────────────────
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///unionbbs.db')
-# Railway PostgreSQL은 postgresql:// 로 시작하는데 SQLAlchemy는 postgresql+psycopg2:// 필요
+DATABASE_URL = os.environ.get('DB_URL')
+if not DATABASE_URL:
+    raise RuntimeError("DB_URL environment variable is not set!")
+
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
 elif DATABASE_URL.startswith('postgresql://'):
@@ -645,7 +647,6 @@ def admin_vote():
         active_menu='admin_vote'
     )
 
-
 @app.route('/admin/book')
 @level_required(1)
 def admin_book():
@@ -678,7 +679,6 @@ def admin_book():
         my_rentals=my_rentals,
         active_menu='book'
     )
-
 
 @app.route('/admin/vote/create', methods=['POST'])
 @level_required(1)
@@ -995,11 +995,11 @@ def book_request_process():
 @app.route('/about')
 @login_required
 def about():
-    current_user = get_current_user()
-    executives   = User.query.filter_by(user_level=1, use_yn='Y').all()
-    delegates    = User.query.filter_by(user_level=2, use_yn='Y').all()
-    chairman     = User.query.filter_by(user_level=0, use_yn='Y').first()
-    auditors     = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()
+    current_user  = get_current_user()
+    executives    = User.query.filter_by(user_level=1, use_yn='Y').all()
+    delegates     = User.query.filter_by(user_level=2, use_yn='Y').all()
+    chairman      = User.query.filter_by(user_level=0, use_yn='Y').first()
+    auditors      = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()
     slogan_text   = None
     greeting_text = None
     senior_vice   = None
@@ -1171,7 +1171,7 @@ def init_db():
         Code(code_grp='RANK', code_cd='R05', code_nm='사원', sort_order=5),
     ])
 
-    # 관리자 계정 1개만 생성 (나머지는 관리자가 UI에서 등록)
+    # 관리자 계정 1개만 생성
     db.session.add(
         User(emp_no='ADMIN', emp_nm='시스템관리자', gender='M',
              email='admin@yuanta.com', dept_cd='D001',
