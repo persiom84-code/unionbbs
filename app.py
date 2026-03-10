@@ -13,9 +13,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
 
 # ── DB 설정 ──────────────────────────────────────────────
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get('DB_URL')
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is not set!")
+    raise RuntimeError("DB_URL environment variable is not set!")
 
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+psycopg2://', 1)
@@ -123,6 +123,7 @@ class Vote(db.Model):
     vote_cnt    = db.Column(db.Integer, default=0)
     use_yn      = db.Column(db.String(1), default='Y')
     reg_user    = db.Column(db.String(20))
+    reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
 class VoteItem(db.Model):
     __tablename__ = 'TB_VOTE_ITEM'
@@ -510,6 +511,7 @@ def board():
     return render_template('board.html',
         current_user=current_user,
         post_list=posts,
+        total_count=len(posts),
         active_menu='board'
     )
 

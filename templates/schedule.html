@@ -6,188 +6,184 @@
 {% endblock %}
 
 {% block page_style %}
-<style>/* FullCalendar 스타일 커스텀: 유안타 블루 & 해바라기 옐로우 테마 */
-        .fc { --fc-border-color: #f1f5f9; --fc-today-bg-color: #eff6ff; height: 100%; }
-        .fc .fc-toolbar-title { font-size: 1.5rem; font-weight: 900; color: #1e293b; font-style: italic; }
-        .fc .fc-button-primary { background-color: #00479d; border-color: #00479d; font-weight: bold; border-radius: 0.75rem; transition: all 0.2s; }
-        .fc .fc-button-primary:hover { background-color: #00357a; transform: translateY(-1px); }
-        .fc .fc-button-primary:disabled { background-color: #94a3b8; border-color: #94a3b8; }
-        
-        .fc .fc-daygrid-day-number { font-size: 0.9rem; font-weight: 700; padding: 12px; color: #64748b; }
-        .fc .fc-col-header-cell-cushion { font-size: 0.8rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; padding: 12px 0; }
-        
-        /* 이벤트 유형별 컬러링 (FullCalendar ClassNames) */
-        .event-notice { background-color: #00479d !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; } /* 노조공지: 블루 */
-        .event-condo { background-color: #10b981 !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; } /* 콘도승인: 그린 */
-        .event-book { background-color: #8b5cf6 !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; } /* 도서대출: 퍼플 */
-        .event-personal { background-color: #facc15 !important; border: none !important; color: #1e293b !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; font-weight: bold !important; } /* 개인일정: 옐로우 */
-        .event-holiday { background-color: transparent !important; border: none !important; color: #ef4444 !important; font-weight: 900 !important; font-size: 10px !important; text-align: right !important; } /* 공휴일: 레드텍스트 */
-
-        /* 애니메이션 */
-        
-         to { opacity: 1; transform: translateY(0); } }
-
-        /* 모달 스타일 */
-        .modal { transition: opacity 0.25s ease; }
-        .modal-active { overflow-x: hidden; overflow-y: visible !important; }</style>
+<style>
+    .fc { --fc-border-color: #f1f5f9; --fc-today-bg-color: #eff6ff; height: 100%; }
+    .fc .fc-toolbar-title { font-size: 1.5rem; font-weight: 900; color: #1e293b; font-style: italic; }
+    .fc .fc-button-primary { background-color: #00479d; border-color: #00479d; font-weight: bold; border-radius: 0.75rem; transition: all 0.2s; }
+    .fc .fc-button-primary:hover { background-color: #00357a; transform: translateY(-1px); }
+    .fc .fc-button-primary:disabled { background-color: #94a3b8; border-color: #94a3b8; }
+    .fc .fc-daygrid-day-number { font-size: 0.9rem; font-weight: 700; padding: 12px; color: #64748b; }
+    .fc .fc-col-header-cell-cushion { font-size: 0.8rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; padding: 12px 0; }
+    .event-notice { background-color: #00479d !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; }
+    .event-condo { background-color: #10b981 !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; }
+    .event-book { background-color: #8b5cf6 !important; border: none !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; }
+    .event-personal { background-color: #facc15 !important; border: none !important; color: #1e293b !important; padding: 3px 8px !important; border-radius: 6px !important; font-size: 11px !important; font-weight: bold !important; }
+    .event-holiday { background-color: transparent !important; border: none !important; color: #ef4444 !important; font-weight: 900 !important; font-size: 10px !important; text-align: right !important; }
+    .modal { transition: opacity 0.25s ease; }
+    .modal-active { overflow-x: hidden; overflow-y: visible !important; }
+</style>
 {% endblock %}
 
 {% set active_menu = 'schedule' %}
 
 {% block content %}
 <!-- 상단 헤더 섹션 -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 gap-6">
-            <div>
-                <h2 class="text-3xl font-black text-slate-800 flex items-center italic">
-                    <i class="fas fa-calendar-check text-yuanta mr-4"></i>UNION CALENDAR
-                </h2>
-                <p class="text-sm text-slate-400 mt-2 font-medium">공지사항 · 복지신청 · 개인일정 통합 관리</p>
-            </div>
-            
-            <!-- 범례 (Legend) -->
-            <div class="flex flex-wrap gap-3">
-                <div class="flex items-center bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 text-[10px] font-bold">
-                    <span class="w-2 h-2 bg-yuanta rounded-full mr-2"></span><span class="text-yuanta">노조공지</span>
-                </div>
-                <div class="flex items-center bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 text-[10px] font-bold">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span><span class="text-emerald-700">콘도승인</span>
-                </div>
-                <div class="flex items-center bg-purple-50 px-4 py-2 rounded-xl border border-purple-100 text-[10px] font-bold">
-                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span><span class="text-purple-700">도서대출</span>
-                </div>
-                <div class="flex items-center bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100 text-[10px] font-bold">
-                    <span class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span><span class="text-yellow-700">개인일정</span>
-                </div>
-                <button onclick="openModal()" class="ml-2 px-6 py-2.5 bg-slate-800 text-white rounded-2xl text-[11px] font-black hover:bg-yuanta shadow-lg transition-all transform active:scale-95">
-                    <i class="fas fa-plus mr-2"></i>일정 추가
-                </button>
-            </div>
-        </header>
-
-        <!-- 달력 본체 영역 -->
-        <section class="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 min-h-[800px]">
-            <div id="calendar"></div>
-        </section>
-
-        <!-- 폐쇄망 대응 및 안내 가이드 -->
-        <footer class="bg-slate-100/50 p-6 rounded-3xl border border-slate-200 text-center">
-            <div class="flex items-center justify-center space-x-8 text-[11px] font-bold text-slate-400">
-                <span class="flex items-center"><i class="fas fa-envelope-open-text mr-2 text-purple-400"></i>도서 반납 알람 메일 자동 발송 중</span>
-                <span class="flex items-center"><i class="fas fa-link mr-2 text-blue-400"></i>공지사항 게시물 연동 활성화</span>
-                <span class="flex items-center"><i class="fas fa-check-double mr-2 text-emerald-400"></i>콘도 관리자 승인건 실시간 동기화</span>
-            </div>
-        </footer>
+<header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 gap-6">
+    <div>
+        <h2 class="text-3xl font-black text-slate-800 flex items-center italic">
+            <i class="fas fa-calendar-check text-yuanta mr-4"></i>UNION CALENDAR
+        </h2>
+        <p class="text-sm text-slate-400 mt-2 font-medium">공지사항 · 복지신청 · 개인일정 통합 관리</p>
     </div>
-
-    <!-- 개인 일정 추가 모달 (role=dialog, 배경클릭/Escape 닫기, 포커스 처리) -->
-    <div id="schedule-modal" class="modal fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none bg-slate-900/60 transition-all duration-300" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" aria-hidden="true">
-        <div class="bg-white w-full max-w-md p-10 rounded-[2.5rem] shadow-2xl transform scale-95 transition-transform duration-300" role="document" onclick="event.stopPropagation()">
-            <h3 id="schedule-modal-title" class="text-2xl font-black text-slate-800 mb-6 italic"><i class="fas fa-pen-fancy mr-3 text-yuanta"></i>일정 등록</h3>
-            <form id="schedule-form" class="space-y-5">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">일정 제목</label>
-                    <input type="text" id="event-title" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-yuanta/20 font-bold text-slate-700">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">날짜 선택</label>
-                    <input type="date" id="event-date" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-yuanta/20 font-bold text-slate-700">
-                </div>
-                <div class="pt-4 flex gap-3">
-                    <button type="button" onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl text-xs uppercase hover:bg-slate-200 transition-all tracking-widest">취소</button>
-                    <button type="submit" class="flex-1 py-4 bg-yuanta text-white font-black rounded-2xl text-xs uppercase hover:bg-blue-800 shadow-lg shadow-blue-100 transition-all tracking-widest">일정 저장</button>
-                </div>
-            </form>
+    <div class="flex flex-wrap gap-3">
+        <div class="flex items-center bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 text-[10px] font-bold">
+            <span class="w-2 h-2 bg-blue-700 rounded-full mr-2"></span><span class="text-blue-700">노조공지</span>
         </div>
+        <div class="flex items-center bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 text-[10px] font-bold">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span><span class="text-emerald-700">콘도승인</span>
+        </div>
+        <div class="flex items-center bg-purple-50 px-4 py-2 rounded-xl border border-purple-100 text-[10px] font-bold">
+            <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span><span class="text-purple-700">도서대출</span>
+        </div>
+        <div class="flex items-center bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100 text-[10px] font-bold">
+            <span class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span><span class="text-yellow-700">개인일정</span>
+        </div>
+        <button onclick="openModal()" class="ml-2 px-6 py-2.5 bg-slate-800 text-white rounded-2xl text-[11px] font-black hover:bg-blue-700 shadow-lg transition-all transform active:scale-95">
+            <i class="fas fa-plus mr-2"></i>일정 추가
+        </button>
     </div>
+</header>
+
+<!-- 달력 본체 영역 -->
+<section class="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
+    <div id="calendar" style="min-height: 700px;"></div>
+</section>
+
+<!-- 안내 푸터 -->
+<footer class="bg-slate-100/50 p-6 rounded-3xl border border-slate-200 text-center">
+    <div class="flex items-center justify-center space-x-8 text-[11px] font-bold text-slate-400">
+        <span class="flex items-center"><i class="fas fa-envelope-open-text mr-2 text-purple-400"></i>도서 반납 알람 메일 자동 발송 중</span>
+        <span class="flex items-center"><i class="fas fa-link mr-2 text-blue-400"></i>공지사항 게시물 연동 활성화</span>
+        <span class="flex items-center"><i class="fas fa-check-double mr-2 text-emerald-400"></i>콘도 관리자 승인건 실시간 동기화</span>
+    </div>
+</footer>
+
+<!-- 개인 일정 추가 모달 -->
+<div id="schedule-modal" class="modal fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none bg-slate-900/60 transition-all duration-300" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" aria-hidden="true">
+    <div class="bg-white w-full max-w-md p-10 rounded-[2.5rem] shadow-2xl transform scale-95 transition-transform duration-300" role="document" onclick="event.stopPropagation()">
+        <h3 id="schedule-modal-title" class="text-2xl font-black text-slate-800 mb-6 italic">
+            <i class="fas fa-pen-fancy mr-3 text-blue-700"></i>일정 등록
+        </h3>
+        <form id="schedule-form" class="space-y-5">
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">일정 제목</label>
+                <input type="text" id="event-title" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-200 font-bold text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">날짜 선택</label>
+                <input type="date" id="event-date" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-200 font-bold text-slate-700">
+            </div>
+            <div class="pt-4 flex gap-3">
+                <button type="button" onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl text-xs uppercase hover:bg-slate-200 transition-all tracking-widest">취소</button>
+                <button type="submit" class="flex-1 py-4 bg-blue-700 text-white font-black rounded-2xl text-xs uppercase hover:bg-blue-800 shadow-lg transition-all tracking-widest">일정 저장</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block page_script %}
 <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const calendarEl = document.getElementById('calendar');
-            const calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth', // UI: Month 기준 고정
-                locale: 'ko',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: '' // Month 기준만 사용하므로 우측 버튼 제거
-                },
-                fixedWeekCount: false, // 달마다 주차 수에 맞게 유동적 높이 조절
-                height: 'auto',
-                
-                // [데이터 동기화] 백엔드에서 notice_list, condo_reserve, book_rental, holiday 등 병합하여 events로 전달
-                events: [],
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'ko',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: ''
+            },
+            fixedWeekCount: false,
+            height: 'auto',
 
-                // 날짜 클릭 시 개인 일정 추가 팝업
-                dateClick: function(info) {
-                    document.getElementById('event-date').value = info.dateStr;
-                    openModal();
-                },
+            // 백엔드에서 전달받은 일정 데이터
+            events: {{ events | tojson }},
 
-                // 이벤트 클릭 시 상세 정보 이동 (Notice 등)
-                eventClick: function(info) {
-                    if (info.event.url) {
-                        info.jsEvent.preventDefault();
-                        window.location.href = info.event.url;
-                    }
+            dateClick: function(info) {
+                document.getElementById('event-date').value = info.dateStr;
+                openModal();
+            },
+
+            eventClick: function(info) {
+                if (info.event.url) {
+                    info.jsEvent.preventDefault();
+                    window.location.href = info.event.url;
                 }
-            });
-            
-            calendar.render();
-
-            // 일정 추가 폼 제출 로직
-            document.getElementById('schedule-form').onsubmit = function(e) {
-                e.preventDefault();
-                const title = document.getElementById('event-title').value;
-                const date = document.getElementById('event-date').value;
-                
-                if (title) {
-                    calendar.addEvent({
-                        title: title,
-                        start: date,
-                        allDay: true,
-                        className: 'event-personal'
-                    });
-                    closeModal();
-                    this.reset();
-                    // [백엔드 연동] fetch('/api/schedule/save', ...) 를 호출하여 DB에 영구 저장 필요
-                }
-            };
+            }
         });
 
-        // 모달 제어 함수 (포커스 복원, Escape, 배경 클릭)
-        var modalPrevFocus = null;
+        calendar.render();
 
-        function openModal() {
-            const modal = document.getElementById('schedule-modal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.setAttribute('aria-hidden', 'false');
-            modal.children[0].classList.remove('scale-95');
-            modalPrevFocus = document.activeElement;
-            setTimeout(function() { document.getElementById('event-title').focus(); }, 100);
-            document.body.classList.add('modal-active');
-            modal.addEventListener('click', handleModalBackdropClick);
-            document.addEventListener('keydown', handleModalEscape);
-        }
+        document.getElementById('schedule-form').onsubmit = function(e) {
+            e.preventDefault();
+            const title = document.getElementById('event-title').value;
+            const date = document.getElementById('event-date').value;
 
-        function closeModal() {
-            const modal = document.getElementById('schedule-modal');
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.setAttribute('aria-hidden', 'true');
-            modal.children[0].classList.add('scale-95');
-            document.body.classList.remove('modal-active');
-            modal.removeEventListener('click', handleModalBackdropClick);
-            document.removeEventListener('keydown', handleModalEscape);
-            if (modalPrevFocus && modalPrevFocus.focus) modalPrevFocus.focus();
-        }
+            if (title && date) {
+                fetch('/api/schedule/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: title, date: date })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        calendar.addEvent({
+                            title: title,
+                            start: date,
+                            allDay: true,
+                            className: 'event-personal'
+                        });
+                        closeModal();
+                        this.reset();
+                    }
+                });
+            }
+        };
+    });
 
-        function handleModalBackdropClick(e) {
-            if (e.target.id === 'schedule-modal') closeModal();
-        }
+    var modalPrevFocus = null;
 
-        function handleModalEscape(e) {
-            if (e.key === 'Escape') closeModal();
-        }
-    </script>
+    function openModal() {
+        const modal = document.getElementById('schedule-modal');
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.setAttribute('aria-hidden', 'false');
+        modal.children[0].classList.remove('scale-95');
+        modalPrevFocus = document.activeElement;
+        setTimeout(function() { document.getElementById('event-title').focus(); }, 100);
+        document.body.classList.add('modal-active');
+        modal.addEventListener('click', handleModalBackdropClick);
+        document.addEventListener('keydown', handleModalEscape);
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('schedule-modal');
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.children[0].classList.add('scale-95');
+        document.body.classList.remove('modal-active');
+        modal.removeEventListener('click', handleModalBackdropClick);
+        document.removeEventListener('keydown', handleModalEscape);
+        if (modalPrevFocus && modalPrevFocus.focus) modalPrevFocus.focus();
+    }
+
+    function handleModalBackdropClick(e) {
+        if (e.target.id === 'schedule-modal') closeModal();
+    }
+
+    function handleModalEscape(e) {
+        if (e.key === 'Escape') closeModal();
+    }
+</script>
 {% endblock %}
