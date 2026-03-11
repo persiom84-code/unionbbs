@@ -534,10 +534,12 @@ def board_write():
 @login_required
 def board_view(board_seq):
     current_user = get_current_user()
-    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
-    post.view_cnt = (post.view_cnt or 0) + 1
+    db.session.execute(
+        db.text('UPDATE "TB_BOARD" SET view_cnt = COALESCE(view_cnt,0) + 1 WHERE board_seq = :seq'),
+        {'seq': board_seq}
+    )
     db.session.commit()
-    db.session.refresh(post)
+    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
     comments = BoardComment.query.filter_by(board_seq=board_seq, use_yn='Y').order_by(BoardComment.reg_dt.asc()).all()
     return render_template('board_view.html',
         current_user=current_user,
