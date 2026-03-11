@@ -157,15 +157,18 @@ class Suggestion(db.Model):
 
 class Board(db.Model):
     __tablename__ = 'TB_BOARD'
-    board_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title     = db.Column(db.String(200), nullable=False)
-    content   = db.Column(db.Text, nullable=False)
-    view_cnt  = db.Column(db.Integer, default=0)
-    like_cnt  = db.Column(db.Integer, default=0)
-    emp_no    = db.Column(db.String(20), nullable=False)
-    use_yn    = db.Column(db.String(1), default='Y')
-    reg_dt    = db.Column(db.DateTime, default=datetime.now)
-    mod_dt    = db.Column(db.DateTime)
+    board_seq     = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title         = db.Column(db.String(200), nullable=False)
+    content       = db.Column(db.Text, nullable=False)
+    view_cnt      = db.Column(db.Integer, default=0)
+    like_cnt      = db.Column(db.Integer, default=0)
+    emp_no        = db.Column(db.String(20), nullable=False)
+    emp_nm        = db.Column(db.String(100))
+    dept_cd       = db.Column(db.String(20))
+    union_dept_cd = db.Column(db.String(20))
+    use_yn        = db.Column(db.String(1), default='Y')
+    reg_dt        = db.Column(db.DateTime, default=datetime.now)
+    mod_dt        = db.Column(db.DateTime)
 
 class BoardComment(db.Model):
     __tablename__ = 'TB_BOARD_COMMENT'
@@ -512,7 +515,6 @@ def board():
         current_user=current_user,
         post_list=posts,
         total_count=len(posts),
-        post_detail=None,
         active_menu='board'
     )
 
@@ -521,9 +523,13 @@ def board():
 def board_save():
     current_user = get_current_user()
     post = Board(
-        title   = request.form.get('title'),
-        content = request.form.get('content'),
-        emp_no  = current_user.emp_no
+        title         = request.form.get('title'),
+        content       = request.form.get('content'),
+        emp_no        = current_user.emp_no,
+        emp_nm        = current_user.emp_nm,
+        dept_cd       = current_user.dept_cd,
+        union_dept_cd = current_user.union_dept_cd,
+        use_yn        = 'Y'
     )
     db.session.add(post)
     db.session.commit()
@@ -1200,6 +1206,9 @@ def migrate():
     try:
         with db.engine.connect() as conn:
             conn.execute(db.text('ALTER TABLE "TB_VOTE" ADD COLUMN IF NOT EXISTS reg_dt TIMESTAMP DEFAULT NOW()'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS dept_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
