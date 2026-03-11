@@ -512,6 +512,7 @@ def board():
         current_user=current_user,
         post_list=posts,
         total_count=len(posts),
+        post_detail=None,
         active_menu='board'
     )
 
