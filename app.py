@@ -176,6 +176,7 @@ class BoardComment(db.Model):
     board_seq   = db.Column(db.Integer, db.ForeignKey('TB_BOARD.board_seq'), nullable=False)
     content     = db.Column(db.Text, nullable=False)
     emp_no      = db.Column(db.String(20), nullable=False)
+    emp_nm      = db.Column(db.String(100))
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
@@ -518,6 +519,23 @@ def board():
         active_menu='board'
     )
 
+@app.route('/board/view/<int:board_seq>')
+@login_required
+def board_view(board_seq):
+    current_user = get_current_user()
+    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
+    post.view_cnt = (post.view_cnt or 0) + 1
+    db.session.commit()
+    comments = BoardComment.query.filter_by(board_seq=board_seq, use_yn='Y').order_by(BoardComment.reg_dt.asc()).all()
+    return render_template('board.html',
+        current_user=current_user,
+        post_list=[],
+        total_count=0,
+        post_detail=post,
+        comment_list=comments,
+        active_menu='board'
+    )
+
 @app.route('/board/save', methods=['POST'])
 @login_required
 def board_save():
@@ -539,14 +557,16 @@ def board_save():
 @login_required
 def board_comment_save():
     current_user = get_current_user()
+    board_seq = request.form.get('board_seq')
     comment = BoardComment(
-        board_seq = request.form.get('board_seq'),
+        board_seq = board_seq,
         content   = request.form.get('content'),
-        emp_no    = current_user.emp_no
+        emp_no    = current_user.emp_no,
+        emp_nm    = current_user.emp_nm
     )
     db.session.add(comment)
     db.session.commit()
-    return redirect(url_for('board'))
+    return redirect(url_for('board_view', board_seq=board_seq))
 
 
 # ══════════════════════════════════════════════════════════
@@ -1209,6 +1229,7 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
