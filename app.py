@@ -505,8 +505,8 @@ def schedule_save():
 @login_required
 def board():
     current_user = get_current_user()
-    keyword      = request.args.get('q', '')
-    query        = Board.query.filter_by(use_yn='Y')
+    keyword = request.args.get('q', '')
+    query   = Board.query.filter_by(use_yn='Y')
     if keyword:
         query = query.filter(
             Board.title.contains(keyword) | Board.content.contains(keyword)
@@ -516,8 +516,16 @@ def board():
         current_user=current_user,
         post_list=posts,
         total_count=len(posts),
-        post_detail=None,
-        comment_list=[],
+        keyword=keyword,
+        active_menu='board'
+    )
+
+@app.route('/board/write')
+@login_required
+def board_write():
+    current_user = get_current_user()
+    return render_template('board_write.html',
+        current_user=current_user,
         active_menu='board'
     )
 
@@ -528,12 +536,11 @@ def board_view(board_seq):
     post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
     post.view_cnt = (post.view_cnt or 0) + 1
     db.session.commit()
+    db.session.refresh(post)
     comments = BoardComment.query.filter_by(board_seq=board_seq, use_yn='Y').order_by(BoardComment.reg_dt.asc()).all()
-    return render_template('board.html',
+    return render_template('board_view.html',
         current_user=current_user,
-        post_list=[],
-        total_count=0,
-        post_detail=post,
+        post=post,
         comment_list=comments,
         active_menu='board'
     )
@@ -555,6 +562,14 @@ def board_save():
     db.session.commit()
     return redirect(url_for('board'))
 
+@app.route('/board/delete/<int:board_seq>', methods=['POST'])
+@login_required
+def board_delete(board_seq):
+    post = Board.query.get_or_404(board_seq)
+    post.use_yn = 'N'
+    db.session.commit()
+    return redirect(url_for('board'))
+
 @app.route('/board/comment/save', methods=['POST'])
 @login_required
 def board_comment_save():
@@ -562,11 +577,20 @@ def board_comment_save():
     board_seq = request.form.get('board_seq')
     comment = BoardComment(
         board_seq = board_seq,
-        content   = request.form.get('content'),
+        content   = request.form.get('comment'),
         emp_no    = current_user.emp_no,
         emp_nm    = current_user.emp_nm
     )
     db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('board_view', board_seq=board_seq))
+
+@app.route('/board/comment/delete/<int:comment_seq>', methods=['POST'])
+@login_required
+def board_comment_delete(comment_seq):
+    comment = BoardComment.query.get_or_404(comment_seq)
+    board_seq = comment.board_seq
+    comment.use_yn = 'N'
     db.session.commit()
     return redirect(url_for('board_view', board_seq=board_seq))
 
