@@ -23,6 +23,7 @@
     </div>
 </header>
 
+<!-- 본문 -->
 <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 md:p-12 relative overflow-hidden">
     <div class="absolute top-0 left-0 w-full h-2 bg-yuanta"></div>
 
@@ -35,6 +36,9 @@
         </span>
         {% if item.is_top == 'Y' %}
         <span class="px-2 py-1 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>
+        {% endif %}
+        {% if item.allow_comment == 'Y' %}
+        <span class="px-2 py-1 bg-green-50 text-green-600 rounded text-[9px] font-black">댓글허용</span>
         {% endif %}
     </div>
 
@@ -55,10 +59,24 @@
         </div>
     </div>
 
-    <div class="py-8 text-slate-700 leading-loose min-h-[200px]">{{ item.content|safe }}</div>
+    <!-- 본문 내용 -->
+    <div class="py-8 text-slate-700 leading-loose min-h-[200px] ck-content">{{ item.content|safe }}</div>
+
+    <!-- 첨부파일 -->
+    {% if item.file_url %}
+    <div class="mt-4 pt-4 border-t border-slate-100">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">첨부파일</p>
+        <a href="{{ item.file_url }}" target="_blank" download="{{ item.file_name }}"
+            class="inline-flex items-center space-x-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all">
+            <i class="fas fa-paperclip text-slate-400"></i>
+            <span class="text-xs font-bold text-slate-600">{{ item.file_name }}</span>
+            <i class="fas fa-download text-slate-300 text-xs"></i>
+        </a>
+    </div>
+    {% endif %}
 
     {% if current_user and current_user.user_level == 0 %}
-    <div class="flex justify-end pt-6 border-t border-slate-50">
+    <div class="flex justify-end pt-6 border-t border-slate-50 mt-6">
         <form action="/notice/delete/{{ item.notice_seq }}" method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?')">
             <button type="submit" class="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
                 <i class="fas fa-trash-alt mr-1"></i>삭제
@@ -67,4 +85,50 @@
     </div>
     {% endif %}
 </div>
+
+<!-- 댓글 영역 (allow_comment == 'Y' 일 때만) -->
+{% if item.allow_comment == 'Y' %}
+<div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 md:p-10">
+    <h4 class="text-sm font-black text-slate-700 mb-6 flex items-center">
+        <i class="fas fa-comments text-yuanta mr-2"></i>댓글 <span class="text-yuanta ml-1">{{ comment_list|length }}</span>
+    </h4>
+
+    <form action="/notice/comment/save" method="POST" class="mb-10 bg-slate-50 p-4 rounded-2xl border border-slate-200 focus-within:border-yuanta focus-within:bg-white transition-all">
+        <input type="hidden" name="notice_seq" value="{{ item.notice_seq }}">
+        <div class="flex flex-col sm:flex-row gap-4">
+            <textarea name="comment" rows="2" required placeholder="댓글을 남겨주세요."
+                class="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder-slate-400"></textarea>
+            <button type="submit" class="px-6 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-yuanta transition-all self-end">등록</button>
+        </div>
+    </form>
+
+    <div class="space-y-6">
+        {% for comment in comment_list %}
+        <div class="flex space-x-4 group">
+            <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 shrink-0 mt-1">
+                <i class="fas fa-user text-xs"></i>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-baseline justify-between mb-1">
+                    <div class="space-x-2">
+                        <span class="text-xs font-black text-slate-700">{{ comment.emp_nm or comment.emp_no }}</span>
+                        <span class="text-[9px] text-slate-400 font-mono">{{ comment.reg_dt.strftime('%Y.%m.%d %H:%M') if comment.reg_dt else '' }}</span>
+                    </div>
+                    {% if current_user and (current_user.user_level == 0 or current_user.emp_no == comment.emp_no) %}
+                    <form action="/notice/comment/delete/{{ comment.comment_seq }}" method="POST" class="inline">
+                        <button type="submit" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-slate-600 leading-relaxed">{{ comment.content }}</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="py-8 text-center text-slate-400 text-sm italic">첫 번째 댓글을 남겨보세요.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}
