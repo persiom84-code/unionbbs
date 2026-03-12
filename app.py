@@ -8,6 +8,8 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 import bcrypt
 import os
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
@@ -27,6 +29,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 
 db = SQLAlchemy(app, session_options={'expire_on_commit': False})
+
+# Cloudinary 초기화
+cloudinary.config(
+    cloud_name  = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key     = os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret  = os.environ.get('CLOUDINARY_API_SECRET')
+)
 
 # ══════════════════════════════════════════════════════════
 # Models
@@ -96,8 +105,21 @@ class Notice(db.Model):
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
     reg_user    = db.Column(db.String(20))
-    mod_dt      = db.Column(db.DateTime)
-    mod_user    = db.Column(db.String(20))
+    mod_dt        = db.Column(db.DateTime)
+    mod_user      = db.Column(db.String(20))
+    allow_comment = db.Column(db.String(1), default='N')
+    file_url      = db.Column(db.String(500))
+    file_name     = db.Column(db.String(200))
+
+class NoticeComment(db.Model):
+    __tablename__ = 'TB_NOTICE_COMMENT'
+    comment_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    notice_seq  = db.Column(db.Integer, db.ForeignKey('TB_NOTICE.notice_seq'), nullable=False)
+    content     = db.Column(db.Text, nullable=False)
+    emp_no      = db.Column(db.String(20), nullable=False)
+    emp_nm      = db.Column(db.String(100))
+    use_yn      = db.Column(db.String(1), default='Y')
+    reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
 class Schedule(db.Model):
     __tablename__ = 'TB_SCHEDULE'
@@ -432,9 +454,11 @@ def notice_view(notice_seq):
     )
     db.session.commit()
     item = Notice.query.get_or_404(notice_seq)
+    comments = NoticeComment.query.filter_by(notice_seq=notice_seq, use_yn='Y').order_by(NoticeComment.reg_dt.asc()).all()
     return render_template('notice_view.html',
         current_user=current_user,
         item=item,
+        comment_list=comments,
         active_menu='notice'
     )
 
@@ -450,12 +474,23 @@ def notice_delete(notice_seq):
 @level_required(1)
 def notice_save():
     current_user = get_current_user()
+    file_url  = None
+    file_name = None
+    if 'attach_file' in request.files:
+        f = request.files['attach_file']
+        if f and f.filename:
+            result   = cloudinary.uploader.upload(f, folder='unionbbs/notice', resource_type='auto')
+            file_url  = result.get('secure_url')
+            file_name = f.filename
     notice = Notice(
-        notice_type = request.form.get('notice_type'),
-        title       = request.form.get('title'),
-        content     = request.form.get('content'),
-        is_push     = request.form.get('send_mail', 'N'),
-        reg_user    = current_user.emp_no
+        notice_type   = request.form.get('notice_type'),
+        title         = request.form.get('title'),
+        content       = request.form.get('content'),
+        is_push       = request.form.get('send_mail', 'N'),
+        allow_comment = request.form.get('allow_comment', 'N'),
+        file_url      = file_url,
+        file_name     = file_name,
+        reg_user      = current_user.emp_no
     )
     db.session.add(notice)
 
@@ -480,6 +515,30 @@ def notice_save():
     flash('공지사항이 등록되었습니다.')
     return redirect(url_for('notice'))
 
+
+@app.route('/notice/comment/save', methods=['POST'])
+@login_required
+def notice_comment_save():
+    current_user = get_current_user()
+    notice_seq = request.form.get('notice_seq')
+    comment = NoticeComment(
+        notice_seq = notice_seq,
+        content    = request.form.get('comment'),
+        emp_no     = current_user.emp_no,
+        emp_nm     = current_user.emp_nm
+    )
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('notice_view', notice_seq=notice_seq))
+
+@app.route('/notice/comment/delete/<int:comment_seq>', methods=['POST'])
+@login_required
+def notice_comment_delete(comment_seq):
+    comment = NoticeComment.query.get_or_404(comment_seq)
+    notice_seq = comment.notice_seq
+    comment.use_yn = 'N'
+    db.session.commit()
+    return redirect(url_for('notice_view', notice_seq=notice_seq))
 
 # ══════════════════════════════════════════════════════════
 # Routes - 일정
@@ -1279,6 +1338,18 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
+            conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
+            conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
+            conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_NOTICE_COMMENT" (
+                comment_seq SERIAL PRIMARY KEY,
+                notice_seq INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                emp_no VARCHAR(20) NOT NULL,
+                emp_nm VARCHAR(100),
+                use_yn VARCHAR(1) DEFAULT \'Y\',
+                reg_dt TIMESTAMP DEFAULT NOW()
+            )'''))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
