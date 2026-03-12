@@ -1,42 +1,144 @@
 {% extends 'base.html' %}
-{% block title %}게시글 작성{% endblock %}
+{% block title %}공지 작성{% endblock %}
 
-{% set active_menu = 'board' %}
+{% block extra_head %}
+
+{% endblock %}
+
+{% set active_menu = 'notice' %}
 
 {% block content %}
-<header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 gap-6">
+<header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
     <div>
-        <h2 class="text-3xl font-black text-slate-800 flex items-center italic tracking-tighter">
-            <i class="fas fa-comments text-yuanta mr-3"></i>UNION BOARD
+        <h2 class="text-2xl font-black text-slate-800 flex items-center italic">
+            <i class="fas fa-bullhorn text-yuanta mr-3"></i>NOTICE
         </h2>
-        <p class="text-xs text-slate-400 mt-2 font-medium uppercase tracking-widest">조합원 소통과 연대를 위한 자유게시판</p>
+        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">공지사항 및 노조 속보 관리</p>
     </div>
-    <a href="/board" class="px-6 py-3 bg-white text-slate-800 rounded-xl text-sm font-bold shadow-sm border border-slate-200 hover:bg-slate-50 transition-all">
+    <a href="/notice" class="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
         <i class="fas fa-list mr-2"></i>목록 보기
     </a>
 </header>
 
-<section class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-12">
-    <h3 class="text-xl font-black text-slate-800 mb-8 border-b border-slate-100 pb-4">
-        <i class="fas fa-edit text-yuanta mr-2"></i>새 게시글 작성
-    </h3>
+<section class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+    <form action="/notice/save" method="POST" enctype="multipart/form-data" class="p-10 space-y-8">
 
-    <form action="/board/save" method="POST" class="space-y-6">
-        <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">제목</label>
-            <input type="text" name="title" required placeholder="제목을 입력하세요 (최대 100자)"
-                class="form-input text-lg font-bold w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yuanta/20">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- 공지 구분 -->
+            <div class="space-y-2">
+                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">공지 구분</label>
+                <select name="notice_type" id="notice-type-select" onchange="toggleScheduleFields()"
+                    class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20">
+                    <option value="FLASH">노조속보</option>
+                    <option value="SCHEDULE">일정안내</option>
+                    <option value="ELECTION">선거사항</option>
+                </select>
+            </div>
+            <!-- 상단 고정 -->
+            <div class="space-y-2">
+                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">상단 고정</label>
+                <div class="flex items-center space-x-6 h-[46px] bg-slate-50 rounded-xl px-4 border border-slate-200">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="is_top" value="Y" class="w-4 h-4 text-yuanta">
+                        <span class="text-sm font-bold text-slate-600">고정</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="is_top" value="N" checked class="w-4 h-4 text-yuanta">
+                        <span class="text-sm font-bold text-slate-600">일반</span>
+                    </label>
+                </div>
+            </div>
+            <!-- 댓글 허용 -->
+            <div class="space-y-2">
+                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">댓글 허용</label>
+                <div class="flex items-center space-x-6 h-[46px] bg-slate-50 rounded-xl px-4 border border-slate-200">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="allow_comment" value="Y" class="w-4 h-4 text-yuanta">
+                        <span class="text-sm font-bold text-slate-600">허용</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="allow_comment" value="N" checked class="w-4 h-4 text-yuanta">
+                        <span class="text-sm font-bold text-slate-600">비허용</span>
+                    </label>
+                </div>
+            </div>
         </div>
-        <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">내용</label>
-            <textarea name="content" rows="15" required placeholder="조합원들과 자유롭게 의견을 나누어 보세요. 상호 존중하는 문화를 만들어갑니다."
-                class="form-input resize-none leading-relaxed text-slate-700 min-h-[300px] w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yuanta/20"></textarea>
+
+        <!-- 일정 연동 필드 -->
+        <div id="schedule-sync-fields" class="hidden border-2 border-dashed border-slate-200 bg-slate-50 p-6 rounded-2xl space-y-4">
+            <div class="flex items-center text-yuanta">
+                <i class="fas fa-calendar-plus mr-2"></i>
+                <span class="text-xs font-black uppercase tracking-widest">일정 연동</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">일정 날짜</label>
+                    <input type="date" name="event_date" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yuanta/20">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">시작 시간</label>
+                    <input type="time" name="event_time" step="600" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yuanta/20">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">장소</label>
+                    <input type="text" name="event_location" placeholder="본사 대회의실 등" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yuanta/20">
+                </div>
+            </div>
         </div>
-        <div class="pt-6 text-center">
-            <button type="submit" class="px-16 py-4 bg-slate-800 text-white rounded-2xl text-sm font-black hover:bg-yuanta shadow-xl shadow-slate-200 transition-all tracking-widest uppercase">
-                게시글 등록
+
+        <!-- 제목 -->
+        <div class="space-y-2">
+            <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">제목</label>
+            <input type="text" name="title" required placeholder="공지사항 제목을 입력하세요"
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-yuanta/20">
+        </div>
+
+        <!-- 본문 (CKEditor) -->
+        <div class="space-y-2">
+            <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">본문 내용</label>
+            <textarea name="content" id="editor" rows="16" placeholder="공지 내용을 입력하세요." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20 resize-y leading-relaxed"></textarea>
+        </div>
+
+        <!-- 첨부파일 -->
+        <div class="space-y-2">
+            <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">첨부파일</label>
+            <div class="flex items-center space-x-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <label class="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-all">
+                    <i class="fas fa-paperclip text-slate-400"></i>
+                    <span class="text-xs font-bold text-slate-600">파일 선택</span>
+                    <input type="file" name="attach_file" class="hidden" onchange="showFileName(this)">
+                </label>
+                <span id="file-name-display" class="text-xs text-slate-400 font-medium">선택된 파일 없음</span>
+            </div>
+            <p class="text-[10px] text-slate-400 ml-1">※ 최대 10MB, PDF/Word/Excel/이미지 파일 지원</p>
+        </div>
+
+        <div class="flex justify-end pt-6 border-t border-slate-100">
+            <button type="submit" class="px-10 py-3 bg-yuanta text-white rounded-2xl text-xs font-black hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all uppercase tracking-widest">
+                작성완료
             </button>
         </div>
     </form>
 </section>
+{% endblock %}
+
+{% block page_script %}
+<script>
+
+
+    function toggleScheduleFields() {
+        const type = document.getElementById('notice-type-select').value;
+        const fields = document.getElementById('schedule-sync-fields');
+        if(type === 'SCHEDULE' || type === 'ELECTION') {
+            fields.classList.remove('hidden');
+        } else {
+            fields.classList.add('hidden');
+        }
+    }
+
+    function showFileName(input) {
+        const display = document.getElementById('file-name-display');
+        display.textContent = input.files[0] ? input.files[0].name : '선택된 파일 없음';
+    }
+</script>
 {% endblock %}
