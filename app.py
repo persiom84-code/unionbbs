@@ -403,6 +403,15 @@ def main():
     condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
     book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
 
+    # 캘린더용 전체 일정
+    all_schedules = Schedule.query.filter_by(use_yn='Y').order_by(Schedule.start_dt).all()
+    events = [{
+        'title': s.title,
+        'start': s.start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+        'end':   s.end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+        'className': 'event-notice'
+    } for s in all_schedules]
+
     return render_template('main.html',
         current_user=current_user,
         notice_list=notices,
@@ -411,6 +420,7 @@ def main():
         condo_count=condo_count,
         book_count=book_count,
         current_date_str=date.today().strftime('%Y년 %m월 %d일'),
+        events=events,
         active_menu='dashboard'
     )
 

@@ -44,10 +44,9 @@
         <p style="font-size:9px;font-weight:800;color:#00479d;text-transform:uppercase;letter-spacing:.3em;margin-bottom:4px;">Today</p>
         <p style="font-size:18px;font-weight:900;color:#334155;">{{ current_date_str | default('-') }}</p>
     </div>
-    <i class="fas fa-shield-alt" style="position:absolute;right:-20px;bottom:-20px;font-size:100px;color:#f1f5f9;"></i>
 </div>
 
-<!-- 4대 카드 그리드 -->
+<!-- 상단 2열 + 하단 캘린더 레이아웃 -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
     <!-- 1. 공지사항 -->
@@ -168,7 +167,51 @@
 
 </div>
 
+<!-- 캘린더 -->
+<div class="dash-card" style="margin-top:16px;">
+    <div class="dash-card-head">
+        <span class="dash-card-title"><i class="fas fa-calendar-alt" style="margin-right:8px;"></i>일정 캘린더</span>
+        <a href="/schedule" style="font-size:10px;font-weight:700;color:#94a3b8;text-decoration:none;letter-spacing:.1em;text-transform:uppercase;" onmouseover="this.style.color='#00479d'" onmouseout="this.style.color='#94a3b8'">More →</a>
+    </div>
+    <div class="dash-card-body">
+        <div id="dashboard-calendar"></div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('dashboard-calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ko',
+        height: 420,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        buttonText: { today: '오늘' },
+        events: {{ events | tojson }},
+        eventColor: '#00479d',
+        eventDisplay: 'block',
+        dayMaxEvents: 3,
+        eventClick: function(info) {
+            window.location.href = '/schedule';
+        }
+    });
+    calendar.render();
+});
+</script>
+
 <style>
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+.fc .fc-toolbar-title { font-size: 15px !important; font-weight: 800 !important; color: #1e293b !important; }
+.fc .fc-button { background: #00479d !important; border-color: #00479d !important; font-size: 11px !important; padding: 4px 10px !important; }
+.fc .fc-button-active { background: #003580 !important; }
+.fc .fc-daygrid-day-number { font-size: 11px !important; font-weight: 700 !important; color: #64748b !important; }
+.fc .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 800 !important; color: #94a3b8 !important; }
+.fc-event { border-radius: 4px !important; font-size: 10px !important; padding: 1px 4px !important; }
 </style>
 {% endblock %}
