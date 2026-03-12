@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}{{ item.title }}{% endblock %}
+
+{% set active_menu = 'notice' %}
+
+{% block content %}
+<header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+    <div>
+        <h2 class="text-2xl font-black text-slate-800 flex items-center italic">
+            <i class="fas fa-bullhorn text-yuanta mr-3"></i>NOTICE
+        </h2>
+        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">공지사항 및 노조 속보 관리</p>
+    </div>
+    <div class="flex space-x-2">
+        {% if current_user and current_user.user_level == 0 %}
+        <a href="/notice/write" class="px-5 py-2 bg-yuanta text-white rounded-xl text-xs font-bold hover:bg-blue-800 transition-all">
+            <i class="fas fa-pen-nib mr-2"></i>새 공지 작성
+        </a>
+        {% endif %}
+        <a href="/notice" class="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
+            <i class="fas fa-list mr-2"></i>목록 보기
+        </a>
+    </div>
+</header>
+
+<div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8 md:p-12 relative overflow-hidden">
+    <div class="absolute top-0 left-0 w-full h-2 bg-yuanta"></div>
+
+    <div class="flex items-center space-x-2 mb-4">
+        <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
+            {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else
+               'bg-blue-50 text-blue-600' if item.notice_type == 'SCHEDULE' else
+               'bg-amber-50 text-amber-600' }}">
+            {{ '노조속보' if item.notice_type == 'FLASH' else '일정안내' if item.notice_type == 'SCHEDULE' else '선거사항' }}
+        </span>
+        {% if item.is_top == 'Y' %}
+        <span class="px-2 py-1 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>
+        {% endif %}
+    </div>
+
+    <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-6 leading-tight">{{ item.title }}</h2>
+
+    <div class="flex items-center justify-between pb-6 border-b border-slate-100">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                <i class="fas fa-user"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-slate-700">관리자</p>
+                <p class="text-[10px] text-slate-400 font-mono">{{ item.reg_dt.strftime('%Y.%m.%d %H:%M') if item.reg_dt else '' }}</p>
+            </div>
+        </div>
+        <div class="text-[11px] font-bold text-slate-400">
+            <span><i class="far fa-eye mr-1"></i>조회 {{ item.view_cnt or 0 }}</span>
+        </div>
+    </div>
+
+    <div class="py-8 text-slate-700 leading-loose min-h-[200px]">{{ item.content|safe }}</div>
+
+    {% if current_user and current_user.user_level == 0 %}
+    <div class="flex justify-end pt-6 border-t border-slate-50">
+        <form action="/notice/delete/{{ item.notice_seq }}" method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?')">
+            <button type="submit" class="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
+                <i class="fas fa-trash-alt mr-1"></i>삭제
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

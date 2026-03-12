@@ -409,6 +409,16 @@ def notice():
     return render_template('notice.html',
         current_user=current_user,
         notice_list=notices,
+        notice_type=notice_type,
+        active_menu='notice'
+    )
+
+@app.route('/notice/write')
+@level_required(0)
+def notice_write():
+    current_user = get_current_user()
+    return render_template('notice_write.html',
+        current_user=current_user,
         active_menu='notice'
     )
 
@@ -416,15 +426,25 @@ def notice():
 @login_required
 def notice_view(notice_seq):
     current_user = get_current_user()
-    item = Notice.query.get_or_404(notice_seq)
-    item.view_cnt = (item.view_cnt or 0) + 1
+    db.session.execute(
+        db.text('UPDATE "TB_NOTICE" SET view_cnt = COALESCE(view_cnt,0) + 1 WHERE notice_seq = :seq'),
+        {'seq': notice_seq}
+    )
     db.session.commit()
-    return render_template('notice.html',
+    item = Notice.query.get_or_404(notice_seq)
+    return render_template('notice_view.html',
         current_user=current_user,
-        notice_list=Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).all(),
-        selected_notice=item,
+        item=item,
         active_menu='notice'
     )
+
+@app.route('/notice/delete/<int:notice_seq>', methods=['POST'])
+@level_required(0)
+def notice_delete(notice_seq):
+    item = Notice.query.get_or_404(notice_seq)
+    item.use_yn = 'N'
+    db.session.commit()
+    return redirect(url_for('notice'))
 
 @app.route('/notice/save', methods=['POST'])
 @level_required(1)
@@ -534,10 +554,12 @@ def board_write():
 @login_required
 def board_view(board_seq):
     current_user = get_current_user()
-    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
-    post.view_cnt = (post.view_cnt or 0) + 1
+    db.session.execute(
+        db.text('UPDATE "TB_BOARD" SET view_cnt = COALESCE(view_cnt,0) + 1 WHERE board_seq = :seq'),
+        {'seq': board_seq}
+    )
     db.session.commit()
-    db.session.refresh(post)
+    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
     comments = BoardComment.query.filter_by(board_seq=board_seq, use_yn='Y').order_by(BoardComment.reg_dt.asc()).all()
     return render_template('board_view.html',
         current_user=current_user,

@@ -1,235 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}공지사항{% endblock %}
 
-{% block extra_head %}
-
-{% endblock %}
-
 {% block page_style %}
-<style>/* 게시판 스타일 커스텀 */
-        .notice-row { transition: all 0.2s; border-bottom: 1px solid #f1f5f9; }
-        .notice-row:hover { background-color: #f8fafc; }
-        
-        /* 작성 폼 스타일 */
-        
-        
-
-        /* 애니메이션 */
-        
-         to { opacity: 1; transform: translateY(0); } }
-
-        /* 일정 연동 구역 강조 */
-        .schedule-sync-box { border: 2px dashed #e2e8f0; background-color: #f8fafc; transition: all 0.3s ease; }</style>
+<style>
+    .notice-row { transition: all 0.2s; border-bottom: 1px solid #f1f5f9; }
+    .notice-row:hover { background-color: #f8fafc; }
+</style>
 {% endblock %}
 
 {% set active_menu = 'notice' %}
 
 {% block content %}
-<!-- 상단 헤더 및 뷰 전환 컨트롤 -->
-        <header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <div>
-                <h2 class="text-2xl font-black text-slate-800 flex items-center italic">
-                    <i class="fas fa-bullhorn text-yuanta mr-3"></i>NOTICE
-                </h2>
-                <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">공지사항 및 노조 속보 관리</p>
-            </div>
-            
-            {% if current_user and current_user.user_level == 0 %}
-            <div class="flex space-x-3">
-                <button id="btn-list" onclick="switchView('list')" class="hidden px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
-                    목록 보기
-                </button>
-                <button id="btn-write" onclick="switchView('write')" class="px-5 py-2 bg-yuanta text-white rounded-xl text-xs font-bold hover:bg-blue-800 shadow-lg shadow-blue-100 transition-all">
-                    <i class="fas fa-pen-nib mr-2"></i>새 공지 작성
-                </button>
-            </div>
-            {% endif %}
-        </header>
-
-        <!-- 1. 공지사항 목록 뷰 (List View) -->
-        <section id="notice-list-view" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-            <div class="p-6 border-b border-slate-50 flex flex-wrap gap-4 items-center justify-between">
-                <div class="flex space-x-2">
-                    <button class="px-4 py-1.5 bg-yuanta text-white rounded-lg text-[11px] font-bold">전체</button>
-                    <button class="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-lg text-[11px] font-bold hover:bg-slate-100 transition-all">노조속보</button>
-                    <button class="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-lg text-[11px] font-bold hover:bg-slate-100 transition-all">일정안내</button>
-                    <button class="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-lg text-[11px] font-bold hover:bg-slate-100 transition-all">선거사항</button>
-                </div>
-                <div class="relative w-full md:w-64">
-                    <input type="text" placeholder="제목 또는 내용 검색..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-yuanta/20">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        <tr>
-                            <th scope="col" class="px-8 py-4 w-24 text-center">번호</th>
-                            <th scope="col" class="px-4 py-4 w-32">구분</th>
-                            <th scope="col" class="px-4 py-4">제목</th>
-                            <th scope="col" class="px-4 py-4 w-32 text-center">작성자</th>
-                            <th scope="col" class="px-4 py-4 w-32 text-center">등록일</th>
-                            <th scope="col" class="px-8 py-4 w-24 text-center">조회</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-sm">
-                        {% for item in notice_list %}
-                        <tr class="notice-row cursor-pointer" onclick="location.href='/notice/view/{{ item.notice_seq }}'">
-                            <td class="px-8 py-5 text-center text-slate-400 font-mono">{{ item.notice_seq }}</td>
-                            <td class="px-4 py-5">
-                                <span class="px-2.5 py-1 rounded-md text-[10px] font-bold 
-                                    {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else 
-                                       'bg-blue-50 text-blue-600' if item.notice_type == 'SCHEDULE' else 
-                                       'bg-amber-50 text-amber-600' }}">
-                                    {{ '노조속보' if item.notice_type == 'FLASH' else '일정안내' if item.notice_type == 'SCHEDULE' else '선거사항' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-5 font-semibold text-slate-700 truncate max-w-md">
-                                {{ item.title }}
-                                {% if item.is_push == 'Y' %}<i class="fas fa-paper-plane ml-2 text-slate-300 text-[10px]" title="메일 발송됨"></i>{% endif %}
-                            </td>
-                            <td class="px-4 py-5 text-center text-slate-500">{{ item.reg_user_nm|default('관리자') }}</td>
-                            <td class="px-4 py-5 text-center text-slate-400 font-mono text-xs">{{ item.reg_dt.strftime('%Y.%m.%d') if item.reg_dt else '-' }}</td>
-                            <td class="px-8 py-5 text-center text-slate-400">{{ item.view_cnt|default(0) }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="py-20 text-center text-slate-300 italic">
-                                <i class="fas fa-inbox text-4xl mb-4 block"></i>
-                                등록된 공지사항이 없습니다.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- 2. 공지사항 작성 뷰 -->
-        <section id="notice-write-view" class="hidden bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-            <form action="/notice/save" method="POST" class="p-10 space-y-8">
-                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- 구분 선택 -->
-                    <div class="space-y-2">
-                        <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">공지 구분</label>
-                        <select name="notice_type" id="notice-type-select" onchange="toggleScheduleFields()" class="form-input bg-slate-50 font-bold text-slate-700 cursor-pointer">
-                            <option value="FLASH">노조속보</option>
-                            <option value="SCHEDULE">분회순방 / 간담회 일정</option>
-                            <option value="ELECTION">선거사항</option>
-                        </select>
-                    </div>
-
-                    <!-- 메일 발송 여부 -->
-                    <div class="space-y-2">
-                        <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">메일 발송 여부</label>
-                        <div class="flex items-center space-x-6 h-[46px] bg-slate-50 rounded-xl px-6 border border-slate-100">
-                            <label class="flex items-center space-x-2 cursor-pointer group">
-                                <input type="radio" name="send_mail" value="Y" class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta">
-                                <span class="text-sm font-bold text-slate-600 group-hover:text-yuanta transition-colors">Yes (전체발송)</span>
-                            </label>
-                            <label class="flex items-center space-x-2 cursor-pointer group">
-                                <input type="radio" name="send_mail" value="N" checked class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta">
-                                <span class="text-sm font-bold text-slate-600 group-hover:text-yuanta transition-colors">No (게시만 함)</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- [일정 연동 추가 필드] 일정안내 또는 선거사항 선택 시 표시 -->
-                <div id="schedule-sync-fields" class="hidden schedule-sync-box p-8 rounded-2xl space-y-6">
-                    <div class="flex items-center text-yuanta mb-2">
-                        <i class="fas fa-calendar-plus mr-2"></i>
-                        <span class="text-xs font-black uppercase tracking-widest">Schedule Sync Options</span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 mb-2">일정 날짜</label>
-                            <input type="date" name="event_date" class="form-input">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 mb-2">시작 시간</label>
-                            <input type="time" name="event_time" class="form-input">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 mb-2">장소</label>
-                            <input type="text" name="event_location" placeholder="본사 대회의실 등" class="form-input">
-                        </div>
-                    </div>
-                    <p class="text-[10px] text-slate-400 italic font-medium">※ 입력 시 대시보드 및 일정표에 자동으로 등록됩니다.</p>
-                </div>
-
-                <!-- 제목 입력 -->
-                <div class="space-y-2">
-                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">제목</label>
-                    <input type="text" name="title" required placeholder="공지사항 제목을 입력하세요" class="form-input font-bold text-lg">
-                </div>
-
-                <!-- 본문 작성 -->
-                <div class="space-y-2">
-                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">본문 내용</label>
-                    <textarea name="content" rows="12" required placeholder="조합원들께 전달할 상세 내용을 작성하세요..." 
-                              class="form-input resize-none leading-relaxed text-slate-600 bg-slate-50/50 focus:bg-white min-h-[300px]"></textarea>
-                </div>
-
-                <!-- 하단 버튼 영역 -->
-                <div class="flex justify-between items-center pt-6 border-t border-slate-100">
-                    <p class="text-[11px] text-slate-400 font-medium">
-                        <i class="fas fa-info-circle mr-1 text-yuanta/50"></i> 메일 발송 체크 시 TB_USER에 등록된 모든 이메일로 전송됩니다.
-                    </p>
-                    <div class="flex space-x-3">
-                        <button type="button" onclick="saveDraft()" class="px-8 py-3 bg-slate-100 text-slate-500 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all uppercase tracking-widest" title="백엔드 연동 후 실제 임시저장 API 호출 예정">
-                            임시저장
-                        </button>
-                        <button type="submit" class="px-10 py-3 bg-yuanta text-white rounded-2xl text-xs font-black hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all uppercase tracking-widest">
-                            작성완료
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </section>
-
+<header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+    <div>
+        <h2 class="text-2xl font-black text-slate-800 flex items-center italic">
+            <i class="fas fa-bullhorn text-yuanta mr-3"></i>NOTICE
+        </h2>
+        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">공지사항 및 노조 속보 관리</p>
     </div>
-{% endblock %}
+    {% if current_user and current_user.user_level == 0 %}
+    <a href="/notice/write" class="px-5 py-2 bg-yuanta text-white rounded-xl text-xs font-bold hover:bg-blue-800 shadow-lg shadow-blue-100 transition-all">
+        <i class="fas fa-pen-nib mr-2"></i>새 공지 작성
+    </a>
+    {% endif %}
+</header>
 
-{% block page_script %}
-<script>
-        function switchView(view) {
-            const list = document.getElementById('notice-list-view');
-            const write = document.getElementById('notice-write-view');
-            const btnList = document.getElementById('btn-list');
-            const btnWrite = document.getElementById('btn-write');
+<section class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+    <div class="p-6 border-b border-slate-50 flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex space-x-2">
+            <a href="/notice" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if not notice_type else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">전체</a>
+            <a href="/notice?type=FLASH" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'FLASH' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">노조속보</a>
+            <a href="/notice?type=SCHEDULE" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'SCHEDULE' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">일정안내</a>
+            <a href="/notice?type=ELECTION" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'ELECTION' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">선거사항</a>
+        </div>
+    </div>
 
-            if(view === 'write') {
-                list.classList.add('hidden');
-                write.classList.remove('hidden');
-                if(btnList) btnList.classList.remove('hidden');
-                if(btnWrite) btnWrite.classList.add('hidden');
-            } else {
-                list.classList.remove('hidden');
-                write.classList.add('hidden');
-                if(btnList) btnList.classList.add('hidden');
-                if(btnWrite) btnWrite.classList.remove('hidden');
-            }
-        }
-
-        // 공지 구분 선택에 따른 일정 필드 토글 로직
-        function toggleScheduleFields() {
-            const type = document.getElementById('notice-type-select').value;
-            const fields = document.getElementById('schedule-sync-fields');
-            
-            if(type === 'SCHEDULE' || type === 'ELECTION') {
-                fields.classList.remove('hidden');
-                fields.classList.add('fade-in');
-            } else {
-                fields.classList.add('hidden');
-            }
-        }
-
-        // [TODO] 백엔드: /notice/draft 등 임시저장 API 연동 후 fetch로 폼 데이터 전송
-        function saveDraft() {
-            alert("입력한 내용이 임시저장되었습니다.");
-        }
-    </script>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-slate-50/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <tr>
+                    <th class="px-8 py-4 w-24 text-center">번호</th>
+                    <th class="px-4 py-4 w-32">구분</th>
+                    <th class="px-4 py-4">제목</th>
+                    <th class="px-4 py-4 w-32 text-center">등록일</th>
+                    <th class="px-8 py-4 w-24 text-center">조회</th>
+                </tr>
+            </thead>
+            <tbody class="text-sm">
+                {% for item in notice_list %}
+                <tr class="notice-row cursor-pointer" onclick="location.href='/notice/view/{{ item.notice_seq }}'">
+                    <td class="px-8 py-5 text-center text-slate-400 font-mono">{{ item.notice_seq }}</td>
+                    <td class="px-4 py-5">
+                        <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
+                            {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else
+                               'bg-blue-50 text-blue-600' if item.notice_type == 'SCHEDULE' else
+                               'bg-amber-50 text-amber-600' }}">
+                            {{ '노조속보' if item.notice_type == 'FLASH' else '일정안내' if item.notice_type == 'SCHEDULE' else '선거사항' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-5 font-semibold text-slate-700 truncate max-w-md">
+                        {{ item.title }}
+                        {% if item.is_top == 'Y' %}<span class="ml-2 px-1.5 py-0.5 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-5 text-center text-slate-400 font-mono text-xs">{{ item.reg_dt.strftime('%Y.%m.%d') if item.reg_dt else '-' }}</td>
+                    <td class="px-8 py-5 text-center text-slate-400">{{ item.view_cnt or 0 }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="py-20 text-center text-slate-300 italic">
+                        <i class="fas fa-inbox text-4xl mb-4 block"></i>
+                        등록된 공지사항이 없습니다.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 {% endblock %}
