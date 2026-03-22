@@ -101,14 +101,71 @@
                         <textarea name="description" rows="3" placeholder="조합원들에게 안내할 상세 내용을 작성하세요." class="form-input resize-none"></textarea>
                     </div>
                     
+                    <!-- 시작/종료 일시: 날짜+시간 분리, 30분 단위 select -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 mb-2 ml-1"><i class="far fa-calendar-plus mr-1"></i>시작 일시</label>
-                            <input type="datetime-local" name="start_dt" required class="form-input bg-white">
+                            <div class="flex gap-2">
+                                <input type="date" name="start_date" required class="form-input bg-white flex-1">
+                                <select name="start_time" class="form-input bg-white w-28">
+                                        <option value="08:00">08:00</option>
+                                        <option value="08:30">08:30</option>
+                                        <option value="09:00" selected>09:00</option>
+                                        <option value="09:30">09:30</option>
+                                        <option value="10:00">10:00</option>
+                                        <option value="10:30">10:30</option>
+                                        <option value="11:00">11:00</option>
+                                        <option value="11:30">11:30</option>
+                                        <option value="12:00">12:00</option>
+                                        <option value="12:30">12:30</option>
+                                        <option value="13:00">13:00</option>
+                                        <option value="13:30">13:30</option>
+                                        <option value="14:00">14:00</option>
+                                        <option value="14:30">14:30</option>
+                                        <option value="15:00">15:00</option>
+                                        <option value="15:30">15:30</option>
+                                        <option value="16:00">16:00</option>
+                                        <option value="16:30">16:30</option>
+                                        <option value="17:00">17:00</option>
+                                        <option value="17:30">17:30</option>
+                                        <option value="18:00">18:00</option>
+                                        <option value="18:30">18:30</option>
+                                        <option value="19:00">19:00</option>
+                                        <option value="19:30">19:30</option>
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 mb-2 ml-1"><i class="far fa-calendar-check mr-1"></i>종료 일시</label>
-                            <input type="datetime-local" name="end_dt" required class="form-input bg-white">
+                            <div class="flex gap-2">
+                                <input type="date" name="end_date" required class="form-input bg-white flex-1">
+                                <select name="end_time" class="form-input bg-white w-28">
+                                        <option value="08:00">08:00</option>
+                                        <option value="08:30">08:30</option>
+                                        <option value="09:00" selected>09:00</option>
+                                        <option value="09:30">09:30</option>
+                                        <option value="10:00">10:00</option>
+                                        <option value="10:30">10:30</option>
+                                        <option value="11:00">11:00</option>
+                                        <option value="11:30">11:30</option>
+                                        <option value="12:00">12:00</option>
+                                        <option value="12:30">12:30</option>
+                                        <option value="13:00">13:00</option>
+                                        <option value="13:30">13:30</option>
+                                        <option value="14:00">14:00</option>
+                                        <option value="14:30">14:30</option>
+                                        <option value="15:00">15:00</option>
+                                        <option value="15:30">15:30</option>
+                                        <option value="16:00">16:00</option>
+                                        <option value="16:30">16:30</option>
+                                        <option value="17:00">17:00</option>
+                                        <option value="17:30">17:30</option>
+                                        <option value="18:00">18:00</option>
+                                        <option value="18:30">18:30</option>
+                                        <option value="19:00">19:00</option>
+                                        <option value="19:30">19:30</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
