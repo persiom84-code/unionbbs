@@ -834,8 +834,8 @@ def vote_create():
     vote = Vote(
         title       = request.form.get('title'),
         content     = request.form.get('content'),
-        start_dt    = datetime.strptime(request.form.get('start_dt'), '%Y-%m-%dT%H:%M'),
-        end_dt      = datetime.strptime(request.form.get('end_dt'), '%Y-%m-%dT%H:%M'),
+        start_dt    = datetime.strptime(f"{request.form.get('start_date')} {request.form.get('start_time')}", '%Y-%m-%d %H:%M'),
+        end_dt      = datetime.strptime(f"{request.form.get('end_date')} {request.form.get('end_time')}", '%Y-%m-%d %H:%M'),
         vote_status = 'READY',
         total_cnt   = User.query.filter(User.user_level <= 4, User.use_yn == 'Y').count(),
         reg_user    = current_user.emp_no
@@ -848,15 +848,6 @@ def vote_create():
         if item_nm.strip():
             db.session.add(VoteItem(vote_seq=vote.vote_seq, item_nm=item_nm, sort_order=idx))
 
-    # 투표 기간 일정 등록
-    db.session.add(Schedule(
-        title         = f'[투표] {vote.title}',
-        content       = vote.content,
-        start_dt      = vote.start_dt,
-        end_dt        = vote.end_dt,
-        schedule_type = '02',
-        reg_user      = current_user.emp_no
-    ))
     db.session.commit()
     flash('투표가 생성되었습니다.')
     return redirect(url_for('admin_vote'))
@@ -989,21 +980,6 @@ def condo_admin_save():
     reserve     = CondoReserve.query.get_or_404(reserve_seq)
     if action == 'confirm':
         reserve.status = 'CONFIRM'
-        # 콘도 사용일 일정 등록
-        condo = Condo.query.get(reserve.condo_seq)
-        condo_nm = condo.condo_nm if condo else '콘도'
-        user = User.query.filter_by(emp_no=reserve.emp_no).first()
-        user_nm = user.emp_nm if user else reserve.emp_no
-        check_in_dt  = datetime.combine(reserve.check_in,  datetime.strptime('09:00', '%H:%M').time())
-        check_out_dt = datetime.combine(reserve.check_out, datetime.strptime('09:00', '%H:%M').time())
-        db.session.add(Schedule(
-            title         = f'[콘도] {condo_nm} ({user_nm})',
-            content       = f'{user_nm} 콘도 이용',
-            start_dt      = check_in_dt,
-            end_dt        = check_out_dt,
-            schedule_type = '04',
-            reg_user      = reserve.emp_no
-        ))
     elif action == 'cancel':
         reserve.status    = 'CANCEL'
         reserve.cancel_dt = datetime.now()
@@ -1111,25 +1087,6 @@ def book_rental(book_seq):
     )
     b.avail_cnt -= 1
     db.session.add(rental)
-    db.session.commit()
-    # 대출 시작 일정
-    db.session.add(Schedule(
-        title         = f'[도서대출] {b.title}',
-        content       = f'{b.title} 대출 시작',
-        start_dt      = datetime.combine(date.today(), datetime.strptime('09:00', '%H:%M').time()),
-        end_dt        = datetime.combine(date.today(), datetime.strptime('09:00', '%H:%M').time()),
-        schedule_type = '03',
-        reg_user      = current_user.emp_no
-    ))
-    # 반납 예정일 일정
-    db.session.add(Schedule(
-        title         = f'[도서반납] {b.title}',
-        content       = f'{b.title} 반납 예정일',
-        start_dt      = datetime.combine(date.today() + timedelta(days=14), datetime.strptime('09:00', '%H:%M').time()),
-        end_dt        = datetime.combine(date.today() + timedelta(days=14), datetime.strptime('09:00', '%H:%M').time()),
-        schedule_type = '03',
-        reg_user      = current_user.emp_no
-    ))
     db.session.commit()
     flash('대출 신청이 완료되었습니다.')
     return redirect(url_for('book'))
