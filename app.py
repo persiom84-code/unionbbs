@@ -288,6 +288,14 @@ class BookRequest(db.Model):
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
+class About(db.Model):
+    __tablename__ = 'TB_ABOUT'
+    about_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    slogan       = db.Column(db.String(100))
+    greeting     = db.Column(db.Text)
+    chairman_img = db.Column(db.String(500))
+    mod_dt       = db.Column(db.DateTime, onupdate=datetime.now)
+
 # ══════════════════════════════════════════════════════════
 # Auth Helpers
 # ══════════════════════════════════════════════════════════
@@ -834,8 +842,8 @@ def vote_create():
     vote = Vote(
         title       = request.form.get('title'),
         content     = request.form.get('content'),
-        start_dt    = datetime.strptime(f"{request.form.get('start_date')} {request.form.get('start_time')}", '%Y-%m-%d %H:%M'),
-        end_dt      = datetime.strptime(f"{request.form.get('end_date')} {request.form.get('end_time')}", '%Y-%m-%d %H:%M'),
+        start_dt    = datetime.strptime(request.form.get('start_dt'), '%Y-%m-%dT%H:%M'),
+        end_dt      = datetime.strptime(request.form.get('end_dt'), '%Y-%m-%dT%H:%M'),
         vote_status = 'READY',
         total_cnt   = User.query.filter(User.user_level <= 4, User.use_yn == 'Y').count(),
         reg_user    = current_user.emp_no
@@ -1146,11 +1154,10 @@ def about():
     executives    = User.query.filter_by(user_level=1, use_yn='Y').all()
     delegates     = User.query.filter_by(user_level=2, use_yn='Y').all()
     chairman      = User.query.filter_by(user_level=0, use_yn='Y').first()
-    auditors      = User.query.filter_by(user_level=2, use_yn='Y').limit(2).all()
-    slogan_text   = None
-    greeting_text = None
-    senior_vice   = None
-    vice_chairman = None
+    auditors      = User.query.filter_by(position_cd='AUDITOR', use_yn='Y').all()
+    senior_vice   = User.query.filter_by(user_level=1, position_cd='SENIOR_VICE', use_yn='Y').first()
+    vice_chairman = User.query.filter_by(user_level=1, position_cd='VICE', use_yn='Y').first()
+    about_data    = About.query.first()
     return render_template('about.html',
         current_user=current_user,
         executives=executives,
@@ -1158,18 +1165,51 @@ def about():
         auditors=auditors,
         chairman=chairman,
         chairman_nm=chairman.emp_nm if chairman else '미등록',
+        chairman_img=about_data.chairman_img if about_data else None,
         senior_vice=senior_vice,
         vice_chairman=vice_chairman,
-        slogan_text=slogan_text,
-        greeting_text=greeting_text,
+        slogan_text=about_data.slogan if about_data else None,
+        greeting_text=about_data.greeting if about_data else None,
         active_menu='about'
     )
 
 @app.route('/admin/about/save', methods=['POST'])
 @level_required(0)
 def admin_about_save():
+    about_data = About.query.first()
+    if not about_data:
+        about_data = About()
+        db.session.add(about_data)
+
     section = request.form.get('section')
-    flash(f'저장되었습니다. (section: {section})')
+
+    if section == 'slogan':
+        about_data.slogan   = request.form.get('slogan_text', '').strip()
+        about_data.greeting = request.form.get('greeting_text', '').strip()
+        flash('슬로건 및 인사말이 저장되었습니다.')
+
+    elif section == 'chairman_img':
+        f = request.files.get('chairman_img')
+        if f and f.filename:
+            result = cloudinary.uploader.upload(f, folder='unionbbs/about', resource_type='image')
+            about_data.chairman_img = result.get('secure_url')
+            flash('위원장 사진이 등록되었습니다.')
+
+    elif section == 'auditor':
+        action  = request.form.get('action')
+        emp_no  = request.form.get('emp_no', '').strip()
+        user    = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+        if user:
+            if action == 'add':
+                user.position_cd = 'AUDITOR'
+                flash(f'{user.emp_nm} 회계감사로 등록되었습니다.')
+            elif action == 'remove':
+                user.position_cd = None
+                flash(f'{user.emp_nm} 회계감사 해제되었습니다.')
+        else:
+            flash('해당 사번의 사용자를 찾을 수 없습니다.')
+
+    db.session.commit()
     return redirect(url_for('about'))
 
 
