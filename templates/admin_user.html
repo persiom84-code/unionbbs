@@ -59,7 +59,8 @@
                     <tr>
                         <th class="px-5 py-4 w-28">사번</th>
                         <th class="px-5 py-4 w-28">이름</th>
-                        <th class="px-5 py-4 w-24 text-center">권한</th>
+                        <th class="px-5 py-4 w-24 text-center">권한레벨</th>
+                        <th class="px-5 py-4 w-28 text-center">직책</th>
                         <th class="px-5 py-4 w-24 text-center">계정상태</th>
                         <th class="px-5 py-4 w-24 text-center">비번상태</th>
                         <th class="px-5 py-4 w-36 text-center">마지막 변경일</th>
@@ -72,17 +73,37 @@
                         <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ u.emp_no }}</td>
                         <td class="px-5 py-4 font-bold text-slate-800">{{ u.emp_nm }}</td>
                         <td class="px-5 py-4 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <span class="badge
+                                    {% if u.user_level == 0 %} bg-red-50 text-red-600
+                                    {% elif u.user_level == 1 %} bg-blue-50 text-blue-600
+                                    {% elif u.user_level == 2 %} bg-purple-50 text-purple-600
+                                    {% elif u.user_level == 3 %} bg-teal-50 text-teal-600
+                                    {% else %} bg-slate-100 text-slate-500 {% endif %}">
+                                    {% if u.user_level == 0 %}관리자
+                                    {% elif u.user_level == 1 %}집행위원
+                                    {% elif u.user_level == 2 %}대의원
+                                    {% elif u.user_level == 3 %}분회장
+                                    {% else %}조합원{% endif %}
+                                </span>
+                                <button onclick="openEditModal('{{ u.emp_no }}','{{ u.emp_nm }}','{{ u.user_level }}','{{ u.position_cd }}')"
+                                    class="w-5 h-5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-400 rounded flex items-center justify-center transition-all">
+                                    <i class="fas fa-pen text-[9px]"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 text-center">
                             <span class="badge
-                                {% if u.user_level == 0 %} bg-red-50 text-red-600
-                                {% elif u.user_level == 1 %} bg-blue-50 text-blue-600
-                                {% elif u.user_level == 2 %} bg-purple-50 text-purple-600
-                                {% elif u.user_level == 3 %} bg-teal-50 text-teal-600
-                                {% else %} bg-slate-100 text-slate-500 {% endif %}">
-                                {% if u.user_level == 0 %}관리자
-                                {% elif u.user_level == 1 %}집행위원
-                                {% elif u.user_level == 2 %}대의원
-                                {% elif u.user_level == 3 %}분회장
-                                {% else %}조합원{% endif %}
+                                {% if u.position_cd == 'CHAIRMAN' %} bg-yellow-50 text-yellow-700
+                                {% elif u.position_cd == 'SENIOR_VICE' %} bg-orange-50 text-orange-600
+                                {% elif u.position_cd == 'VICE' %} bg-blue-50 text-blue-600
+                                {% elif u.position_cd == 'AUDITOR' %} bg-green-50 text-green-600
+                                {% else %} bg-slate-50 text-slate-300 {% endif %}">
+                                {% if u.position_cd == 'CHAIRMAN' %}위원장
+                                {% elif u.position_cd == 'SENIOR_VICE' %}수석부위원장
+                                {% elif u.position_cd == 'VICE' %}부위원장
+                                {% elif u.position_cd == 'AUDITOR' %}회계감사
+                                {% else %}-{% endif %}
                             </span>
                         </td>
                         <td class="px-5 py-4 text-center">
@@ -123,7 +144,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="7" class="py-16 text-center text-slate-300 text-sm italic">
+                        <td colspan="8" class="py-16 text-center text-slate-300 text-sm italic">
                             등록된 사용자가 없습니다.
                         </td>
                     </tr>
@@ -154,6 +175,48 @@
             </button>
             <button id="modal-confirm" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 transition-all">
                 초기화 실행
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 권한/직책 편집 모달 -->
+<div id="edit-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-slate-50 border-b border-slate-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-slate-700 flex items-center gap-2">
+                <i class="fas fa-user-cog text-yuanta"></i>권한 / 직책 변경
+            </h3>
+            <button onclick="closeEditModal()" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <div class="p-6 space-y-4">
+            <p id="edit-modal-name" class="text-sm font-black text-slate-700"></p>
+            <input type="hidden" id="edit-emp-no">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권한 레벨</label>
+                <select id="edit-level" class="form-input">
+                    <option value="0">LV.0 관리자</option>
+                    <option value="1">LV.1 집행위원</option>
+                    <option value="2">LV.2 대의원</option>
+                    <option value="3">LV.3 분회장</option>
+                    <option value="4">LV.4 조합원</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">직책 (선택)</label>
+                <select id="edit-position" class="form-input">
+                    <option value="">없음</option>
+                    <option value="CHAIRMAN">위원장</option>
+                    <option value="SENIOR_VICE">수석부위원장</option>
+                    <option value="VICE">부위원장</option>
+                    <option value="AUDITOR">회계감사</option>
+                </select>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex gap-3">
+            <button onclick="closeEditModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">취소</button>
+            <button onclick="saveEdit()" class="flex-1 py-3 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition-all">
+                <i class="fas fa-save mr-1"></i>저장
             </button>
         </div>
     </div>
@@ -220,6 +283,47 @@
             : 'fas fa-circle-xmark text-red-400';
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    function openEditModal(empNo, empNm, level, position) {
+        document.getElementById('edit-emp-no').value = empNo;
+        document.getElementById('edit-modal-name').textContent = empNm + ' (' + empNo + ')';
+        document.getElementById('edit-level').value = level;
+        document.getElementById('edit-position').value = position || '';
+        const modal = document.getElementById('edit-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('edit-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    async function saveEdit() {
+        const empNo    = document.getElementById('edit-emp-no').value;
+        const level    = document.getElementById('edit-level').value;
+        const position = document.getElementById('edit-position').value;
+
+        // 레벨 변경
+        const fd1 = new FormData();
+        fd1.append('emp_no', empNo);
+        fd1.append('field', 'user_level');
+        fd1.append('value', level);
+        await fetch('/admin/user/update', { method: 'POST', body: fd1 });
+
+        // 직책 변경
+        const fd2 = new FormData();
+        fd2.append('emp_no', empNo);
+        fd2.append('field', 'position_cd');
+        fd2.append('value', position);
+        const res  = await fetch('/admin/user/update', { method: 'POST', body: fd2 });
+        const data = await res.json();
+
+        closeEditModal();
+        showToast(data.ok, data.msg);
+        setTimeout(() => location.reload(), 1200);
     }
 </script>
 {% endblock %}

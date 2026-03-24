@@ -1153,10 +1153,10 @@ def about():
     current_user  = get_current_user()
     executives    = User.query.filter_by(user_level=1, use_yn='Y').all()
     delegates     = User.query.filter_by(user_level=2, use_yn='Y').all()
-    chairman      = User.query.filter_by(user_level=0, use_yn='Y').first()
+    chairman      = User.query.filter_by(position_cd='CHAIRMAN', use_yn='Y').first()
     auditors      = User.query.filter_by(position_cd='AUDITOR', use_yn='Y').all()
-    senior_vice   = User.query.filter_by(user_level=1, position_cd='SENIOR_VICE', use_yn='Y').first()
-    vice_chairman = User.query.filter_by(user_level=1, position_cd='VICE', use_yn='Y').first()
+    senior_vice   = User.query.filter_by(position_cd='SENIOR_VICE', use_yn='Y').first()
+    vice_chairman = User.query.filter_by(position_cd='VICE', use_yn='Y').first()
     about_data    = About.query.first()
     return render_template('about.html',
         current_user=current_user,
@@ -1304,6 +1304,22 @@ def admin_reset_pwd():
     return jsonify({'ok': True, 'msg': f'{target_user.emp_nm}({target_emp_no}) 비밀번호가 사번으로 초기화되었습니다.'})
 
 
+@app.route('/admin/user/update', methods=['POST'])
+@level_required(0)
+def admin_user_update():
+    emp_no   = request.form.get('emp_no', '').strip()
+    field    = request.form.get('field')
+    value    = request.form.get('value', '').strip()
+    user     = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+    if not user:
+        return jsonify({'ok': False, 'msg': '사용자를 찾을 수 없습니다.'})
+    if field == 'user_level':
+        user.user_level = int(value)
+    elif field == 'position_cd':
+        user.position_cd = value if value else None
+    db.session.commit()
+    return jsonify({'ok': True, 'msg': f'{user.emp_nm} 정보가 변경되었습니다.'})
+
 @app.route('/admin/user/list')
 @level_required(1)
 def admin_user_list():
@@ -1317,6 +1333,7 @@ def admin_user_list():
             'emp_no':       u.emp_no,
             'emp_nm':       u.emp_nm,
             'user_level':   u.user_level,
+            'position_cd':  u.position_cd or '',
             'acct_lock_yn': u.acct_lock_yn,
             'pwd_init_yn':  u.pwd_init_yn,
             'pwd_chg_dt':   u.pwd_chg_dt.strftime('%Y.%m.%d') if u.pwd_chg_dt else '미변경',
