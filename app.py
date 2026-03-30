@@ -1395,6 +1395,64 @@ def init_db():
 with app.app_context():
     init_db()
 
+
+@app.route('/admin/add-test-users')
+@level_required(0)
+def add_test_users():
+    try:
+        def make_pw(raw):
+            return bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
+
+        # 테스트 계정이 이미 있으면 스킵
+        if User.query.filter(User.emp_no.like('EMP%')).first():
+            return '테스트 계정이 이미 존재합니다.'
+
+        # 부서/분회 코드
+        dept_list = ['D001','D002','D003','D004','D005','D006','D007','D008']
+        union_list = ['U001','U002','U003','U004','U005']
+
+        # 직급 코드
+        rank_list = ['R01','R02','R03','R04','R05']
+
+        # 이름 풀
+        names = [
+            '김철수','이영희','박민준','최수진','정다은','강동훈','윤서연','임재혁',
+            '한지민','오승현','신예린','류성호','배지현','남궁민','황수빈','전태양',
+            '조아름','서민기','권나연','홍길동','문선희','양재원','엄지혜','장현우',
+            '송미래','고은별','구본철','안소희','노태준','마지훈','하승연','심재민',
+            '국찬영','진수아','도현석','추민서','변성준','소지원','옥상훈','편리나'
+        ]
+
+        # user_level 분포 (집행위원 5, 대의원 10, 분회장 5, 조합원 20)
+        levels = ([1]*5 + [2]*10 + [3]*5 + [4]*20)
+
+        users = []
+        for i, (name, level) in enumerate(zip(names, levels), 1):
+            emp_no = f'EMP{i:03d}'
+            users.append(User(
+                emp_no        = emp_no,
+                emp_nm        = name,
+                gender        = 'M' if i % 2 == 0 else 'F',
+                email         = f'{emp_no.lower()}@yuanta.com',
+                dept_cd       = dept_list[i % len(dept_list)],
+                union_dept_cd = union_list[i % len(union_list)],
+                rank_cd       = rank_list[i % len(rank_list)],
+                emp_type_cd   = '01',
+                user_level    = level,
+                pwd_hash      = make_pw(emp_no),
+                pwd_chg_dt    = date.today(),
+                pwd_init_yn   = 'N',
+                use_yn        = 'Y'
+            ))
+
+        db.session.add_all(users)
+        db.session.commit()
+        return f'테스트 계정 {len(users)}개 생성 완료! (초기 비밀번호 = 사번)'
+
+    except Exception as e:
+        db.session.rollback()
+        return f'오류: {str(e)}'
+
 @app.route('/admin/migrate')
 @level_required(0)
 def migrate():
