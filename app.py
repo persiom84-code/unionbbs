@@ -1397,39 +1397,37 @@ with app.app_context():
 
 
 @app.route('/admin/add-test-users')
+@app.route('/admin/add-test-users/<int:batch>')
 @level_required(0)
-def add_test_users():
+def add_test_users(batch=1):
     try:
-        def make_pw(raw):
-            return bcrypt.hashpw(raw.encode(), bcrypt.gensalt()).decode()
-
-        # 테스트 계정이 이미 있으면 스킵
-        if User.query.filter(User.emp_no.like('EMP%')).first():
-            return '테스트 계정이 이미 존재합니다.'
-
-        # 부서/분회 코드
-        dept_list = ['D001','D002','D003','D004','D005','D006','D007','D008']
-        union_list = ['U001','U002','U003','U004','U005']
-
-        # 직급 코드
-        rank_list = ['R01','R02','R03','R04','R05']
-
-        # 이름 풀
-        names = [
+        all_names = [
             '김철수','이영희','박민준','최수진','정다은','강동훈','윤서연','임재혁',
             '한지민','오승현','신예린','류성호','배지현','남궁민','황수빈','전태양',
             '조아름','서민기','권나연','홍길동','문선희','양재원','엄지혜','장현우',
             '송미래','고은별','구본철','안소희','노태준','마지훈','하승연','심재민',
             '국찬영','진수아','도현석','추민서','변성준','소지원','옥상훈','편리나'
         ]
+        all_levels = ([1]*5 + [2]*10 + [3]*5 + [4]*20)
+        dept_list  = ['D001','D002','D003','D004','D005','D006','D007','D008']
+        union_list = ['U001','U002','U003','U004','U005']
+        rank_list  = ['R01','R02','R03','R04','R05']
 
-        # user_level 분포 (집행위원 5, 대의원 10, 분회장 5, 조합원 20)
-        levels = ([1]*5 + [2]*10 + [3]*5 + [4]*20)
+        if batch < 1 or batch > 4:
+            return '배치 번호는 1~4 사이여야 합니다.'
 
-        users = []
-        for i, (name, level) in enumerate(zip(names, levels), 1):
+        start = (batch - 1) * 10
+        end   = start + 10
+        names  = all_names[start:end]
+        levels = all_levels[start:end]
+
+        created = 0
+        for i, (name, level) in enumerate(zip(names, levels), start + 1):
             emp_no = f'EMP{i:03d}'
-            users.append(User(
+            if User.query.filter_by(emp_no=emp_no).first():
+                continue
+            pwd_hash = bcrypt.hashpw(emp_no.encode(), bcrypt.gensalt(rounds=4)).decode()
+            db.session.add(User(
                 emp_no        = emp_no,
                 emp_nm        = name,
                 gender        = 'M' if i % 2 == 0 else 'F',
@@ -1439,15 +1437,20 @@ def add_test_users():
                 rank_cd       = rank_list[i % len(rank_list)],
                 emp_type_cd   = '01',
                 user_level    = level,
-                pwd_hash      = make_pw(emp_no),
+                pwd_hash      = pwd_hash,
                 pwd_chg_dt    = date.today(),
                 pwd_init_yn   = 'N',
                 use_yn        = 'Y'
             ))
+            db.session.commit()
+            created += 1
 
-        db.session.add_all(users)
-        db.session.commit()
-        return f'테스트 계정 {len(users)}개 생성 완료! (초기 비밀번호 = 사번)'
+        total = User.query.filter(User.emp_no.like('EMP%')).count()
+        next_batch = batch + 1
+        if next_batch <= 4:
+            return f'배치 {batch} 완료 ({created}개 생성, 누적 {total}개) → 다음: /admin/add-test-users/{next_batch}'
+        else:
+            return f'전체 완료! 총 {total}개 테스트 계정 생성됨 (비밀번호 = 사번)'
 
     except Exception as e:
         db.session.rollback()
