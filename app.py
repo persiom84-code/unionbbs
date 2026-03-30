@@ -54,7 +54,7 @@ class User(db.Model):
     union_dept_cd = db.Column(db.String(20))
     emp_type_cd   = db.Column(db.String(10))
     rank_cd       = db.Column(db.String(10))
-    position_cd   = db.Column(db.String(10))
+    position_cd   = db.Column(db.String(20))
     user_level    = db.Column(db.Integer, default=4)
     term_start    = db.Column(db.Date)
     term_end      = db.Column(db.Date)
@@ -1307,18 +1307,21 @@ def admin_reset_pwd():
 @app.route('/admin/user/update', methods=['POST'])
 @level_required(0)
 def admin_user_update():
-    emp_no   = request.form.get('emp_no', '').strip()
-    field    = request.form.get('field')
-    value    = request.form.get('value', '').strip()
-    user     = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
-    if not user:
-        return jsonify({'ok': False, 'msg': '사용자를 찾을 수 없습니다.'})
-    if field == 'user_level':
-        user.user_level = int(value)
-    elif field == 'position_cd':
-        user.position_cd = value if value else None
-    db.session.commit()
-    return jsonify({'ok': True, 'msg': f'{user.emp_nm} 정보가 변경되었습니다.'})
+    try:
+        emp_no      = request.form.get('emp_no', '').strip()
+        user_level  = request.form.get('user_level', '').strip()
+        position_cd = request.form.get('position_cd', '').strip()
+        user = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+        if not user:
+            return jsonify({'ok': False, 'msg': '사용자를 찾을 수 없습니다.'})
+        if user_level != '':
+            user.user_level = int(user_level)
+        user.position_cd = position_cd if position_cd else None
+        db.session.commit()
+        return jsonify({'ok': True, 'msg': f'{user.emp_nm} 정보가 변경되었습니다.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'msg': f'오류: {str(e)}'})
 
 @app.route('/admin/user/list')
 @level_required(1)
@@ -1466,6 +1469,7 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ALTER COLUMN position_cd TYPE VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
