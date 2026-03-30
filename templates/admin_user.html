@@ -306,24 +306,17 @@
         const level    = document.getElementById('edit-level').value;
         const position = document.getElementById('edit-position').value;
 
-        // 레벨 변경
-        const fd1 = new FormData();
-        fd1.append('emp_no', empNo);
-        fd1.append('field', 'user_level');
-        fd1.append('value', level);
-        await fetch('/admin/user/update', { method: 'POST', body: fd1 });
-
-        // 직책 변경
-        const fd2 = new FormData();
-        fd2.append('emp_no', empNo);
-        fd2.append('field', 'position_cd');
-        fd2.append('value', position);
-        const res  = await fetch('/admin/user/update', { method: 'POST', body: fd2 });
+        // 한 번에 level + position 전송
+        const fd = new FormData();
+        fd.append('emp_no',      empNo);
+        fd.append('user_level',  level);
+        fd.append('position_cd', position);
+        const res  = await fetch('/admin/user/update', { method: 'POST', body: fd });
         const data = await res.json();
 
         closeEditModal();
         showToast(data.ok, data.msg);
-        setTimeout(() => location.reload(), 1200);
+        setTimeout(() => location.reload(true), 1200);
     }
 </script>
 {% endblock %}
