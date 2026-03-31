@@ -852,11 +852,17 @@ def admin_book():
 @level_required(0)
 def vote_create():
     current_user = get_current_user()
+    start_dt = datetime.strptime(
+        request.form.get('start_date') + 'T' + request.form.get('start_time'), '%Y-%m-%dT%H:%M'
+    )
+    end_dt = datetime.strptime(
+        request.form.get('end_date') + 'T' + request.form.get('end_time'), '%Y-%m-%dT%H:%M'
+    )
     vote = Vote(
         title       = request.form.get('title'),
         content     = request.form.get('content'),
-        start_dt    = datetime.strptime(request.form.get('start_dt'), '%Y-%m-%dT%H:%M'),
-        end_dt      = datetime.strptime(request.form.get('end_dt'), '%Y-%m-%dT%H:%M'),
+        start_dt    = start_dt,
+        end_dt      = end_dt,
         vote_status = 'OPEN',
         total_cnt   = User.query.filter(User.user_level <= 4, User.use_yn == 'Y').count(),
         reg_user    = current_user.emp_no
