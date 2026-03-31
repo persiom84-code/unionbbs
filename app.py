@@ -398,7 +398,12 @@ def logout():
 def main():
     current_user = get_current_user()
     notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
-    ongoing_vote = Vote.query.filter_by(vote_status='ONGOING', use_yn='Y').first()
+    now = datetime.now()
+    ongoing_vote = Vote.query.filter(
+        Vote.start_dt <= now,
+        Vote.end_dt   >= now,
+        Vote.use_yn   == 'Y'
+    ).first()
 
     today_start = datetime.combine(date.today(), datetime.min.time())
     today_end   = datetime.combine(date.today(), datetime.max.time())
@@ -703,8 +708,16 @@ def board_comment_delete(comment_seq):
 @login_required
 def vote():
     current_user  = get_current_user()
-    active_votes  = Vote.query.filter_by(vote_status='ONGOING', use_yn='Y').all()
-    archive_votes = Vote.query.filter_by(vote_status='CLOSED', use_yn='Y').all()
+    now = datetime.now()
+    active_votes  = Vote.query.filter(
+        Vote.start_dt <= now,
+        Vote.end_dt   >= now,
+        Vote.use_yn   == 'Y'
+    ).all()
+    archive_votes = Vote.query.filter(
+        Vote.end_dt < now,
+        Vote.use_yn == 'Y'
+    ).all()
 
     for v in active_votes:
         v.items            = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
@@ -778,7 +791,7 @@ def admin_vote():
         total = v.total_cnt or 1
         cnt   = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
         now   = datetime.now()
-        status = '진행중' if v.vote_status == 'OPEN' and v.start_dt <= now <= v.end_dt else '종료'
+        status = '진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료')
         vote_data.append({
             'vote_seq': v.vote_seq,
             'title': v.title,
@@ -836,21 +849,15 @@ def admin_book():
     )
 
 @app.route('/admin/vote/create', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def vote_create():
     current_user = get_current_user()
-    start_dt = datetime.strptime(
-        request.form.get('start_date') + 'T' + request.form.get('start_time'), '%Y-%m-%dT%H:%M'
-    )
-    end_dt = datetime.strptime(
-        request.form.get('end_date') + 'T' + request.form.get('end_time'), '%Y-%m-%dT%H:%M'
-    )
     vote = Vote(
         title       = request.form.get('title'),
         content     = request.form.get('content'),
-        start_dt    = start_dt,
-        end_dt      = end_dt,
-        vote_status = 'READY',
+        start_dt    = datetime.strptime(request.form.get('start_dt'), '%Y-%m-%dT%H:%M'),
+        end_dt      = datetime.strptime(request.form.get('end_dt'), '%Y-%m-%dT%H:%M'),
+        vote_status = 'OPEN',
         total_cnt   = User.query.filter(User.user_level <= 4, User.use_yn == 'Y').count(),
         reg_user    = current_user.emp_no
     )
