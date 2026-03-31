@@ -316,7 +316,7 @@
 
         closeEditModal();
         showToast(data.ok, data.msg);
-        setTimeout(() => location.reload(true), 1200);
+        setTimeout(() => location.href = location.href, 1200);
     }
 </script>
 {% endblock %}
