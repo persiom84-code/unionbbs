@@ -297,6 +297,12 @@ class About(db.Model):
     chairman_img = db.Column(db.String(500))
     mod_dt       = db.Column(db.DateTime, onupdate=datetime.now)
 
+class VoteTarget(db.Model):
+    __tablename__ = 'TB_VOTE_TARGET'
+    target_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    vote_seq      = db.Column(db.Integer, db.ForeignKey('TB_VOTE.vote_seq'), nullable=False)
+    union_dept_cd = db.Column(db.String(20), nullable=False)
+
 # ══════════════════════════════════════════════════════════
 # Auth Helpers
 # ══════════════════════════════════════════════════════════
@@ -710,11 +716,23 @@ def board_comment_delete(comment_seq):
 def vote():
     current_user  = get_current_user()
     now = datetime.utcnow() + KST
-    active_votes  = Vote.query.filter(
+    my_dept = current_user.union_dept_cd if current_user else None
+
+    # 전체 진행중 투표 후 분회 필터링
+    all_active = Vote.query.filter(
         Vote.start_dt <= now,
         Vote.end_dt   >= now,
         Vote.use_yn   == 'Y'
     ).all()
+
+    active_votes = []
+    for v in all_active:
+        targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
+        if not targets:  # 대상 없으면 전체 공개
+            active_votes.append(v)
+        elif my_dept and any(t.union_dept_cd == my_dept for t in targets):
+            active_votes.append(v)
+
     archive_votes = Vote.query.filter(
         Vote.end_dt < now,
         Vote.use_yn == 'Y'
@@ -804,15 +822,12 @@ def admin_vote():
             'total_voters': total,
             'status': status,
         })
-    union_depts = UnionDept.query.filter_by(use_yn='Y').all()
-    region_dict = {}
-    for d in union_depts:
-        region = d.region_nm if hasattr(d, 'region_nm') else '기타'
-        region_dict.setdefault(region, []).append({'seq': d.union_dept_seq, 'name': d.union_dept_nm})
+    union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
+    union_dept_list = [{'cd': d.union_dept_cd, 'nm': d.union_dept_nm} for d in union_depts]
     return render_template('vote_admin.html',
         current_user=current_user,
         admin_votes=vote_data,
-        region_dict=region_dict,
+        union_dept_list=union_dept_list,
         active_menu='admin_vote'
     )
 
@@ -875,6 +890,14 @@ def vote_create():
     for idx, item_nm in enumerate(items):
         if item_nm.strip():
             db.session.add(VoteItem(vote_seq=vote.vote_seq, item_nm=item_nm, sort_order=idx))
+
+    # 투표 대상 분회 저장
+    target_type = request.form.get('target_type', 'ALL')
+    if target_type == 'SPECIFIC':
+        target_depts = request.form.getlist('target_dept[]')
+        for dept_cd in target_depts:
+            if dept_cd.strip():
+                db.session.add(VoteTarget(vote_seq=vote.vote_seq, union_dept_cd=dept_cd.strip()))
 
     db.session.commit()
     flash('투표가 생성되었습니다.')
@@ -1336,7 +1359,9 @@ def admin_user_update():
             return jsonify({'ok': False, 'msg': '사용자를 찾을 수 없습니다.'})
         if user_level != '':
             user.user_level = int(user_level)
-        user.position_cd = position_cd if position_cd else None
+        user.position_cd   = position_cd if position_cd else None
+        union_dept_cd = request.form.get('union_dept_cd', '').strip()
+        user.union_dept_cd = union_dept_cd if union_dept_cd else None
         db.session.commit()
         return jsonify({'ok': True, 'msg': f'{user.emp_nm} 정보가 변경되었습니다.'})
     except Exception as e:
@@ -1353,19 +1378,22 @@ def admin_user_list():
     for u in users:
         days = (today - u.pwd_chg_dt).days if u.pwd_chg_dt else None
         user_rows.append({
-            'emp_no':       u.emp_no,
-            'emp_nm':       u.emp_nm,
-            'user_level':   u.user_level,
-            'position_cd':  u.position_cd or '',
-            'acct_lock_yn': u.acct_lock_yn,
-            'pwd_init_yn':  u.pwd_init_yn,
-            'pwd_chg_dt':   u.pwd_chg_dt.strftime('%Y.%m.%d') if u.pwd_chg_dt else '미변경',
-            'pwd_days':     days,
-            'pwd_warn':     days is not None and days >= 80,
+            'emp_no':         u.emp_no,
+            'emp_nm':         u.emp_nm,
+            'user_level':     u.user_level,
+            'position_cd':    u.position_cd or '',
+            'union_dept_cd':  u.union_dept_cd or '',
+            'acct_lock_yn':   u.acct_lock_yn,
+            'pwd_init_yn':    u.pwd_init_yn,
+            'pwd_chg_dt':     u.pwd_chg_dt.strftime('%Y.%m.%d') if u.pwd_chg_dt else '미변경',
+            'pwd_days':       days,
+            'pwd_warn':       days is not None and days >= 80,
         })
+    union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
     return render_template('admin_user.html',
         current_user=current_user,
         user_rows=user_rows,
+        union_depts=union_depts,
         active_menu='admin_user'
     )
 
@@ -1490,6 +1518,11 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS emp_nm VARCHAR(100)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ALTER COLUMN position_cd TYPE VARCHAR(20)'))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_VOTE_TARGET" (
+                target_seq SERIAL PRIMARY KEY,
+                vote_seq INTEGER NOT NULL,
+                union_dept_cd VARCHAR(20) NOT NULL
+            )'''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
@@ -1507,6 +1540,81 @@ def migrate():
     except Exception as e:
         return f'오류: {str(e)}'
 
+
+
+# ══════════════════════════════════════════════════════════
+# Routes - 분회 관리
+# ══════════════════════════════════════════════════════════
+
+@app.route('/admin/union-dept')
+@level_required(0)
+def admin_union_dept():
+    current_user = get_current_user()
+    union_depts  = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
+    dept_list    = []
+    for d in union_depts:
+        members = User.query.filter_by(union_dept_cd=d.union_dept_cd, use_yn='Y').all()
+        # 소속 회사 부서 목록 (중복 제거)
+        comp_depts = list({u.dept_cd for u in members if u.dept_cd})
+        dept_list.append({
+            'cd':         d.union_dept_cd,
+            'nm':         d.union_dept_nm,
+            'sort_order': d.sort_order,
+            'member_cnt': len(members),
+            'comp_depts': comp_depts,
+        })
+    # 미배정 회사 부서
+    all_comp_depts = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order).all()
+    return render_template('admin_union_dept.html',
+        current_user=current_user,
+        dept_list=dept_list,
+        all_comp_depts=all_comp_depts,
+        active_menu='admin_union_dept'
+    )
+
+@app.route('/admin/union-dept/save', methods=['POST'])
+@level_required(0)
+def admin_union_dept_save():
+    action        = request.form.get('action')
+    union_dept_cd = request.form.get('union_dept_cd', '').strip()
+    union_dept_nm = request.form.get('union_dept_nm', '').strip()
+
+    if action == 'add':
+        exists = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
+        if exists:
+            flash('이미 존재하는 분회 코드입니다.')
+        else:
+            db.session.add(UnionDept(
+                union_dept_cd=union_dept_cd,
+                union_dept_nm=union_dept_nm,
+                sort_order=int(request.form.get('sort_order', 0))
+            ))
+            flash(f'{union_dept_nm} 분회가 등록되었습니다.')
+
+    elif action == 'edit':
+        dept = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
+        if dept:
+            dept.union_dept_nm = union_dept_nm
+            dept.sort_order    = int(request.form.get('sort_order', dept.sort_order))
+            flash(f'{union_dept_nm} 분회 정보가 수정되었습니다.')
+
+    elif action == 'delete':
+        dept = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
+        if dept:
+            # 소속 인원 분회 해제
+            User.query.filter_by(union_dept_cd=union_dept_cd).update({'union_dept_cd': None})
+            dept.use_yn = 'N'
+            flash(f'{dept.union_dept_nm} 분회가 삭제되었습니다.')
+
+    elif action == 'assign':
+        # 회사 부서 → 분회 일괄 배정
+        dept_cd       = request.form.get('dept_cd', '').strip()
+        target_dept_cd = request.form.get('target_union_dept_cd', '').strip()
+        cnt = User.query.filter_by(dept_cd=dept_cd, use_yn='Y').update({'union_dept_cd': target_dept_cd})
+        flash(f'{dept_cd} 부서 {cnt}명을 {target_dept_cd} 분회에 배정했습니다.')
+
+    db.session.commit()
+    return redirect(url_for('admin_union_dept'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

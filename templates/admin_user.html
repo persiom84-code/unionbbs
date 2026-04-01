@@ -61,6 +61,7 @@
                         <th class="px-5 py-4 w-28">이름</th>
                         <th class="px-5 py-4 w-24 text-center">권한레벨</th>
                         <th class="px-5 py-4 w-28 text-center">직책</th>
+                        <th class="px-5 py-4 w-28 text-center">분회</th>
                         <th class="px-5 py-4 w-24 text-center">계정상태</th>
                         <th class="px-5 py-4 w-24 text-center">비번상태</th>
                         <th class="px-5 py-4 w-36 text-center">마지막 변경일</th>
@@ -104,6 +105,11 @@
                                 {% elif u.position_cd == 'VICE' %}부위원장
                                 {% elif u.position_cd == 'AUDITOR' %}회계감사
                                 {% else %}-{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            <span class="badge bg-slate-50 text-slate-500 text-[10px]">
+                                {{ u.union_dept_cd if u.union_dept_cd else '-' }}
                             </span>
                         </td>
                         <td class="px-5 py-4 text-center">
@@ -212,6 +218,15 @@
                     <option value="AUDITOR">회계감사</option>
                 </select>
             </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">소속 분회</label>
+                <select id="edit-union-dept" class="form-input">
+                    <option value="">미배정</option>
+                    {% for d in union_depts %}
+                    <option value="{{ d.union_dept_cd }}">{{ d.union_dept_nm }} ({{ d.union_dept_cd }})</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
         <div class="px-6 pb-6 flex gap-3">
             <button onclick="closeEditModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">취소</button>
@@ -285,11 +300,12 @@
         setTimeout(() => toast.classList.add('hidden'), 3500);
     }
 
-    function openEditModal(empNo, empNm, level, position) {
+    function openEditModal(empNo, empNm, level, position, unionDept) {
         document.getElementById('edit-emp-no').value = empNo;
         document.getElementById('edit-modal-name').textContent = empNm + ' (' + empNo + ')';
         document.getElementById('edit-level').value = level;
         document.getElementById('edit-position').value = position || '';
+        document.getElementById('edit-union-dept').value = unionDept || '';
         const modal = document.getElementById('edit-modal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -307,10 +323,12 @@
         const position = document.getElementById('edit-position').value;
 
         // 한 번에 level + position 전송
+        const unionDept = document.getElementById('edit-union-dept').value;
         const fd = new FormData();
-        fd.append('emp_no',      empNo);
-        fd.append('user_level',  level);
-        fd.append('position_cd', position);
+        fd.append('emp_no',         empNo);
+        fd.append('user_level',     level);
+        fd.append('position_cd',    position);
+        fd.append('union_dept_cd',  unionDept);
         const res  = await fetch('/admin/user/update', { method: 'POST', body: fd });
         const data = await res.json();
 

@@ -187,28 +187,21 @@
                         </label>
                     </div>
 
-                    <!-- 동적 렌더링 분회 리스트 -->
-                    <div id="branch-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5">
-                        <p class="text-xs text-slate-500 font-bold mb-2"><i class="fas fa-sitemap mr-1"></i> 권역별 선택 (체크한 분회 소속 조합원만 투표 가능)</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {% for region, branches in region_dict.items() %}
-                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                                <label class="flex items-center font-black text-slate-800 text-sm mb-3 pb-2 border-b border-slate-100 cursor-pointer">
-                                    <input type="checkbox" onchange="toggleGroup(this, 'region-{{ loop.index }}')" class="custom-checkbox w-4 h-4 mr-2"> 
-                                    {{ region }} (전체)
-                                </label>
-                                <div class="space-y-2 pl-2 region-{{ loop.index }}">
-                                    {% for branch in branches %}
-                                    <label class="flex items-center text-sm text-slate-600 cursor-pointer hover:text-yuanta transition-colors">
-                                        <input type="checkbox" name="target_dept" value="{{ branch.seq }}" class="custom-checkbox w-4 h-4 mr-2"> 
-                                        {{ branch.name }}
-                                    </label>
-                                    {% endfor %}
-                                </div>
-                            </div>
+                    <!-- 분회 선택 -->
+                    <div id="branch-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                        <p class="text-xs text-slate-500 font-bold"><i class="fas fa-sitemap mr-1"></i>체크한 분회 소속 조합원만 투표 가능합니다.</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {% for d in union_dept_list %}
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_dept[]" value="{{ d.cd }}" class="w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">{{ d.nm }}</span>
+                                <span class="text-[10px] font-mono text-slate-400 ml-auto">{{ d.cd }}</span>
+                            </label>
                             {% else %}
-                            <div class="col-span-full py-4 text-sm text-slate-400 italic">DB에 등록된 분회 마스터 데이터가 없습니다.</div>
+                            <div class="col-span-full py-4 text-sm text-slate-400 italic">
+                                등록된 분회가 없습니다.
+                                <a href="/admin/union-dept" class="text-yuanta font-bold ml-2">분회 관리 →</a>
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
