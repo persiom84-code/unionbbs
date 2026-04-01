@@ -1507,5 +1507,21 @@ def migrate():
         return f'오류: {str(e)}'
 
 
+
+@app.route('/admin/vote/debug')
+@level_required(0)
+def vote_debug():
+    votes = Vote.query.order_by(Vote.vote_seq.desc()).limit(5).all()
+    now = datetime.now()
+    rows = []
+    for v in votes:
+        rows.append(
+            f"seq:{v.vote_seq} | {v.title} | "
+            f"start:{v.start_dt} | end:{v.end_dt} | "
+            f"now:{now} | "
+            f"status:{('진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료'))}"
+        )
+    return '<br>'.join(rows)
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
