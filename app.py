@@ -4,7 +4,8 @@ PostgreSQL (운영) 전용
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
+KST = timedelta(hours=9)
 from functools import wraps
 import bcrypt
 import os
@@ -398,7 +399,7 @@ def logout():
 def main():
     current_user = get_current_user()
     notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
-    now = datetime.now()
+    now = datetime.utcnow() + KST
     ongoing_vote = Vote.query.filter(
         Vote.start_dt <= now,
         Vote.end_dt   >= now,
@@ -708,7 +709,7 @@ def board_comment_delete(comment_seq):
 @login_required
 def vote():
     current_user  = get_current_user()
-    now = datetime.now()
+    now = datetime.utcnow() + KST
     active_votes  = Vote.query.filter(
         Vote.start_dt <= now,
         Vote.end_dt   >= now,
@@ -790,7 +791,7 @@ def admin_vote():
     for v in votes:
         total = v.total_cnt or 1
         cnt   = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
-        now   = datetime.now()
+        now   = datetime.utcnow() + KST
         status = '진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료')
         vote_data.append({
             'vote_seq': v.vote_seq,
@@ -1506,22 +1507,6 @@ def migrate():
     except Exception as e:
         return f'오류: {str(e)}'
 
-
-
-@app.route('/admin/vote/debug')
-@level_required(0)
-def vote_debug():
-    votes = Vote.query.order_by(Vote.vote_seq.desc()).limit(5).all()
-    now = datetime.now()
-    rows = []
-    for v in votes:
-        rows.append(
-            f"seq:{v.vote_seq} | {v.title} | "
-            f"start:{v.start_dt} | end:{v.end_dt} | "
-            f"now:{now} | "
-            f"status:{('진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료'))}"
-        )
-    return '<br>'.join(rows)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
