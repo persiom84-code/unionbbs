@@ -9,6 +9,8 @@ migrate.py  ·  유안타증권 노동조합 UnionBBS
     python migrate.py run                # 실제 삽입 실행
     python migrate.py run --reset        # 기존 TB_USER 전부 삭제 후 재삽입
     python migrate.py reset-pwd EMP001   # 특정 사번 비밀번호만 초기화
+    python migrate.py condo              # TB_CONDO 컬럼 변경 + 초기 데이터 INSERT
+    python migrate.py condo_reset        # TB_CONDO 데이터만 초기화 후 재INSERT
 
 입력 파일:
     migration_input.csv  (이 파일과 같은 디렉터리에 위치)
@@ -253,6 +255,171 @@ def cmd_reset_pwd(emp_no: str):
 
 
 # ──────────────────────────────────────────────
+# 콘도 초기 데이터
+# ──────────────────────────────────────────────
+
+CONDO_DATA = [
+    # (condo_nm, brand_group_cd, resort_cd, location, sort_order)
+    # ── 소노 / 대명리조트
+    ('거제',             'SONO', 'DAEMYUNG',        '경상남도 거제시',          10),
+    ('경주',             'SONO', 'DAEMYUNG',        '경상북도 경주시',          20),
+    ('단양',             'SONO', 'DAEMYUNG',        '충청북도 단양군',          30),
+    ('변산',             'SONO', 'DAEMYUNG',        '전라북도 부안군',          40),
+    ('양평',             'SONO', 'DAEMYUNG',        '경기도 양평군',            50),
+    ('천안',             'SONO', 'DAEMYUNG',        '충청남도 천안시',          60),
+    ('청송',             'SONO', 'DAEMYUNG',        '경상북도 청송군',          70),
+    ('여수엠블',         'SONO', 'DAEMYUNG',        '전라남도 여수시',          80),
+    ('일산KINTEX엠블',   'SONO', 'DAEMYUNG',        '경기도 고양시 일산',       90),
+    ('설악델피노',       'SONO', 'DAEMYUNG',        '강원도 고성군',           100),
+    # ── 소노 / 소노펠리체
+    ('비발디(홍천)',     'SONO', 'SONOFELLICE',      '강원도 홍천군',            10),
+    # ── 소노 / 쏠비치
+    ('남해',             'SONO', 'SOLBEACH',         '경상남도 남해군',          10),
+    ('삼척',             'SONO', 'SOLBEACH',         '강원도 삼척시',            20),
+    ('양양',             'SONO', 'SOLBEACH',         '강원도 양양군',            30),
+    ('진도',             'SONO', 'SOLBEACH',         '전라남도 진도군',          40),
+    # ── 한화 / 한화리조트
+    ('거제',             'HANWHA', 'HANWHA_RESORT',  '경상남도 거제시',          10),
+    ('경주',             'HANWHA', 'HANWHA_RESORT',  '경상북도 경주시',          20),
+    ('대천',             'HANWHA', 'HANWHA_RESORT',  '충청남도 보령시',          30),
+    ('산정호수',         'HANWHA', 'HANWHA_RESORT',  '경기도 포천시',            40),
+    ('설악쏘라노',       'HANWHA', 'HANWHA_RESORT',  '강원도 속초시',            50),
+    ('용인',             'HANWHA', 'HANWHA_RESORT',  '경기도 용인시',            60),
+    ('제주도',           'HANWHA', 'HANWHA_RESORT',  '제주특별자치도',           70),
+    ('평창',             'HANWHA', 'HANWHA_RESORT',  '강원도 평창군',            80),
+    ('해운대',           'HANWHA', 'HANWHA_RESORT',  '부산광역시 해운대구',      90),
+    # ── 한화 / 한화호텔
+    ('벨메르(여수)',     'HANWHA', 'HANWHA_HOTEL',   '전라남도 여수시',          10),
+    # ── 한화 / 안토
+    ('서울(북한산)',     'HANWHA', 'ANTO',            '서울특별시 강북구',        10),
+    # ── 보광 / 휘닉스아일랜드
+    ('제주도',           'BOGWANG', 'PHOENIX_ISLAND', '제주특별자치도',           10),
+    # ── 보광 / 휘닉스파크
+    ('평창',             'BOGWANG', 'PHOENIX_PARK',   '강원도 평창군',            10),
+    # ── 켄싱턴 / 켄싱턴리조트
+    ('가평',             'KENSINGTON', 'KENSINGTON',  '경기도 가평군',            10),
+    ('경주',             'KENSINGTON', 'KENSINGTON',  '경상북도 경주시',          20),
+    ('설악비치',         'KENSINGTON', 'KENSINGTON',  '강원도 속초시',            30),
+    ('설악밸리',         'KENSINGTON', 'KENSINGTON',  '강원도 속초시',            40),
+    ('지리산(남원)',     'KENSINGTON', 'KENSINGTON',  '전라북도 남원시',          50),
+    ('지리산(하동)',     'KENSINGTON', 'KENSINGTON',  '경상남도 하동군',          60),
+    ('충주',             'KENSINGTON', 'KENSINGTON',  '충청북도 충주시',          70),
+    # ── 켄싱턴 / 켄싱턴리조트(제주)
+    ('한림',             'KENSINGTON', 'KENSINGTON_JEJU', '제주특별자치도 한림읍',    10),
+    ('서귀포',           'KENSINGTON', 'KENSINGTON_JEJU', '제주특별자치도 서귀포시',  20),
+    ('중문',             'KENSINGTON', 'KENSINGTON_JEJU', '제주특별자치도 서귀포시',  30),
+    # ── 기타 / 리솜리조트
+    ('덕산(스플라스)',   'ETC', 'RISOM',             '충청남도 예산군',          10),
+    ('안면도(아일랜드)', 'ETC', 'RISOM',             '충청남도 태안군',          20),
+    ('제천',             'ETC', 'RISOM',             '충청북도 제천시',          30),
+    # ── 기타 / 용평리조트
+    ('용평',             'ETC', 'YONGPYONG',         '강원도 평창군',            10),
+]
+
+
+# ──────────────────────────────────────────────
+# 커맨드: condo
+# ──────────────────────────────────────────────
+
+def cmd_condo():
+    """TB_CONDO 컬럼 변경 + 데이터 초기화 + INSERT"""
+    from sqlalchemy import text
+    from app import db as _db
+
+    with app.app_context():
+        conn = _db.engine.connect()
+        trans = conn.begin()
+        try:
+            print("▶ STEP1: 기존 컬럼 제거 및 신규 컬럼 추가")
+            conn.execute(text('ALTER TABLE "TB_CONDO" DROP COLUMN IF EXISTS region_cd'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" DROP COLUMN IF EXISTS brand_cd'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS brand_group_cd VARCHAR(20)'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS resort_cd      VARCHAR(30)'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS image_url      VARCHAR(500)'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS price_info     TEXT'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS area_info      VARCHAR(200)'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS extra_info     TEXT'))
+            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS sort_order     INTEGER DEFAULT 0'))
+            print("  완료")
+
+            print("▶ STEP2: 기존 데이터 초기화")
+            conn.execute(text('DELETE FROM "TB_CONDO_RESERVE"'))
+            conn.execute(text('DELETE FROM "TB_CONDO_ROOM"'))
+            conn.execute(text('DELETE FROM "TB_CONDO"'))
+            conn.execute(text('ALTER SEQUENCE "TB_CONDO_condo_seq_seq" RESTART WITH 1'))
+            print("  완료")
+
+            print("▶ STEP3: 콘도 초기 데이터 INSERT")
+            for row in CONDO_DATA:
+                conn.execute(text("""
+                    INSERT INTO "TB_CONDO"
+                        (condo_nm, brand_group_cd, resort_cd, location, sort_order, use_yn)
+                    VALUES (:nm, :bg, :rc, :loc, :so, 'Y')
+                """), {"nm": row[0], "bg": row[1], "rc": row[2], "loc": row[3], "so": row[4]})
+            print(f"  {len(CONDO_DATA)}개 INSERT 완료")
+
+            trans.commit()
+
+            print("▶ STEP4: 결과 확인")
+            result = conn.execute(text("""
+                SELECT brand_group_cd, resort_cd, COUNT(*) AS cnt
+                FROM "TB_CONDO"
+                GROUP BY brand_group_cd, resort_cd
+                ORDER BY brand_group_cd, resort_cd
+            """))
+            for r in result:
+                print(f"  {r.brand_group_cd:12} | {r.resort_cd:20} | {r.cnt}개")
+
+        except Exception as e:
+            trans.rollback()
+            print(f"\n❌ 오류 발생, 롤백: {e}")
+            sys.exit(1)
+        finally:
+            conn.close()
+
+    print("\n✅ 콘도 마이그레이션 완료!")
+
+
+# ──────────────────────────────────────────────
+# 커맨드: condo_reset
+# ──────────────────────────────────────────────
+
+def cmd_condo_reset():
+    """TB_CONDO 데이터만 초기화 후 재INSERT (컬럼 변경 없음)"""
+    from sqlalchemy import text
+    from app import db as _db
+
+    with app.app_context():
+        conn = _db.engine.connect()
+        trans = conn.begin()
+        try:
+            print("▶ 데이터 초기화")
+            conn.execute(text('DELETE FROM "TB_CONDO_RESERVE"'))
+            conn.execute(text('DELETE FROM "TB_CONDO_ROOM"'))
+            conn.execute(text('DELETE FROM "TB_CONDO"'))
+            conn.execute(text('ALTER SEQUENCE "TB_CONDO_condo_seq_seq" RESTART WITH 1'))
+
+            print("▶ 콘도 재INSERT")
+            for row in CONDO_DATA:
+                conn.execute(text("""
+                    INSERT INTO "TB_CONDO"
+                        (condo_nm, brand_group_cd, resort_cd, location, sort_order, use_yn)
+                    VALUES (:nm, :bg, :rc, :loc, :so, 'Y')
+                """), {"nm": row[0], "bg": row[1], "rc": row[2], "loc": row[3], "so": row[4]})
+            print(f"  {len(CONDO_DATA)}개 INSERT 완료")
+
+            trans.commit()
+        except Exception as e:
+            trans.rollback()
+            print(f"\n❌ 오류 발생, 롤백: {e}")
+            sys.exit(1)
+        finally:
+            conn.close()
+
+    print("\n✅ 콘도 데이터 리셋 완료!")
+
+
+# ──────────────────────────────────────────────
 # 샘플 CSV 생성
 # ──────────────────────────────────────────────
 
@@ -286,12 +453,16 @@ if __name__ == '__main__':
   python migrate.py run               실제 삽입 실행
   python migrate.py run --reset       전체 초기화 후 재삽입
   python migrate.py reset-pwd A10001  특정 사번 비밀번호 초기화
+  python migrate.py condo             TB_CONDO 컬럼변경 + 초기데이터 INSERT
+  python migrate.py condo_reset       TB_CONDO 데이터만 초기화 후 재INSERT
         """
     )
     sub = parser.add_subparsers(dest='cmd')
 
     sub.add_parser('preview', help='변환 결과 미리보기')
     sub.add_parser('sample',  help='샘플 migration_input.csv 생성')
+    sub.add_parser('condo',       help='TB_CONDO 컬럼 변경 + 초기 데이터 INSERT')
+    sub.add_parser('condo_reset', help='TB_CONDO 데이터만 초기화 후 재INSERT')
 
     p_run = sub.add_parser('run', help='실제 삽입 실행')
     p_run.add_argument('--reset', action='store_true', help='기존 TB_USER 삭제 후 재삽입')
@@ -309,5 +480,9 @@ if __name__ == '__main__':
         cmd_run(reset=args.reset)
     elif args.cmd == 'reset-pwd':
         cmd_reset_pwd(args.emp_no)
+    elif args.cmd == 'condo':
+        cmd_condo()
+    elif args.cmd == 'condo_reset':
+        cmd_condo_reset()
     else:
         parser.print_help()

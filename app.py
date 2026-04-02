@@ -206,15 +206,20 @@ class BoardComment(db.Model):
 
 class Condo(db.Model):
     __tablename__ = 'TB_CONDO'
-    condo_seq   = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    condo_nm    = db.Column(db.String(100), nullable=False)
-    region_cd   = db.Column(db.String(10))
-    brand_cd    = db.Column(db.String(10))
-    location    = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    total_room  = db.Column(db.Integer, default=0)
-    use_yn      = db.Column(db.String(1), default='Y')
-    rooms       = db.relationship('CondoRoom', backref='condo', lazy=True)
+    condo_seq       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    condo_nm        = db.Column(db.String(100), nullable=False)
+    brand_group_cd  = db.Column(db.String(20))   # 대브랜드: SONO/HANWHA/BOGANG/KENSINGTON/ETC
+    resort_cd       = db.Column(db.String(30))   # 리조트명: DAEMYUNG/SONOFELICE/SOLBICH 등
+    location        = db.Column(db.String(200), nullable=False)
+    description     = db.Column(db.Text)
+    image_url       = db.Column(db.String(500))  # 시설 이미지
+    price_info      = db.Column(db.Text)          # 가격 정보
+    area_info       = db.Column(db.String(200))   # 평수 정보
+    extra_info      = db.Column(db.Text)          # 비고 (조식/주차 등)
+    sort_order      = db.Column(db.Integer, default=0)
+    total_room      = db.Column(db.Integer, default=0)
+    use_yn          = db.Column(db.String(1), default='Y')
+    rooms           = db.relationship('CondoRoom', backref='condo', lazy=True)
 
 class CondoRoom(db.Model):
     __tablename__ = 'TB_CONDO_ROOM'
@@ -908,35 +913,51 @@ def vote_create():
 # Routes - 콘도
 # ══════════════════════════════════════════════════════════
 
-REGION_MAP = {
-    'ALL':          '전체',
-    'METRO':        '수도권',
-    'GANGWON':      '강원',
-    'CHUNGCHEONG':  '충청',
-    'JEOLLA':       '전라',
-    'GYEONGSANG':   '경상',
+BRAND_GROUP_MAP = {
+    'ALL':         '전체',
+    'SONO':        '소노',
+    'HANWHA':      '한화',
+    'BOGANG':      '보광',
+    'KENSINGTON':  '켄싱턴',
+    'ETC':         '기타',
 }
-BRAND_MAP = {
-    'ALL':     '전체',
-    'SONO':    '소노',
-    'HANWHA':  '한화',
-    'LOTTE':   '롯데',
-    'ANTO':    '안토',
+RESORT_MAP = {
+    'ALL':              '전체',
+    'DAEMYUNG':         '대명리조트',
+    'SONOFELICE':       '소노펠리체',
+    'SOLBICH':          '쏠비치',
+    'HANWHA_RESORT':    '한화리조트',
+    'HANWHA_HOTEL':     '한화호텔',
+    'ANTO':             '안토',
+    'PHOENIX_ISLAND':   '휘닉스아일랜드',
+    'PHOENIX_PARK':     '휘닉스파크',
+    'KENSINGTON_RESORT':'켄싱턴리조트',
+    'KENSINGTON_JEJU':  '켄싱턴리조트(제주)',
+    'RISOM':            '리솜리조트',
+    'YONGPYONG':        '용평리조트',
+}
+# 대브랜드별 리조트 매핑 (프론트 연동용)
+BRAND_RESORT_MAP = {
+    'SONO':       ['DAEMYUNG','SONOFELICE','SOLBICH'],
+    'HANWHA':     ['HANWHA_RESORT','HANWHA_HOTEL','ANTO'],
+    'BOGANG':     ['PHOENIX_ISLAND','PHOENIX_PARK'],
+    'KENSINGTON': ['KENSINGTON_RESORT','KENSINGTON_JEJU'],
+    'ETC':        ['RISOM','YONGPYONG'],
 }
 
 @app.route('/condo')
 @login_required
 def condo():
-    current_user = get_current_user()
-    region  = request.args.get('region', 'ALL')
-    brand   = request.args.get('brand', 'ALL')
+    current_user  = get_current_user()
+    brand_group   = request.args.get('brand_group', 'ALL')
+    resort        = request.args.get('resort', 'ALL')
 
     query = Condo.query.filter_by(use_yn='Y')
-    if region != 'ALL':
-        query = query.filter_by(region_cd=region)
-    if brand != 'ALL':
-        query = query.filter_by(brand_cd=brand)
-    condos = query.order_by(Condo.region_cd, Condo.brand_cd, Condo.condo_nm).all()
+    if brand_group != 'ALL':
+        query = query.filter_by(brand_group_cd=brand_group)
+    if resort != 'ALL':
+        query = query.filter_by(resort_cd=resort)
+    condos = query.order_by(Condo.brand_group_cd, Condo.resort_cd, Condo.condo_nm).all()
 
     my_reserves = db.session.query(CondoReserve, Condo, CondoRoom)\
         .join(Condo, CondoReserve.condo_seq == Condo.condo_seq)\
@@ -948,10 +969,11 @@ def condo():
         current_user=current_user,
         condo_list=condos,
         my_reserves=my_reserves,
-        region_map=REGION_MAP,
-        brand_map=BRAND_MAP,
-        sel_region=region,
-        sel_brand=brand,
+        brand_group_map=BRAND_GROUP_MAP,
+        resort_map=RESORT_MAP,
+        brand_resort_map=BRAND_RESORT_MAP,
+        sel_brand_group=brand_group,
+        sel_resort=resort,
         active_menu='condo'
     )
 
@@ -1000,26 +1022,27 @@ def admin_condo():
     rows = []
     for r, c, u, rm in reserve_list:
         rows.append({
-            'reserve_seq':  r.reserve_seq,
-            'emp_nm':       u.emp_nm if u else '비조합원',
-            'phone_no':     u.phone_no if u else '',
-            'condo_name':   c.condo_nm,
-            'region_nm':    REGION_MAP.get(c.region_cd, ''),
-            'brand_nm':     BRAND_MAP.get(c.brand_cd, ''),
-            'room_type':    rm.room_type if rm else '',
-            'check_in':     r.check_in,
-            'check_out':    r.check_out,
-            'status':       r.status,
-            'reg_dt':       r.reg_dt,
+            'reserve_seq':    r.reserve_seq,
+            'emp_nm':         u.emp_nm if u else '비조합원',
+            'phone_no':       u.phone_no if u else '',
+            'condo_name':     c.condo_nm,
+            'brand_group_nm': BRAND_GROUP_MAP.get(c.brand_group_cd, ''),
+            'resort_nm':      RESORT_MAP.get(c.resort_cd, ''),
+            'room_type':      rm.room_type if rm else '',
+            'check_in':       r.check_in,
+            'check_out':      r.check_out,
+            'status':         r.status,
+            'reg_dt':         r.reg_dt,
         })
 
-    condo_list = Condo.query.filter_by(use_yn='Y').order_by(Condo.region_cd, Condo.condo_nm).all()
+    condo_list = Condo.query.filter_by(use_yn='Y').order_by(Condo.brand_group_cd, Condo.resort_cd, Condo.condo_nm).all()
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
         condo_list=condo_list,
-        region_map=REGION_MAP,
-        brand_map=BRAND_MAP,
+        brand_group_map=BRAND_GROUP_MAP,
+        resort_map=RESORT_MAP,
+        brand_resort_map=BRAND_RESORT_MAP,
         active_menu='admin_condo'
     )
 
@@ -1042,13 +1065,18 @@ def condo_admin_save():
 @level_required(1)
 def condo_add():
     condo = Condo(
-        condo_nm    = request.form.get('condo_nm'),
-        region_cd   = request.form.get('region_cd'),
-        brand_cd    = request.form.get('brand_cd'),
-        location    = request.form.get('location'),
-        description = request.form.get('description'),
-        total_room  = int(request.form.get('total_room', 1)),
-        use_yn      = 'Y'
+        condo_nm        = request.form.get('condo_nm'),
+        brand_group_cd  = request.form.get('brand_group_cd'),
+        resort_cd       = request.form.get('resort_cd'),
+        location        = request.form.get('location'),
+        description     = request.form.get('description'),
+        image_url       = request.form.get('image_url'),
+        price_info      = request.form.get('price_info'),
+        area_info       = request.form.get('area_info'),
+        extra_info      = request.form.get('extra_info'),
+        total_room      = int(request.form.get('total_room', 1)),
+        sort_order      = int(request.form.get('sort_order', 0)),
+        use_yn          = 'Y'
     )
     db.session.add(condo)
     db.session.commit()
@@ -1059,12 +1087,17 @@ def condo_add():
 @level_required(1)
 def condo_edit():
     condo = Condo.query.get_or_404(request.form.get('condo_seq'))
-    condo.condo_nm    = request.form.get('condo_nm')
-    condo.region_cd   = request.form.get('region_cd')
-    condo.brand_cd    = request.form.get('brand_cd')
-    condo.location    = request.form.get('location')
-    condo.description = request.form.get('description')
-    condo.total_room  = int(request.form.get('total_room', condo.total_room))
+    condo.condo_nm       = request.form.get('condo_nm')
+    condo.brand_group_cd = request.form.get('brand_group_cd')
+    condo.resort_cd      = request.form.get('resort_cd')
+    condo.location       = request.form.get('location')
+    condo.description    = request.form.get('description')
+    condo.image_url      = request.form.get('image_url')
+    condo.price_info     = request.form.get('price_info')
+    condo.area_info      = request.form.get('area_info')
+    condo.extra_info     = request.form.get('extra_info')
+    condo.total_room     = int(request.form.get('total_room', condo.total_room))
+    condo.sort_order     = int(request.form.get('sort_order', condo.sort_order))
     db.session.commit()
     flash('리조트 정보가 수정되었습니다.')
     return redirect(url_for('admin_condo'))
@@ -1526,6 +1559,14 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
+            # TB_CONDO 스키마 변경: region_cd→brand_group_cd, brand_cd→resort_cd, 신규 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS brand_group_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS resort_cd VARCHAR(30)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS price_info TEXT'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS area_info VARCHAR(200)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS extra_info TEXT'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_NOTICE_COMMENT" (
                 comment_seq SERIAL PRIMARY KEY,
                 notice_seq INTEGER NOT NULL,
