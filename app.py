@@ -1535,21 +1535,6 @@ def migrate():
                 use_yn VARCHAR(1) DEFAULT \'Y\',
                 reg_dt TIMESTAMP DEFAULT NOW()
             )'''))
-            # TB_COMP_DEPT 테스트 부서 데이터 insert
-            conn.execute(db.text('''
-                INSERT INTO "TB_COMP_DEPT" (dept_cd, dept_nm, sort_order, use_yn)
-                VALUES
-                    ('D001', '경영지원팀',   1, 'Y'),
-                    ('D002', '영업1팀',      2, 'Y'),
-                    ('D003', '영업2팀',      3, 'Y'),
-                    ('D004', '리테일영업팀', 4, 'Y'),
-                    ('D005', 'WM팀',         5, 'Y'),
-                    ('D006', 'IT개발팀',     6, 'Y'),
-                    ('D007', '준법감시팀',   7, 'Y'),
-                    ('D008', '인사총무팀',   8, 'Y')
-                ON CONFLICT (dept_cd) DO UPDATE
-                    SET dept_nm = EXCLUDED.dept_nm
-            '''))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
@@ -1595,9 +1580,16 @@ def admin_union_dept_save():
     union_dept_nm = request.form.get('union_dept_nm', '').strip()
 
     if action == 'add':
-        exists = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
-        if exists:
+        # 삭제된 것 포함 전체 조회
+        existing = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
+        if existing and existing.use_yn == 'Y':
             flash('이미 존재하는 분회 코드입니다.')
+        elif existing and existing.use_yn == 'N':
+            # 삭제됐던 분회 재활성화
+            existing.union_dept_nm = union_dept_nm
+            existing.sort_order    = int(request.form.get('sort_order', 0))
+            existing.use_yn        = 'Y'
+            flash(f'{union_dept_nm} 분회가 등록되었습니다.')
         else:
             db.session.add(UnionDept(
                 union_dept_cd=union_dept_cd,
