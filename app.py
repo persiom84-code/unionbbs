@@ -1671,6 +1671,7 @@ def migrate():
                 use_yn      CHAR(1) DEFAULT 'Y'
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS facility_id INTEGER'))
 
             # 42개 지점(facility) 초기 데이터
             conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '거제', 's': 1})
