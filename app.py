@@ -236,11 +236,23 @@ class CondoFacility(db.Model):
     use_yn        = db.Column(db.String(1), default='Y')
     created_dt    = db.Column(db.DateTime, default=datetime.now)
     updated_dt    = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    rooms         = db.relationship('CondoRoom', backref='facility', lazy=True)
+
+class CondoRoom(db.Model):
+    __tablename__ = 'TB_CONDO_ROOM'
+    room_id     = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
+    room_type   = db.Column(db.String(100), nullable=False)
+    price       = db.Column(db.Integer, default=0)
+    extra_info  = db.Column(db.Text)
+    sort_order  = db.Column(db.Integer, default=0)
+    use_yn      = db.Column(db.String(1), default='Y')
 
 class CondoReserve(db.Model):
     __tablename__ = 'TB_CONDO_RESERVE'
     reserve_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
+    room_id     = db.Column(db.Integer, db.ForeignKey('TB_CONDO_ROOM.room_id'))
     emp_no      = db.Column(db.String(20))
     check_in    = db.Column(db.Date, nullable=False)
     check_out   = db.Column(db.Date, nullable=False)
@@ -963,6 +975,18 @@ def api_condo_facilities():
         'image_url':     f.image_url or '',
     } for f in facilities])
 
+@app.route('/api/condo/rooms')
+@login_required
+def api_condo_rooms():
+    facility_id = request.args.get('facility_id')
+    rooms = CondoRoom.query.filter_by(facility_id=facility_id, use_yn='Y').order_by(CondoRoom.sort_order).all()
+    return jsonify([{
+        'room_id':    r.room_id,
+        'room_type':  r.room_type,
+        'price':      r.price,
+        'extra_info': r.extra_info or '',
+    } for r in rooms])
+
 @app.route('/condo/apply', methods=['POST'])
 @login_required
 def condo_apply():
@@ -974,6 +998,7 @@ def condo_apply():
         return redirect(url_for('condo'))
     reserve = CondoReserve(
         facility_id = request.form.get('facility_id'),
+        room_id     = request.form.get('room_id') or None,
         emp_no      = current_user.emp_no,
         check_in    = check_in,
         check_out   = check_out,
@@ -1007,12 +1032,14 @@ def admin_condo():
             'reg_dt':        r.reg_dt,
         })
 
+    rooms = CondoRoom.query.filter_by(use_yn='Y').order_by(CondoRoom.sort_order).all()
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
         brands=brands,
         resorts=resorts,
         facilities=facilities,
+        rooms=rooms,
         active_menu='admin_condo'
     )
 
@@ -1108,6 +1135,34 @@ def condo_facility_save():
         f = CondoFacility.query.get_or_404(request.form.get('facility_id'))
         f.use_yn = 'N'
         flash('시설이 삭제되었습니다.')
+    db.session.commit()
+    return redirect(url_for('admin_condo'))
+
+@app.route('/admin/condo/room/save', methods=['POST'])
+@level_required(1)
+def condo_room_save():
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(CondoRoom(
+            facility_id = request.form.get('facility_id'),
+            room_type   = request.form.get('room_type'),
+            price       = int(request.form.get('price', 0)),
+            extra_info  = request.form.get('extra_info'),
+            sort_order  = int(request.form.get('sort_order', 0))
+        ))
+        flash('객실이 등록되었습니다.')
+    elif action == 'edit':
+        r = CondoRoom.query.get_or_404(request.form.get('room_id'))
+        r.facility_id = request.form.get('facility_id')
+        r.room_type   = request.form.get('room_type')
+        r.price       = int(request.form.get('price', 0))
+        r.extra_info  = request.form.get('extra_info')
+        r.sort_order  = int(request.form.get('sort_order', r.sort_order))
+        flash('객실 정보가 수정되었습니다.')
+    elif action == 'delete':
+        r = CondoRoom.query.get_or_404(request.form.get('room_id'))
+        r.use_yn = 'N'
+        flash('객실이 삭제되었습니다.')
     db.session.commit()
     return redirect(url_for('admin_condo'))
 
@@ -1599,6 +1654,62 @@ def migrate():
                     'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn '
                     'AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_RESORT" WHERE resort_name=:rn)'
                 ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
+
+            # TB_CONDO_ROOM 신규 테이블
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_ROOM" (
+                room_id     SERIAL PRIMARY KEY,
+                facility_id INT NOT NULL REFERENCES "TB_CONDO_FACILITY"(facility_id),
+                room_type   VARCHAR(100) NOT NULL,
+                price       INTEGER DEFAULT 0,
+                extra_info  TEXT,
+                sort_order  INT DEFAULT 0,
+                use_yn      CHAR(1) DEFAULT 'Y'
+            )'''))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER REFERENCES "TB_CONDO_ROOM"(room_id)'))
+
+            # 42개 지점(facility) 초기 데이터
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '거제', 's': 1})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '경주', 's': 2})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '단양', 's': 3})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '변산', 's': 4})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '양평', 's': 5})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '천안', 's': 6})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '청송', 's': 7})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '여수엠블', 's': 8})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '일산KINTEX엠블', 's': 9})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '설악델피노', 's': 10})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '소노펠리체', 'fn': '비발디(홍천)', 's': 11})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '쏠비치', 'fn': '남해', 's': 12})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '쏠비치', 'fn': '삼척', 's': 13})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '쏠비치', 'fn': '양양', 's': 14})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '쏠비치', 'fn': '진도', 's': 15})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '거제', 's': 16})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '경주', 's': 17})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '대천', 's': 18})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '산정호수', 's': 19})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '설악쏘라노', 's': 20})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '용인', 's': 21})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '제주도', 's': 22})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '평창', 's': 23})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화리조트', 'fn': '해운대', 's': 24})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '한화호텔', 'fn': '벨메르(여수)', 's': 25})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '안토', 'fn': '서울(북한산)', 's': 26})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '휘닉스아일랜드', 'fn': '제주도', 's': 27})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '휘닉스파크', 'fn': '평창', 's': 28})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '가평', 's': 29})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '경주', 's': 30})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '설악비치', 's': 31})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '설악밸리', 's': 32})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '지리산(남원)', 's': 33})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '지리산(하동)', 's': 34})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트', 'fn': '충주', 's': 35})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트(제주)', 'fn': '한림', 's': 36})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트(제주)', 'fn': '서귀포', 's': 37})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '켄싱턴리조트(제주)', 'fn': '중문', 's': 38})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '리솜리조트', 'fn': '덕산(스플라스)', 's': 39})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '리솜리조트', 'fn': '안면도(아일랜드)', 's': 40})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '리솜리조트', 'fn': '제천', 's': 41})
+                conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '용평리조트', 'fn': '용평', 's': 42})
 
             conn.commit()
         return '마이그레이션 완료!'

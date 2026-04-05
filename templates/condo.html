@@ -20,8 +20,9 @@
             <i class="fas fa-search" style="color:#00479d;margin-right:8px;"></i>시설 선택 및 신청
         </h3>
 
-        <form action="/condo/apply" method="POST" id="condoApplyForm">
+        <form action="/condo/apply" method="POST" id="condoApplyForm" onsubmit="return validateForm()">
             <input type="hidden" name="facility_id" id="selected_facility_id">
+            <input type="hidden" name="room_id" id="selected_room_id">
 
             <!-- Step 1: 브랜드 선택 -->
             <div style="margin-bottom:18px;">
@@ -52,14 +53,14 @@
             <div style="margin-bottom:18px;">
                 <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">3</span>
-                    시설 선택
+                    지역 선택
                 </label>
                 <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;">
                         <thead>
                             <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
                                 <th style="padding:10px 12px;text-align:center;width:36px;"></th>
-                                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;">시설명</th>
+                                <th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;">지역명</th>
                                 <th style="padding:10px 10px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;width:80px;">지역</th>
                                 <th style="padding:10px 10px;text-align:center;font-size:11px;font-weight:700;color:#94a3b8;width:80px;">평수</th>
                             </tr>
@@ -77,6 +78,18 @@
                 <p id="detail-area" style="font-size:12px;color:#475569;margin-bottom:4px;"></p>
                 <p id="detail-price" style="font-size:12px;color:#00479d;font-weight:600;margin-bottom:4px;"></p>
                 <p id="detail-extra" style="font-size:11px;color:#64748b;"></p>
+            </div>
+
+            <!-- Step 4: 객실 선택 -->
+            <div id="room-section" style="display:none;margin-bottom:18px;">
+                <label style="font-size:11px;font-weight:800;color:#64748b;display:block;margin-bottom:8px;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#00479d;color:#fff;border-radius:50%;font-size:10px;margin-right:6px;">4</span>
+                    객실 선택
+                </label>
+                <div id="room-list" style="display:grid;gap:8px;"></div>
+                <p id="room-warn" style="display:none;font-size:11px;color:#dc2626;font-weight:600;margin-top:6px;">
+                    <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>객실을 선택해주세요.
+                </p>
             </div>
 
             <!-- 날짜 선택 -->
@@ -177,8 +190,10 @@
                 document.getElementById('facilityTableBody').innerHTML =
                     '<tr><td colspan="4" style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">리조트를 먼저 선택해주세요.</td></tr>';
                 document.getElementById('facility-detail').style.display = 'none';
+                document.getElementById('room-section').style.display = 'none';
                 document.getElementById('date-section').style.display = 'none';
                 document.getElementById('selected_facility_id').value = '';
+                document.getElementById('selected_room_id').value = '';
             });
     }
 
@@ -223,15 +238,48 @@
         document.querySelectorAll('.facility-row').forEach(r => r.classList.remove('selected'));
         row.classList.add('selected');
         document.getElementById('selected_facility_id').value = id;
+        document.getElementById('selected_room_id').value = '';
 
         // 상세 표시
-        document.getElementById('detail-name').textContent = name;
+        document.getElementById('detail-name').textContent = name + (location ? ' (' + location + ')' : '');
         document.getElementById('detail-area').textContent = area ? '평수: ' + area : '';
-        document.getElementById('detail-price').textContent = price ? '요금: ' + price : '';
+        document.getElementById('detail-price').textContent = price ? '요금 참고: ' + price : '';
         document.getElementById('detail-extra').textContent = extra ? '비고: ' + extra : '';
         document.getElementById('facility-detail').style.display = 'block';
-        document.getElementById('date-section').style.display = 'block';
+        document.getElementById('date-section').style.display = 'none';
 
+        // 객실 목록 AJAX 로드
+        const roomSection = document.getElementById('room-section');
+        const roomList = document.getElementById('room-list');
+        roomSection.style.display = 'block';
+        roomList.innerHTML = '<p style="font-size:12px;color:#94a3b8;font-style:italic;">객실 정보를 불러오는 중...</p>';
+
+        fetch('/api/condo/rooms?facility_id=' + id)
+            .then(r => r.json())
+            .then(rooms => {
+                if (rooms.length === 0) {
+                    roomList.innerHTML = '<p style="font-size:12px;color:#94a3b8;font-style:italic;">등록된 객실이 없습니다. 관리자에게 문의하세요.</p>';
+                } else {
+                    roomList.innerHTML = rooms.map(r => `
+                        <label style="display:flex;align-items:center;gap:12px;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s;"
+                               onmouseover="this.style.borderColor='#00479d'" onmouseout="this.style.borderColor=document.getElementById('selected_room_id').value==r.room_id?'#00479d':'#e2e8f0'">
+                            <input type="radio" name="_room_select" value="${r.room_id}"
+                                   onchange="selectRoom(${r.room_id})" style="width:16px;height:16px;accent-color:#00479d;">
+                            <div style="flex:1;">
+                                <p style="font-weight:700;color:#1e293b;font-size:13px;">${r.room_type}</p>
+                                ${r.price ? '<p style="font-size:11px;color:#00479d;font-weight:600;">단가: ' + r.price.toLocaleString() + '원</p>' : ''}
+                                ${r.extra_info ? '<p style="font-size:11px;color:#64748b;">' + r.extra_info + '</p>' : ''}
+                            </div>
+                        </label>`
+                    ).join('');
+                }
+            });
+    }
+
+    function selectRoom(roomId) {
+        document.getElementById('selected_room_id').value = roomId;
+        document.getElementById('room-warn').style.display = 'none';
+        document.getElementById('date-section').style.display = 'block';
         // 오늘 날짜 기본값
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('checkInDate').min = today;
@@ -247,6 +295,22 @@
         } else {
             warn.style.display = 'none';
         }
+    }
+
+    function validateForm() {
+        const roomId = document.getElementById('selected_room_id').value;
+        if (!roomId) {
+            document.getElementById('room-warn').style.display = 'block';
+            document.getElementById('room-section').scrollIntoView({behavior:'smooth'});
+            return false;
+        }
+        const ci = document.getElementById('checkInDate').value;
+        const co = document.getElementById('checkOutDate').value;
+        if (!ci || !co || co <= ci) {
+            document.getElementById('date-warn').style.display = 'block';
+            return false;
+        }
+        return true;
     }
 </script>
 {% endblock %}
