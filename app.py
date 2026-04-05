@@ -1035,9 +1035,7 @@ def admin_condo():
             'reg_dt':        r.reg_dt,
         })
 
-    rooms = CondoRoom.query.options(
-        joinedload(CondoRoom.facility).joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
-    ).filter_by(use_yn='Y').order_by(CondoRoom.sort_order).all()
+    rooms = []  # 객실 데이터는 추후 관리자 등록 후 표시
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
