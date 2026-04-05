@@ -1013,9 +1013,12 @@ def condo_apply():
 @level_required(1)
 def admin_condo():
     current_user = get_current_user()
+    from sqlalchemy.orm import joinedload
     brands    = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
     resorts   = CondoResort.query.filter_by(use_yn='Y').order_by(CondoResort.sort_order).all()
-    facilities = CondoFacility.query.filter_by(use_yn='Y').order_by(CondoFacility.sort_order).all()
+    facilities = CondoFacility.query.options(
+        joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
+    ).filter_by(use_yn='Y').order_by(CondoFacility.sort_order).all()
 
     reserve_list = db.session.query(CondoReserve, CondoFacility, User)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .outerjoin(User, CondoReserve.emp_no == User.emp_no)        .filter(CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).all()
 
@@ -1032,7 +1035,9 @@ def admin_condo():
             'reg_dt':        r.reg_dt,
         })
 
-    rooms = CondoRoom.query.filter_by(use_yn='Y').order_by(CondoRoom.sort_order).all()
+    rooms = CondoRoom.query.options(
+        joinedload(CondoRoom.facility).joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
+    ).filter_by(use_yn='Y').order_by(CondoRoom.sort_order).all()
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
@@ -1643,7 +1648,7 @@ def migrate():
             # 리조트 초기 데이터
             resorts = [
                 ('소노','대명리조트',1),('소노','소노펠리체',2),('소노','쏠비치',3),
-                ('한화','한화리조트',1),('한화','한화호텔&리조트',2),('한화','안토',3),
+                ('한화','한화리조트',1),('한화','한화호텔',2),('한화','안토',3),
                 ('보광','휘닉스아일랜드',1),('보광','휘닉스파크',2),
                 ('켄싱턴','켄싱턴리조트',1),('켄싱턴','켄싱턴리조트(제주)',2),
                 ('기타','리솜리조트',1),('기타','용평리조트',2),
