@@ -4,6 +4,7 @@ PostgreSQL (운영) 전용
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import joinedload
 from datetime import datetime, date, timedelta, timezone
 KST = timedelta(hours=9)
 from functools import wraps
@@ -1013,7 +1014,6 @@ def condo_apply():
 @level_required(1)
 def admin_condo():
     current_user = get_current_user()
-    from sqlalchemy.orm import joinedload
     brands    = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
     resorts   = CondoResort.query.filter_by(use_yn='Y').order_by(CondoResort.sort_order).all()
     facilities = CondoFacility.query.options(
