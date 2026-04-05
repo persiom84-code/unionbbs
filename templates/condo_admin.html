@@ -2,371 +2,335 @@
 {% block title %} - 콘도 관리{% endblock %}
 
 {% set active_menu = 'admin_condo' %}
-{%- set lv = (current_user.user_level if current_user else 99) | int -%}
 
 {% block content %}
+<div class="space-y-6">
 
-<div class="page-header">
-    <div>
-        <div class="page-title"><i class="fas fa-concierge-bell"></i>콘도 관리</div>
-        <div class="page-subtitle">리조트 등록 / 객실 관리 / 예약 승인</div>
+    <!-- 헤더 -->
+    <div class="page-header">
+        <div>
+            <div class="page-title"><i class="fas fa-concierge-bell"></i>콘도 관리</div>
+            <div class="page-subtitle">예약 승인 · 시설 목록 · 브랜드/리조트 관리</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button onclick="showTab('reserve')" id="tab-reserve"
+                class="btn-primary">예약 현황</button>
+            <button onclick="showTab('facility')" id="tab-facility"
+                class="btn-secondary">시설 목록</button>
+            <button onclick="showTab('master')" id="tab-master"
+                class="btn-secondary">브랜드/리조트</button>
+        </div>
     </div>
-    <div style="display:flex;background:#f1f5f9;padding:4px;border-radius:12px;gap:4px;">
-        <button class="tab-btn active" id="tab-approve" onclick="switchView('approve')">예약 승인</button>
-        <button class="tab-btn" id="tab-manage" onclick="switchView('manage')">리조트 관리</button>
-    </div>
-</div>
 
-<!-- ══ 예약 승인 ══ -->
-<div id="view-approve">
-    <div class="card" style="padding:28px;">
-        <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:20px;">
-            <i class="fas fa-clipboard-check" style="color:#00479d;margin-right:8px;"></i>예약 접수 현황
-        </h3>
-        {% if reserve_list %}
-        <div style="overflow-x:auto;">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>신청일</th><th>신청자</th><th>브랜드/리조트</th><th>지점명</th>
-                        <th>객실유형</th><th>이용기간</th><th>상태</th><th>처리</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in reserve_list %}
-                    <tr>
-                        <td style="color:#94a3b8;font-family:monospace;font-size:11px;">
-                            {{ item.reg_dt.strftime('%m.%d') if item.reg_dt else '-' }}
-                        </td>
-                        <td>
-                            <p style="font-weight:700;font-size:13px;">{{ item.emp_nm }}</p>
-                            <p style="font-size:10px;color:#94a3b8;">{{ item.phone_no }}</p>
-                        </td>
-                        <td style="font-size:11px;color:#64748b;">
-                            <span style="background:#f1f5f9;padding:1px 6px;border-radius:4px;margin-right:2px;">{{ item.brand_group_nm }}</span>
-                            <span style="background:#eff6ff;color:#00479d;padding:1px 6px;border-radius:4px;">{{ item.resort_nm }}</span>
-                        </td>
-                        <td style="font-weight:700;font-size:13px;">{{ item.condo_name }}</td>
-                        <td style="font-size:12px;color:#475569;">{{ item.room_type or '-' }}</td>
-                        <td style="font-size:12px;font-weight:600;">
-                            {{ item.check_in.strftime('%y.%m.%d') if item.check_in else '-' }} ~
-                            {{ item.check_out.strftime('%y.%m.%d') if item.check_out else '-' }}
-                        </td>
-                        <td>
-                            <span class="badge {% if item.status in ['CONFIRM'] %}badge-green{% elif item.status in ['CANCEL'] %}badge-gray{% else %}badge-yellow{% endif %}">
-                                {% if item.status=='CONFIRM' %}승인완료{% elif item.status=='CANCEL' %}취소{% else %}검토중{% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            {% if item.status not in ['CONFIRM','CANCEL'] %}
-                            <div style="display:flex;gap:4px;">
-                                <form action="/admin/condo/save" method="POST" style="display:inline;">
-                                    <input type="hidden" name="reserve_seq" value="{{ item.reserve_seq }}">
+    <!-- ══ 탭1: 예약 현황 ══ -->
+    <div id="tab-content-reserve">
+        <div class="card" style="overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;">
+                <h3 style="font-size:13px;font-weight:800;color:#475569;">
+                    <i class="fas fa-list" style="color:#00479d;margin-right:6px;"></i>전체 예약 내역
+                </h3>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>신청자</th>
+                            <th>시설명</th>
+                            <th>체크인</th>
+                            <th>체크아웃</th>
+                            <th>신청일</th>
+                            <th>상태</th>
+                            <th>처리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reserve_list %}
+                        <tr>
+                            <td><span style="font-weight:700;">{{ r.emp_nm }}</span>
+                                {% if r.phone_no %}<br><span style="font-size:11px;color:#94a3b8;">{{ r.phone_no }}</span>{% endif %}
+                            </td>
+                            <td style="font-weight:600;">{{ r.facility_name }}</td>
+                            <td style="font-family:monospace;font-size:12px;">{{ r.check_in.strftime('%Y.%m.%d') if r.check_in else '-' }}</td>
+                            <td style="font-family:monospace;font-size:12px;">{{ r.check_out.strftime('%Y.%m.%d') if r.check_out else '-' }}</td>
+                            <td style="font-family:monospace;font-size:11px;color:#94a3b8;">{{ r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-' }}</td>
+                            <td>
+                                <span class="badge {% if r.status=='CONFIRM' %}badge-green{% elif r.status=='CANCEL' %}badge-gray{% else %}badge-yellow{% endif %}">
+                                    {% if r.status=='CONFIRM' %}승인{% elif r.status=='CANCEL' %}취소{% else %}검토중{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if r.status == 'APPLY' %}
+                                <form action="/admin/condo/reserve/save" method="POST" style="display:inline;">
+                                    <input type="hidden" name="reserve_seq" value="{{ r.reserve_seq }}">
                                     <input type="hidden" name="action" value="confirm">
-                                    <button type="submit" class="btn-primary" style="font-size:10px;padding:5px 10px;">승인</button>
+                                    <button class="btn-primary" style="padding:4px 10px;font-size:11px;">승인</button>
                                 </form>
-                                <form action="/admin/condo/save" method="POST" style="display:inline;">
-                                    <input type="hidden" name="reserve_seq" value="{{ item.reserve_seq }}">
+                                <form action="/admin/condo/reserve/save" method="POST" style="display:inline;margin-left:4px;">
+                                    <input type="hidden" name="reserve_seq" value="{{ r.reserve_seq }}">
                                     <input type="hidden" name="action" value="cancel">
-                                    <button type="submit" class="btn-secondary" style="font-size:10px;padding:5px 10px;">반려</button>
+                                    <button class="btn-secondary" style="padding:4px 10px;font-size:11px;">취소</button>
                                 </form>
-                            </div>
-                            {% else %}
-                            <span style="font-size:11px;color:#94a3b8;">처리완료</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="8" style="padding:40px;text-align:center;color:#94a3b8;font-style:italic;">대기 중인 예약 신청이 없습니다.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" style="padding:40px;text-align:center;color:#94a3b8;font-style:italic;">예약 내역이 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        {% else %}
-        <div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">
-            <i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:12px;"></i>
-            대기 중인 예약 신청이 없습니다.
+    </div>
+
+    <!-- ══ 탭2: 시설 목록 ══ -->
+    <div id="tab-content-facility" style="display:none;">
+        <div class="card" style="overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="font-size:13px;font-weight:800;color:#475569;">
+                    <i class="fas fa-hotel" style="color:#00479d;margin-right:6px;"></i>시설 목록
+                </h3>
+                <button onclick="openModal('modal-add-facility')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
+                    <i class="fas fa-plus"></i>시설 추가
+                </button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>브랜드</th>
+                            <th>리조트</th>
+                            <th>시설명 (콘도)</th>
+                            <th>지역</th>
+                            <th>평수</th>
+                            <th>순서</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in facilities %}
+                        <tr>
+                            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;">{{ f.resort.brand.brand_name }}</span></td>
+                            <td><span style="font-size:11px;background:#eff6ff;color:#00479d;padding:2px 6px;border-radius:4px;font-weight:600;">{{ f.resort.resort_name }}</span></td>
+                            <td style="font-weight:700;">{{ f.facility_name }}</td>
+                            <td style="font-size:12px;color:#64748b;">{{ f.location or '-' }}</td>
+                            <td style="font-size:12px;">{{ f.area_info or '-' }}</td>
+                            <td style="font-family:monospace;font-size:12px;text-align:center;">{{ f.sort_order }}</td>
+                            <td>
+                                <button onclick="openFacilityEdit({{ f.facility_id }},'{{ f.resort_id }}','{{ f.facility_name }}','{{ f.location or '' }}','{{ f.description or '' }}','{{ f.area_info or '' }}','{{ f.price_info or '' }}','{{ f.extra_info or '' }}',{{ f.sort_order }})"
+                                    class="btn-secondary" style="font-size:11px;padding:4px 10px;">
+                                    <i class="fas fa-pen"></i>수정
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" style="padding:40px;text-align:center;color:#94a3b8;font-style:italic;">등록된 시설이 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        {% endif %}
+    </div>
+
+    <!-- ══ 탭3: 브랜드/리조트 마스터 ══ -->
+    <div id="tab-content-master" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+
+            <!-- 브랜드 -->
+            <div class="card" style="overflow:hidden;">
+                <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="font-size:13px;font-weight:800;color:#475569;"><i class="fas fa-tag" style="color:#00479d;margin-right:6px;"></i>브랜드</h3>
+                    <button onclick="openModal('modal-add-brand')" class="btn-primary" style="font-size:11px;padding:6px 12px;"><i class="fas fa-plus"></i>추가</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>브랜드명</th><th>순서</th><th>관리</th></tr></thead>
+                    <tbody>
+                        {% for b in brands %}
+                        <tr>
+                            <td style="font-weight:700;">{{ b.brand_name }}</td>
+                            <td style="text-align:center;font-family:monospace;">{{ b.sort_order }}</td>
+                            <td>
+                                <button onclick="openBrandEdit({{ b.brand_id }},'{{ b.brand_name }}',{{ b.sort_order }})"
+                                    class="btn-secondary" style="font-size:11px;padding:3px 8px;">수정</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 리조트 -->
+            <div class="card" style="overflow:hidden;">
+                <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="font-size:13px;font-weight:800;color:#475569;"><i class="fas fa-map-marker-alt" style="color:#00479d;margin-right:6px;"></i>리조트</h3>
+                    <button onclick="openModal('modal-add-resort')" class="btn-primary" style="font-size:11px;padding:6px 12px;"><i class="fas fa-plus"></i>추가</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>브랜드</th><th>리조트명</th><th>순서</th><th>관리</th></tr></thead>
+                    <tbody>
+                        {% for r in resorts %}
+                        <tr>
+                            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;">{{ r.brand.brand_name }}</span></td>
+                            <td style="font-weight:700;">{{ r.resort_name }}</td>
+                            <td style="text-align:center;font-family:monospace;">{{ r.sort_order }}</td>
+                            <td>
+                                <button onclick="openResortEdit({{ r.resort_id }},{{ r.brand_id }},'{{ r.resort_name }}',{{ r.sort_order }})"
+                                    class="btn-secondary" style="font-size:11px;padding:3px 8px;">수정</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- ══ 리조트 관리 ══ -->
-<div id="view-manage" style="display:none;">
-    <div class="card" style="padding:28px;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:15px;font-weight:800;color:#0f172a;">
-                <i class="fas fa-building" style="color:#00479d;margin-right:8px;"></i>등록 리조트 목록
-            </h3>
-            <button class="btn-primary" onclick="openModal('modal-add-condo')">
-                <i class="fas fa-plus"></i>리조트 등록
-            </button>
-        </div>
-        <div style="overflow-x:auto;">
-            <table class="data-table">
-                <thead>
-                    <tr><th>NO</th><th>브랜드</th><th>리조트</th><th>지점명</th><th>위치</th><th>객실유형</th><th>총 객실</th><th>상태</th><th>관리</th></tr>
-                </thead>
-                <tbody>
-                    {% for c in condo_list %}
-                    <tr>
-                        <td style="color:#94a3b8;font-family:monospace;font-size:11px;">{{ c.condo_seq }}</td>
-                        <td>
-                            <span style="font-size:11px;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:5px;font-weight:600;">
-                                {{ brand_group_map.get(c.brand_group_cd,'') }}
-                            </span>
-                        </td>
-                        <td>
-                            <span style="font-size:11px;background:#eff6ff;color:#00479d;padding:2px 7px;border-radius:5px;font-weight:600;">
-                                {{ resort_map.get(c.resort_cd,'') }}
-                            </span>
-                        </td>
-                        <td style="font-weight:700;">{{ c.condo_nm }}</td>
-                        <td style="color:#64748b;font-size:12px;">{{ c.location }}</td>
-                        <td>
-                            {% if c.rooms %}
-                                <div style="display:flex;flex-wrap:wrap;gap:3px;">
-                                {% for rm in c.rooms %}
-                                    {% if rm.use_yn == 'Y' %}
-                                    <span style="font-size:10px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;padding:1px 6px;border-radius:4px;font-weight:600;cursor:pointer;"
-                                          onclick="openRoomEdit({{ rm.room_seq }}, '{{ rm.room_type }}', {{ rm.capacity }}, '{{ rm.description or '' }}', '{{ rm.amenities or '' }}', {{ rm.total_cnt }})">
-                                        {{ rm.room_type }}
-                                    </span>
-                                    {% endif %}
-                                {% endfor %}
-                                </div>
-                            {% else %}
-                            <span style="font-size:11px;color:#94a3b8;font-style:italic;">-</span>
-                            {% endif %}
-                            <button style="margin-top:4px;font-size:10px;padding:2px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;color:#475569;cursor:pointer;"
-                                    onclick="openModal('modal-add-room'); document.getElementById('room-condo-seq').value='{{ c.condo_seq }}';">
-                                <i class="fas fa-plus"></i> 객실 추가
-                            </button>
-                        </td>
-                        <td style="text-align:center;font-weight:700;">{{ c.total_room }}실</td>
-                        <td>
-                            <span class="badge {% if c.use_yn=='Y' %}badge-green{% else %}badge-gray{% endif %}">
-                                {{ '운영중' if c.use_yn=='Y' else '중단' }}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn-secondary" style="font-size:10px;padding:5px 12px;"
-                                    onclick="openCondoEdit({{ c.condo_seq }},'{{ c.condo_nm }}','{{ c.brand_group_cd }}','{{ c.resort_cd }}','{{ c.location }}','{{ c.description or '' }}',{{ c.total_room }},'{{ c.area_info or '' }}','{{ c.price_info or '' }}','{{ c.extra_info or '' }}')">
-                                <i class="fas fa-edit"></i>수정
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="9" style="padding:48px;text-align:center;color:#94a3b8;font-style:italic;">등록된 리조트가 없습니다.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ══ 모달: 리조트 등록 ══ -->
-<div id="modal-add-condo" class="modal-overlay">
-    <div class="modal-box" style="max-width:500px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">리조트 등록</h3>
-            <button onclick="closeModal('modal-add-condo')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
-        </div>
-        <form action="/admin/condo/add" method="POST">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">대분류 — 브랜드 *</label>
-                    <select name="brand_group_cd" id="add-brand-group" class="form-input" required onchange="syncResortSelect('add')">
-                        {% for code, nm in brand_group_map.items() %}{% if code != 'ALL' %}
-                        <option value="{{ code }}">{{ nm }}</option>
-                        {% endif %}{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">중분류 — 리조트 *</label>
-                    <select name="resort_cd" id="add-resort" class="form-input" required>
-                        {% for code, nm in resort_map.items() %}{% if code != 'ALL' %}
-                        <option value="{{ code }}" data-group="{{ brand_resort_map | selectgroup(code) }}">{{ nm }}</option>
-                        {% endif %}{% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">지점명 *</label>
-                <input type="text" name="condo_nm" class="form-input" placeholder="예: 설악델피노, 해운대" required>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">위치</label>
-                <input type="text" name="location" class="form-input" placeholder="예: 강원도 속초시">
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">시설 설명</label>
-                <textarea name="description" rows="2" class="form-input" style="resize:vertical;" placeholder="이용 안내, 특이사항 등"></textarea>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">평수 정보</label>
-                    <input type="text" name="area_info" class="form-input" placeholder="예: 15평, 6평">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">총 객실 수</label>
-                    <input type="number" name="total_room" min="1" value="1" class="form-input">
-                </div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">가격 정보</label>
-                <textarea name="price_info" rows="2" class="form-input" style="resize:vertical;" placeholder="예: 평일 137,000 / 주말 226,000 / 성수기 241,000"></textarea>
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">비고</label>
-                <textarea name="extra_info" rows="2" class="form-input" style="resize:vertical;" placeholder="예: 조식 포함, 주차 유료 등"></textarea>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="closeModal('modal-add-condo')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>등록</button>
+<!-- ══ 브랜드 추가 모달 ══ -->
+<div id="modal-add-brand" class="modal-overlay">
+    <div class="modal-box" style="max-width:380px;">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-tag" style="color:#00479d;margin-right:8px;"></i>브랜드 추가</h3>
+        <form action="/admin/condo/brand/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">브랜드명</label>
+                <input type="text" name="brand_name" required class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" value="0" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-add-brand')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ══ 모달: 리조트 수정 ══ -->
-<div id="modal-edit-condo" class="modal-overlay">
-    <div class="modal-box" style="max-width:500px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">리조트 수정</h3>
-            <button onclick="closeModal('modal-edit-condo')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
-        </div>
-        <form action="/admin/condo/edit" method="POST">
-            <input type="hidden" name="condo_seq" id="edit-condo-seq">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">대분류 — 브랜드 *</label>
-                    <select name="brand_group_cd" id="edit-condo-brand-group" class="form-input" onchange="syncResortSelect('edit')">
-                        {% for code, nm in brand_group_map.items() %}{% if code != 'ALL' %}
-                        <option value="{{ code }}">{{ nm }}</option>
-                        {% endif %}{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">중분류 — 리조트 *</label>
-                    <select name="resort_cd" id="edit-condo-resort" class="form-input">
-                        {% for code, nm in resort_map.items() %}{% if code != 'ALL' %}
-                        <option value="{{ code }}">{{ nm }}</option>
-                        {% endif %}{% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">지점명 *</label>
-                <input type="text" name="condo_nm" id="edit-condo-nm" class="form-input" required>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">위치</label>
-                <input type="text" name="location" id="edit-condo-loc" class="form-input">
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">시설 설명</label>
-                <textarea name="description" id="edit-condo-desc" rows="2" class="form-input" style="resize:vertical;"></textarea>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">평수 정보</label>
-                    <input type="text" name="area_info" id="edit-condo-area" class="form-input">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">총 객실 수</label>
-                    <input type="number" name="total_room" id="edit-condo-room" min="1" class="form-input">
-                </div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">가격 정보</label>
-                <textarea name="price_info" id="edit-condo-price" rows="2" class="form-input" style="resize:vertical;"></textarea>
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">비고</label>
-                <textarea name="extra_info" id="edit-condo-extra" rows="2" class="form-input" style="resize:vertical;"></textarea>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="closeModal('modal-edit-condo')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>저장</button>
+<!-- ══ 브랜드 수정 모달 ══ -->
+<div id="modal-edit-brand" class="modal-overlay">
+    <div class="modal-box" style="max-width:380px;">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-pen" style="color:#00479d;margin-right:8px;"></i>브랜드 수정</h3>
+        <form action="/admin/condo/brand/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="brand_id" id="edit-brand-id">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">브랜드명</label>
+                <input type="text" name="brand_name" id="edit-brand-name" required class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" id="edit-brand-sort" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-edit-brand')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ══ 모달: 객실유형 등록 ══ -->
-<div id="modal-add-room" class="modal-overlay">
-    <div class="modal-box" style="max-width:480px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">객실유형 등록</h3>
-            <button onclick="closeModal('modal-add-room')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
-        </div>
-        <form action="/admin/condo/room/add" method="POST">
-            <input type="hidden" name="condo_seq" id="room-condo-seq">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실유형명 *</label>
-                    <input type="text" name="room_type" class="form-input" placeholder="예: 스탠다드룸" required>
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">수용 인원</label>
-                    <input type="number" name="capacity" class="form-input" value="4" min="1" max="20">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실 수</label>
-                    <input type="number" name="total_cnt" class="form-input" value="1" min="1">
-                </div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실 상세 설명</label>
-                <textarea name="description" rows="3" class="form-input" style="resize:vertical;" placeholder="침대 구성, 뷰, 특징 등 상세 설명"></textarea>
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">편의시설 (콤마로 구분)</label>
-                <input type="text" name="amenities" class="form-input" placeholder="예: TV,냉장고,에어컨,욕조">
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="closeModal('modal-add-room')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>등록</button>
+<!-- ══ 리조트 추가 모달 ══ -->
+<div id="modal-add-resort" class="modal-overlay">
+    <div class="modal-box" style="max-width:380px;">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-map-marker-alt" style="color:#00479d;margin-right:8px;"></i>리조트 추가</h3>
+        <form action="/admin/condo/resort/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">브랜드</label>
+                <select name="brand_id" required class="form-input">
+                    {% for b in brands %}<option value="{{ b.brand_id }}">{{ b.brand_name }}</option>{% endfor %}
+                </select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">리조트명</label>
+                <input type="text" name="resort_name" required class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" value="0" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-add-resort')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ══ 모달: 객실유형 수정 ══ -->
-<div id="modal-edit-room" class="modal-overlay">
-    <div class="modal-box" style="max-width:480px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">객실유형 수정</h3>
-            <button onclick="closeModal('modal-edit-room')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
-        </div>
-        <form action="/admin/condo/room/edit" method="POST">
-            <input type="hidden" name="room_seq" id="edit-room-seq">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실유형명 *</label>
-                    <input type="text" name="room_type" id="edit-room-type" class="form-input" required>
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">수용 인원</label>
-                    <input type="number" name="capacity" id="edit-room-cap" class="form-input" min="1">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실 수</label>
-                    <input type="number" name="total_cnt" id="edit-room-cnt" class="form-input" min="1">
-                </div>
+<!-- ══ 리조트 수정 모달 ══ -->
+<div id="modal-edit-resort" class="modal-overlay">
+    <div class="modal-box" style="max-width:380px;">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-pen" style="color:#00479d;margin-right:8px;"></i>리조트 수정</h3>
+        <form action="/admin/condo/resort/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="resort_id" id="edit-resort-id">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">브랜드</label>
+                <select name="brand_id" id="edit-resort-brand" class="form-input">
+                    {% for b in brands %}<option value="{{ b.brand_id }}">{{ b.brand_name }}</option>{% endfor %}
+                </select></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">리조트명</label>
+                <input type="text" name="resort_name" id="edit-resort-name" required class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" id="edit-resort-sort" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-edit-resort')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실 상세 설명</label>
-                <textarea name="description" id="edit-room-desc" rows="3" class="form-input" style="resize:vertical;"></textarea>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 시설 추가 모달 ══ -->
+<div id="modal-add-facility" class="modal-overlay">
+    <div class="modal-box">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-hotel" style="color:#00479d;margin-right:8px;"></i>시설 추가</h3>
+        <form action="/admin/condo/facility/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="add">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">리조트</label>
+                    <select name="resort_id" required class="form-input">
+                        {% for r in resorts %}<option value="{{ r.resort_id }}">{{ r.brand.brand_name }} - {{ r.resort_name }}</option>{% endfor %}
+                    </select></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">시설명 (콘도)</label>
+                    <input type="text" name="facility_name" required class="form-input" placeholder="예: 해운대"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">지역</label>
+                    <input type="text" name="location" class="form-input" placeholder="예: 부산 해운대"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">평수</label>
+                    <input type="text" name="area_info" class="form-input" placeholder="예: 15평, 20평"></div>
             </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">편의시설 (콤마로 구분)</label>
-                <input type="text" name="amenities" id="edit-room-amenities" class="form-input">
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">가격 정보</label>
+                <input type="text" name="price_info" class="form-input" placeholder="예: 비수기 50,000원 / 성수기 80,000원"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">설명</label>
+                <textarea name="description" rows="2" class="form-input"></textarea></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">비고 (조식/주차 등)</label>
+                <input type="text" name="extra_info" class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" value="0" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-add-facility')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="closeModal('modal-edit-room')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>저장</button>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 시설 수정 모달 ══ -->
+<div id="modal-edit-facility" class="modal-overlay">
+    <div class="modal-box">
+        <h3 style="font-size:15px;font-weight:800;margin-bottom:16px;"><i class="fas fa-pen" style="color:#00479d;margin-right:8px;"></i>시설 수정</h3>
+        <form action="/admin/condo/facility/save" method="POST" class="space-y-4">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="facility_id" id="edit-facility-id">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">리조트</label>
+                    <select name="resort_id" id="edit-facility-resort" class="form-input">
+                        {% for r in resorts %}<option value="{{ r.resort_id }}">{{ r.brand.brand_name }} - {{ r.resort_name }}</option>{% endfor %}
+                    </select></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">시설명 (콘도)</label>
+                    <input type="text" name="facility_name" id="edit-facility-name" required class="form-input"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">지역</label>
+                    <input type="text" name="location" id="edit-facility-location" class="form-input"></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">평수</label>
+                    <input type="text" name="area_info" id="edit-facility-area" class="form-input"></div>
+            </div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">가격 정보</label>
+                <input type="text" name="price_info" id="edit-facility-price" class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">설명</label>
+                <textarea name="description" id="edit-facility-desc" rows="2" class="form-input"></textarea></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">비고</label>
+                <input type="text" name="extra_info" id="edit-facility-extra" class="form-input"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">정렬순서</label>
+                <input type="number" name="sort_order" id="edit-facility-sort" class="form-input"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+                <button type="button" onclick="closeModal('modal-edit-facility')" class="btn-secondary" style="flex:1;">취소</button>
+                <button type="submit" class="btn-primary" style="flex:1;">저장</button>
             </div>
         </form>
     </div>
@@ -376,59 +340,55 @@
 
 {% block page_script %}
 <script>
-const BRAND_RESORT_MAP = {{ brand_resort_map | tojson }};
-
-function switchView(view) {
-    ['approve','manage'].forEach(v => {
-        document.getElementById('view-'+v).style.display = v===view ? 'block' : 'none';
-        const btn = document.getElementById('tab-'+v);
-        if (btn) btn.classList.toggle('active', v===view);
-    });
-}
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-// 대브랜드 변경 시 리조트 select 옵션 필터링
-function syncResortSelect(mode) {
-    const bgSel   = document.getElementById(mode === 'edit' ? 'edit-condo-brand-group' : 'add-brand-group');
-    const resSel  = document.getElementById(mode === 'edit' ? 'edit-condo-resort' : 'add-resort');
-    const bgCode  = bgSel.value;
-    const allowed = BRAND_RESORT_MAP[bgCode] || [];
-    Array.from(resSel.options).forEach(opt => {
-        opt.hidden = allowed.length > 0 && !allowed.includes(opt.value);
-    });
-    // 현재 선택값이 숨겨졌으면 첫 번째 허용 옵션으로 이동
-    if (resSel.options[resSel.selectedIndex]?.hidden) {
-        const first = Array.from(resSel.options).find(o => !o.hidden);
-        if (first) resSel.value = first.value;
+    function showTab(tab) {
+        ['reserve','facility','master'].forEach(t => {
+            document.getElementById('tab-content-' + t).style.display = t === tab ? 'block' : 'none';
+            const btn = document.getElementById('tab-' + t);
+            if (btn) {
+                btn.className = t === tab ? 'btn-primary' : 'btn-secondary';
+            }
+        });
     }
-}
 
-function openCondoEdit(seq, nm, brandGroup, resort, loc, desc, room, area, price, extra) {
-    document.getElementById('edit-condo-seq').value          = seq;
-    document.getElementById('edit-condo-nm').value           = nm;
-    document.getElementById('edit-condo-brand-group').value  = brandGroup;
-    syncResortSelect('edit');
-    document.getElementById('edit-condo-resort').value       = resort;
-    document.getElementById('edit-condo-loc').value          = loc;
-    document.getElementById('edit-condo-desc').value         = desc;
-    document.getElementById('edit-condo-room').value         = room;
-    document.getElementById('edit-condo-area').value         = area  || '';
-    document.getElementById('edit-condo-price').value        = price || '';
-    document.getElementById('edit-condo-extra').value        = extra || '';
-    openModal('modal-edit-condo');
-}
-function openRoomEdit(seq, type, cap, desc, amenities, cnt) {
-    document.getElementById('edit-room-seq').value       = seq;
-    document.getElementById('edit-room-type').value      = type;
-    document.getElementById('edit-room-cap').value       = cap;
-    document.getElementById('edit-room-desc').value      = desc;
-    document.getElementById('edit-room-amenities').value = amenities;
-    document.getElementById('edit-room-cnt').value       = cnt;
-    openModal('modal-edit-room');
-}
-document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', function(e) { if(e.target===this) closeModal(this.id); });
-});
+    function openModal(id) {
+        const m = document.getElementById(id);
+        m.style.display = 'flex';
+    }
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    function openBrandEdit(id, name, sort) {
+        document.getElementById('edit-brand-id').value   = id;
+        document.getElementById('edit-brand-name').value = name;
+        document.getElementById('edit-brand-sort').value = sort;
+        openModal('modal-edit-brand');
+    }
+
+    function openResortEdit(id, brandId, name, sort) {
+        document.getElementById('edit-resort-id').value    = id;
+        document.getElementById('edit-resort-brand').value = brandId;
+        document.getElementById('edit-resort-name').value  = name;
+        document.getElementById('edit-resort-sort').value  = sort;
+        openModal('modal-edit-resort');
+    }
+
+    function openFacilityEdit(id, resortId, name, location, desc, area, price, extra, sort) {
+        document.getElementById('edit-facility-id').value       = id;
+        document.getElementById('edit-facility-resort').value   = resortId;
+        document.getElementById('edit-facility-name').value     = name;
+        document.getElementById('edit-facility-location').value = location;
+        document.getElementById('edit-facility-desc').value     = desc;
+        document.getElementById('edit-facility-area').value     = area;
+        document.getElementById('edit-facility-price').value    = price;
+        document.getElementById('edit-facility-extra').value    = extra;
+        document.getElementById('edit-facility-sort').value     = sort;
+        openModal('modal-edit-facility');
+    }
+
+    // 모달 외부 클릭 시 닫기
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+        m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+    });
 </script>
 {% endblock %}

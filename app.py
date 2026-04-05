@@ -204,42 +204,44 @@ class BoardComment(db.Model):
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
-class Condo(db.Model):
-    __tablename__ = 'TB_CONDO'
-    condo_seq       = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    condo_nm        = db.Column(db.String(100), nullable=False)
-    brand_group_cd  = db.Column(db.String(20))   # 대브랜드: SONO/HANWHA/BOGANG/KENSINGTON/ETC
-    resort_cd       = db.Column(db.String(30))   # 리조트명: DAEMYUNG/SONOFELICE/SOLBICH 등
-    location        = db.Column(db.String(200), nullable=False)
-    description     = db.Column(db.Text)
-    image_url       = db.Column(db.String(500))  # 시설 이미지
-    price_info      = db.Column(db.Text)          # 가격 정보
-    area_info       = db.Column(db.String(200))   # 평수 정보
-    extra_info      = db.Column(db.Text)          # 비고 (조식/주차 등)
-    sort_order      = db.Column(db.Integer, default=0)
-    total_room      = db.Column(db.Integer, default=0)
-    use_yn          = db.Column(db.String(1), default='Y')
-    rooms           = db.relationship('CondoRoom', backref='condo', lazy=True)
+class CondoBrand(db.Model):
+    __tablename__ = 'TB_CONDO_BRAND'
+    brand_id   = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    brand_name = db.Column(db.String(50), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+    use_yn     = db.Column(db.String(1), default='Y')
+    resorts    = db.relationship('CondoResort', backref='brand', lazy=True)
 
-class CondoRoom(db.Model):
-    __tablename__ = 'TB_CONDO_ROOM'
-    room_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    condo_seq   = db.Column(db.Integer, db.ForeignKey('TB_CONDO.condo_seq'), nullable=False)
-    room_type   = db.Column(db.String(50), nullable=False)
-    capacity    = db.Column(db.Integer, default=4)
-    description = db.Column(db.Text)
-    amenities   = db.Column(db.String(500))
-    total_cnt   = db.Column(db.Integer, default=1)
-    avail_cnt   = db.Column(db.Integer, default=1)
+class CondoResort(db.Model):
+    __tablename__ = 'TB_CONDO_RESORT'
+    resort_id   = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    brand_id    = db.Column(db.Integer, db.ForeignKey('TB_CONDO_BRAND.brand_id'), nullable=False)
+    resort_name = db.Column(db.String(100), nullable=False)
+    sort_order  = db.Column(db.Integer, default=0)
     use_yn      = db.Column(db.String(1), default='Y')
+    facilities  = db.relationship('CondoFacility', backref='resort', lazy=True)
+
+class CondoFacility(db.Model):
+    __tablename__ = 'TB_CONDO_FACILITY'
+    facility_id   = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    resort_id     = db.Column(db.Integer, db.ForeignKey('TB_CONDO_RESORT.resort_id'), nullable=False)
+    facility_name = db.Column(db.String(100), nullable=False)
+    location      = db.Column(db.String(200))
+    description   = db.Column(db.Text)
+    image_url     = db.Column(db.String(500))
+    area_info     = db.Column(db.String(200))
+    price_info    = db.Column(db.Text)
+    extra_info    = db.Column(db.Text)
+    sort_order    = db.Column(db.Integer, default=0)
+    use_yn        = db.Column(db.String(1), default='Y')
+    created_dt    = db.Column(db.DateTime, default=datetime.now)
+    updated_dt    = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
 class CondoReserve(db.Model):
     __tablename__ = 'TB_CONDO_RESERVE'
     reserve_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    condo_seq   = db.Column(db.Integer, db.ForeignKey('TB_CONDO.condo_seq'), nullable=False)
-    room_seq    = db.Column(db.Integer, db.ForeignKey('TB_CONDO_ROOM.room_seq'))
+    facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
     emp_no      = db.Column(db.String(20))
-    guest_seq   = db.Column(db.Integer)
     check_in    = db.Column(db.Date, nullable=False)
     check_out   = db.Column(db.Date, nullable=False)
     status      = db.Column(db.String(10), default='APPLY')
@@ -913,95 +915,69 @@ def vote_create():
 # Routes - 콘도
 # ══════════════════════════════════════════════════════════
 
-BRAND_GROUP_MAP = {
-    'ALL':         '전체',
-    'SONO':        '소노',
-    'HANWHA':      '한화',
-    'BOGANG':      '보광',
-    'KENSINGTON':  '켄싱턴',
-    'ETC':         '기타',
-}
-RESORT_MAP = {
-    'ALL':              '전체',
-    'DAEMYUNG':         '대명리조트',
-    'SONOFELICE':       '소노펠리체',
-    'SOLBICH':          '쏠비치',
-    'HANWHA_RESORT':    '한화리조트',
-    'HANWHA_HOTEL':     '한화호텔',
-    'ANTO':             '안토',
-    'PHOENIX_ISLAND':   '휘닉스아일랜드',
-    'PHOENIX_PARK':     '휘닉스파크',
-    'KENSINGTON_RESORT':'켄싱턴리조트',
-    'KENSINGTON_JEJU':  '켄싱턴리조트(제주)',
-    'RISOM':            '리솜리조트',
-    'YONGPYONG':        '용평리조트',
-}
-# 대브랜드별 리조트 매핑 (프론트 연동용)
-BRAND_RESORT_MAP = {
-    'SONO':       ['DAEMYUNG','SONOFELICE','SOLBICH'],
-    'HANWHA':     ['HANWHA_RESORT','HANWHA_HOTEL','ANTO'],
-    'BOGANG':     ['PHOENIX_ISLAND','PHOENIX_PARK'],
-    'KENSINGTON': ['KENSINGTON_RESORT','KENSINGTON_JEJU'],
-    'ETC':        ['RISOM','YONGPYONG'],
-}
+# ══════════════════════════════════════════════════════════
+# Routes - 콘도
+# ══════════════════════════════════════════════════════════
 
 @app.route('/condo')
 @login_required
 def condo():
-    current_user  = get_current_user()
-    brand_group   = request.args.get('brand_group', 'ALL')
-    resort        = request.args.get('resort', 'ALL')
-
-    query = Condo.query.filter_by(use_yn='Y')
-    if brand_group != 'ALL':
-        query = query.filter_by(brand_group_cd=brand_group)
-    if resort != 'ALL':
-        query = query.filter_by(resort_cd=resort)
-    condos = query.order_by(Condo.brand_group_cd, Condo.resort_cd, Condo.condo_nm).all()
-
-    my_reserves = db.session.query(CondoReserve, Condo, CondoRoom)\
-        .join(Condo, CondoReserve.condo_seq == Condo.condo_seq)\
-        .outerjoin(CondoRoom, CondoReserve.room_seq == CondoRoom.room_seq)\
-        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')\
-        .order_by(CondoReserve.reg_dt.desc()).all()
-
+    current_user = get_current_user()
+    brands = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
+    my_reserves = db.session.query(CondoReserve, CondoFacility)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).all()
+    reserve_rows = []
+    for r, f in my_reserves:
+        reserve_rows.append({
+            'reserve_seq': r.reserve_seq,
+            'facility_name': f.facility_name,
+            'check_in':  r.check_in,
+            'check_out': r.check_out,
+            'status':    r.status,
+        })
     return render_template('condo.html',
         current_user=current_user,
-        condo_list=condos,
-        my_reserves=my_reserves,
-        brand_group_map=BRAND_GROUP_MAP,
-        resort_map=RESORT_MAP,
-        brand_resort_map=BRAND_RESORT_MAP,
-        sel_brand_group=brand_group,
-        sel_resort=resort,
+        brands=brands,
+        my_reserves=reserve_rows,
         active_menu='condo'
     )
 
-@app.route('/api/condo/rooms')
+@app.route('/api/condo/resorts')
 @login_required
-def api_condo_rooms():
-    condo_seq = request.args.get('condo_seq')
-    rooms = CondoRoom.query.filter_by(condo_seq=condo_seq, use_yn='Y').all()
+def api_condo_resorts():
+    brand_id = request.args.get('brand_id')
+    resorts = CondoResort.query.filter_by(brand_id=brand_id, use_yn='Y').order_by(CondoResort.sort_order).all()
+    return jsonify([{'resort_id': r.resort_id, 'resort_name': r.resort_name} for r in resorts])
+
+@app.route('/api/condo/facilities')
+@login_required
+def api_condo_facilities():
+    resort_id = request.args.get('resort_id')
+    facilities = CondoFacility.query.filter_by(resort_id=resort_id, use_yn='Y').order_by(CondoFacility.sort_order).all()
     return jsonify([{
-        'room_seq':    r.room_seq,
-        'room_type':   r.room_type,
-        'capacity':    r.capacity,
-        'description': r.description or '',
-        'amenities':   r.amenities or '',
-        'avail_cnt':   r.avail_cnt,
-    } for r in rooms])
+        'facility_id':   f.facility_id,
+        'facility_name': f.facility_name,
+        'location':      f.location or '',
+        'area_info':     f.area_info or '',
+        'price_info':    f.price_info or '',
+        'extra_info':    f.extra_info or '',
+        'image_url':     f.image_url or '',
+    } for f in facilities])
 
 @app.route('/condo/apply', methods=['POST'])
 @login_required
 def condo_apply():
     current_user = get_current_user()
+    check_in  = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d').date()
+    check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d').date()
+    if check_out <= check_in:
+        flash('퇴실일은 입실일보다 늦어야 합니다.')
+        return redirect(url_for('condo'))
     reserve = CondoReserve(
-        condo_seq  = request.form.get('condo_seq'),
-        room_seq   = request.form.get('room_seq') or None,
-        emp_no     = current_user.emp_no,
-        check_in   = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d').date(),
-        check_out  = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d').date(),
-        status     = 'APPLY'
+        facility_id = request.form.get('facility_id'),
+        emp_no      = current_user.emp_no,
+        check_in    = check_in,
+        check_out   = check_out,
+        status      = 'APPLY'
     )
     db.session.add(reserve)
     db.session.commit()
@@ -1012,46 +988,39 @@ def condo_apply():
 @level_required(1)
 def admin_condo():
     current_user = get_current_user()
-    reserve_list = db.session.query(CondoReserve, Condo, User, CondoRoom)\
-        .join(Condo, CondoReserve.condo_seq == Condo.condo_seq)\
-        .outerjoin(User, CondoReserve.emp_no == User.emp_no)\
-        .outerjoin(CondoRoom, CondoReserve.room_seq == CondoRoom.room_seq)\
-        .filter(CondoReserve.use_yn == 'Y')\
-        .order_by(CondoReserve.reg_dt.desc()).all()
+    brands    = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
+    resorts   = CondoResort.query.filter_by(use_yn='Y').order_by(CondoResort.sort_order).all()
+    facilities = CondoFacility.query.filter_by(use_yn='Y').order_by(CondoFacility.sort_order).all()
+
+    reserve_list = db.session.query(CondoReserve, CondoFacility, User)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .outerjoin(User, CondoReserve.emp_no == User.emp_no)        .filter(CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).all()
 
     rows = []
-    for r, c, u, rm in reserve_list:
+    for r, f, u in reserve_list:
         rows.append({
-            'reserve_seq':    r.reserve_seq,
-            'emp_nm':         u.emp_nm if u else '비조합원',
-            'phone_no':       u.phone_no if u else '',
-            'condo_name':     c.condo_nm,
-            'brand_group_nm': BRAND_GROUP_MAP.get(c.brand_group_cd, ''),
-            'resort_nm':      RESORT_MAP.get(c.resort_cd, ''),
-            'room_type':      rm.room_type if rm else '',
-            'check_in':       r.check_in,
-            'check_out':      r.check_out,
-            'status':         r.status,
-            'reg_dt':         r.reg_dt,
+            'reserve_seq':   r.reserve_seq,
+            'emp_nm':        u.emp_nm if u else '-',
+            'phone_no':      u.phone_no if u else '',
+            'facility_name': f.facility_name,
+            'check_in':      r.check_in,
+            'check_out':     r.check_out,
+            'status':        r.status,
+            'reg_dt':        r.reg_dt,
         })
 
-    condo_list = Condo.query.filter_by(use_yn='Y').order_by(Condo.brand_group_cd, Condo.resort_cd, Condo.condo_nm).all()
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
-        condo_list=condo_list,
-        brand_group_map=BRAND_GROUP_MAP,
-        resort_map=RESORT_MAP,
-        brand_resort_map=BRAND_RESORT_MAP,
+        brands=brands,
+        resorts=resorts,
+        facilities=facilities,
         active_menu='admin_condo'
     )
 
-@app.route('/admin/condo/save', methods=['POST'])
+@app.route('/admin/condo/reserve/save', methods=['POST'])
 @level_required(1)
-def condo_admin_save():
-    reserve_seq = request.form.get('reserve_seq')
-    action      = request.form.get('action')
-    reserve     = CondoReserve.query.get_or_404(reserve_seq)
+def condo_reserve_save():
+    reserve = CondoReserve.query.get_or_404(request.form.get('reserve_seq'))
+    action  = request.form.get('action')
     if action == 'confirm':
         reserve.status = 'CONFIRM'
     elif action == 'cancel':
@@ -1061,81 +1030,86 @@ def condo_admin_save():
     flash('처리 완료되었습니다.')
     return redirect(url_for('admin_condo'))
 
-@app.route('/admin/condo/add', methods=['POST'])
+@app.route('/admin/condo/brand/save', methods=['POST'])
 @level_required(1)
-def condo_add():
-    condo = Condo(
-        condo_nm        = request.form.get('condo_nm'),
-        brand_group_cd  = request.form.get('brand_group_cd'),
-        resort_cd       = request.form.get('resort_cd'),
-        location        = request.form.get('location'),
-        description     = request.form.get('description'),
-        image_url       = request.form.get('image_url'),
-        price_info      = request.form.get('price_info'),
-        area_info       = request.form.get('area_info'),
-        extra_info      = request.form.get('extra_info'),
-        total_room      = int(request.form.get('total_room', 1)),
-        sort_order      = int(request.form.get('sort_order', 0)),
-        use_yn          = 'Y'
-    )
-    db.session.add(condo)
+def condo_brand_save():
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(CondoBrand(
+            brand_name = request.form.get('brand_name'),
+            sort_order = int(request.form.get('sort_order', 0))
+        ))
+        flash('브랜드가 등록되었습니다.')
+    elif action == 'edit':
+        brand = CondoBrand.query.get_or_404(request.form.get('brand_id'))
+        brand.brand_name = request.form.get('brand_name')
+        brand.sort_order = int(request.form.get('sort_order', brand.sort_order))
+        flash('브랜드가 수정되었습니다.')
+    elif action == 'delete':
+        brand = CondoBrand.query.get_or_404(request.form.get('brand_id'))
+        brand.use_yn = 'N'
+        flash('브랜드가 삭제되었습니다.')
     db.session.commit()
-    flash('리조트가 등록되었습니다.')
     return redirect(url_for('admin_condo'))
 
-@app.route('/admin/condo/edit', methods=['POST'])
+@app.route('/admin/condo/resort/save', methods=['POST'])
 @level_required(1)
-def condo_edit():
-    condo = Condo.query.get_or_404(request.form.get('condo_seq'))
-    condo.condo_nm       = request.form.get('condo_nm')
-    condo.brand_group_cd = request.form.get('brand_group_cd')
-    condo.resort_cd      = request.form.get('resort_cd')
-    condo.location       = request.form.get('location')
-    condo.description    = request.form.get('description')
-    condo.image_url      = request.form.get('image_url')
-    condo.price_info     = request.form.get('price_info')
-    condo.area_info      = request.form.get('area_info')
-    condo.extra_info     = request.form.get('extra_info')
-    condo.total_room     = int(request.form.get('total_room', condo.total_room))
-    condo.sort_order     = int(request.form.get('sort_order', condo.sort_order))
+def condo_resort_save():
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(CondoResort(
+            brand_id   = request.form.get('brand_id'),
+            resort_name = request.form.get('resort_name'),
+            sort_order  = int(request.form.get('sort_order', 0))
+        ))
+        flash('리조트가 등록되었습니다.')
+    elif action == 'edit':
+        resort = CondoResort.query.get_or_404(request.form.get('resort_id'))
+        resort.brand_id    = request.form.get('brand_id')
+        resort.resort_name = request.form.get('resort_name')
+        resort.sort_order  = int(request.form.get('sort_order', resort.sort_order))
+        flash('리조트가 수정되었습니다.')
+    elif action == 'delete':
+        resort = CondoResort.query.get_or_404(request.form.get('resort_id'))
+        resort.use_yn = 'N'
+        flash('리조트가 삭제되었습니다.')
     db.session.commit()
-    flash('리조트 정보가 수정되었습니다.')
     return redirect(url_for('admin_condo'))
 
-@app.route('/admin/condo/room/add', methods=['POST'])
+@app.route('/admin/condo/facility/save', methods=['POST'])
 @level_required(1)
-def condo_room_add():
-    room = CondoRoom(
-        condo_seq   = request.form.get('condo_seq'),
-        room_type   = request.form.get('room_type'),
-        capacity    = int(request.form.get('capacity', 4)),
-        description = request.form.get('description'),
-        amenities   = request.form.get('amenities'),
-        total_cnt   = int(request.form.get('total_cnt', 1)),
-        avail_cnt   = int(request.form.get('total_cnt', 1)),
-        use_yn      = 'Y'
-    )
-    db.session.add(room)
-    condo = Condo.query.get(request.form.get('condo_seq'))
-    if condo:
-        condo.total_room = CondoRoom.query.filter_by(condo_seq=condo.condo_seq, use_yn='Y').count() + 1
+def condo_facility_save():
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(CondoFacility(
+            resort_id     = request.form.get('resort_id'),
+            facility_name = request.form.get('facility_name'),
+            location      = request.form.get('location'),
+            description   = request.form.get('description'),
+            area_info     = request.form.get('area_info'),
+            price_info    = request.form.get('price_info'),
+            extra_info    = request.form.get('extra_info'),
+            sort_order    = int(request.form.get('sort_order', 0))
+        ))
+        flash('시설이 등록되었습니다.')
+    elif action == 'edit':
+        f = CondoFacility.query.get_or_404(request.form.get('facility_id'))
+        f.resort_id     = request.form.get('resort_id')
+        f.facility_name = request.form.get('facility_name')
+        f.location      = request.form.get('location')
+        f.description   = request.form.get('description')
+        f.area_info     = request.form.get('area_info')
+        f.price_info    = request.form.get('price_info')
+        f.extra_info    = request.form.get('extra_info')
+        f.sort_order    = int(request.form.get('sort_order', f.sort_order))
+        f.updated_dt    = datetime.now()
+        flash('시설 정보가 수정되었습니다.')
+    elif action == 'delete':
+        f = CondoFacility.query.get_or_404(request.form.get('facility_id'))
+        f.use_yn = 'N'
+        flash('시설이 삭제되었습니다.')
     db.session.commit()
-    flash('객실유형이 등록되었습니다.')
     return redirect(url_for('admin_condo'))
-
-@app.route('/admin/condo/room/edit', methods=['POST'])
-@level_required(1)
-def condo_room_edit():
-    room = CondoRoom.query.get_or_404(request.form.get('room_seq'))
-    room.room_type   = request.form.get('room_type')
-    room.capacity    = int(request.form.get('capacity', room.capacity))
-    room.description = request.form.get('description')
-    room.amenities   = request.form.get('amenities')
-    room.total_cnt   = int(request.form.get('total_cnt', room.total_cnt))
-    db.session.commit()
-    flash('객실 정보가 수정되었습니다.')
-    return redirect(url_for('admin_condo'))
-
 
 # ══════════════════════════════════════════════════════════
 # Routes - 도서
@@ -1576,6 +1550,56 @@ def migrate():
                 use_yn VARCHAR(1) DEFAULT \'Y\',
                 reg_dt TIMESTAMP DEFAULT NOW()
             )'''))
+            # 콘도 신규 3테이블 생성
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_BRAND" (
+                brand_id   SERIAL PRIMARY KEY,
+                brand_name VARCHAR(50) NOT NULL,
+                sort_order INT DEFAULT 0,
+                use_yn     CHAR(1) DEFAULT 'Y'
+            )'''))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_RESORT" (
+                resort_id   SERIAL PRIMARY KEY,
+                brand_id    INT NOT NULL REFERENCES "TB_CONDO_BRAND"(brand_id),
+                resort_name VARCHAR(100) NOT NULL,
+                sort_order  INT DEFAULT 0,
+                use_yn      CHAR(1) DEFAULT 'Y'
+            )'''))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_FACILITY" (
+                facility_id   SERIAL PRIMARY KEY,
+                resort_id     INT NOT NULL REFERENCES "TB_CONDO_RESORT"(resort_id),
+                facility_name VARCHAR(100) NOT NULL,
+                location      VARCHAR(200),
+                description   TEXT,
+                image_url     VARCHAR(500),
+                area_info     VARCHAR(200),
+                price_info    TEXT,
+                extra_info    TEXT,
+                sort_order    INT DEFAULT 0,
+                use_yn        CHAR(1) DEFAULT 'Y',
+                created_dt    TIMESTAMP DEFAULT NOW(),
+                updated_dt    TIMESTAMP DEFAULT NOW()
+            )'''))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS facility_id INTEGER REFERENCES "TB_CONDO_FACILITY"(facility_id)'))
+
+            # 브랜드 초기 데이터
+            for i, (nm, seq) in enumerate([('소노',1),('한화',2),('보광',3),('켄싱턴',4),('기타',5)], 1):
+                conn.execute(db.text('INSERT INTO "TB_CONDO_BRAND" (brand_name, sort_order, use_yn) SELECT :n, :s, \'Y\' WHERE NOT EXISTS (SELECT 1 FROM "TB_CONDO_BRAND" WHERE brand_name=:n)'), {'n': nm, 's': seq})
+
+            # 리조트 초기 데이터
+            resorts = [
+                ('소노','대명리조트',1),('소노','소노펠리체',2),('소노','쏠비치',3),
+                ('한화','한화리조트',1),('한화','한화호텔&리조트',2),('한화','안토',3),
+                ('보광','휘닉스아일랜드',1),('보광','휘닉스파크',2),
+                ('켄싱턴','켄싱턴리조트',1),('켄싱턴','켄싱턴리조트(제주)',2),
+                ('기타','리솜리조트',1),('기타','용평리조트',2),
+            ]
+            for brand_nm, resort_nm, sort in resorts:
+                conn.execute(db.text(
+                    'INSERT INTO "TB_CONDO_RESORT" (brand_id, resort_name, sort_order, use_yn) '
+                    'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn '
+                    'AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_RESORT" WHERE resort_name=:rn)'
+                ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
+
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
