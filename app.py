@@ -1655,17 +1655,17 @@ def migrate():
                     'AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_RESORT" WHERE resort_name=:rn)'
                 ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
 
-            # TB_CONDO_ROOM 신규 테이블
+            # TB_CONDO_ROOM 신규 테이블 (FK 없이 생성 후 나중에 참조)
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_ROOM" (
                 room_id     SERIAL PRIMARY KEY,
-                facility_id INT NOT NULL REFERENCES "TB_CONDO_FACILITY"(facility_id),
+                facility_id INTEGER,
                 room_type   VARCHAR(100) NOT NULL,
                 price       INTEGER DEFAULT 0,
                 extra_info  TEXT,
                 sort_order  INT DEFAULT 0,
                 use_yn      CHAR(1) DEFAULT 'Y'
             )'''))
-            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER REFERENCES "TB_CONDO_ROOM"(room_id)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER'))
 
             # 42개 지점(facility) 초기 데이터
             conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '대명리조트', 'fn': '거제', 's': 1})
