@@ -937,7 +937,10 @@ def vote_create():
 def condo():
     current_user = get_current_user()
     brands = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
-    my_reserves = db.session.query(CondoReserve, CondoFacility)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).all()
+    my_reserves = db.session.query(CondoReserve, CondoFacility)\
+        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)\
+        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')\
+        .order_by(CondoReserve.reg_dt.desc()).all()
     reserve_rows = []
     for r, f in my_reserves:
         reserve_rows.append({
@@ -1020,7 +1023,11 @@ def admin_condo():
         joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
     ).filter_by(use_yn='Y').order_by(CondoFacility.sort_order).all()
 
-    reserve_list = db.session.query(CondoReserve, CondoFacility, User)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .outerjoin(User, CondoReserve.emp_no == User.emp_no)        .filter(CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).all()
+    reserve_list = db.session.query(CondoReserve, CondoFacility, User)\
+        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)\
+        .outerjoin(User, CondoReserve.emp_no == User.emp_no)\
+        .filter(CondoReserve.use_yn == 'Y')\
+        .order_by(CondoReserve.reg_dt.desc()).all()
 
     rows = []
     for r, f, u in reserve_list:
@@ -1035,7 +1042,23 @@ def admin_condo():
             'reg_dt':        r.reg_dt,
         })
 
-    rooms = []  # 객실 데이터는 추후 관리자 등록 후 표시
+    room_query = db.session.query(CondoRoom, CondoFacility, CondoResort, CondoBrand)\
+        .join(CondoFacility, CondoRoom.facility_id == CondoFacility.facility_id)\
+        .join(CondoResort, CondoFacility.resort_id == CondoResort.resort_id)\
+        .join(CondoBrand, CondoResort.brand_id == CondoBrand.brand_id)\
+        .filter(CondoRoom.use_yn == 'Y')\
+        .order_by(CondoRoom.sort_order).all()
+    rooms = [{
+        'room_id':       r.room_id,
+        'facility_id':   r.facility_id,
+        'room_type':     r.room_type,
+        'price':         r.price,
+        'extra_info':    r.extra_info or '',
+        'sort_order':    r.sort_order,
+        'brand_name':    b.brand_name,
+        'resort_name':   rs.resort_name,
+        'facility_name': f.facility_name,
+    } for r, f, rs, b in room_query]
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,

@@ -161,15 +161,15 @@
                     <tbody>
                         {% for r in rooms %}
                         <tr>
-                            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;">{{ r.facility.resort.brand.brand_name }}</span></td>
-                            <td><span style="font-size:11px;background:#eff6ff;color:#00479d;padding:2px 6px;border-radius:4px;font-weight:600;">{{ r.facility.resort.resort_name }}</span></td>
-                            <td style="font-weight:600;">{{ r.facility.facility_name }}</td>
+                            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;">{{ r.brand_name }}</span></td>
+                            <td><span style="font-size:11px;background:#eff6ff;color:#00479d;padding:2px 6px;border-radius:4px;font-weight:600;">{{ r.resort_name }}</span></td>
+                            <td style="font-weight:600;">{{ r.facility_name }}</td>
                             <td style="font-weight:700;">{{ r.room_type }}</td>
                             <td style="font-family:monospace;">{% if r.price %}{{ '{:,}'.format(r.price) }}원{% else %}-{% endif %}</td>
                             <td style="font-size:12px;color:#64748b;">{{ r.extra_info or '-' }}</td>
                             <td style="text-align:center;font-family:monospace;font-size:12px;">{{ r.sort_order }}</td>
                             <td>
-                                <button onclick="openRoomEdit({{ r.room_id }},{{ r.facility_id }},'{{ r.room_type }}',{{ r.price or 0 }},'{{ r.extra_info or '' }}',{{ r.sort_order }})"
+                                <button onclick="openRoomEdit({{ r.room_id }},{{ r.facility_id }},'{{ r.room_type }}',{{ r.price or 0 }},'{{ r.extra_info }}',{{ r.sort_order }})"
                                     class="btn-secondary" style="font-size:11px;padding:4px 10px;">
                                     <i class="fas fa-pen"></i>수정
                                 </button>
