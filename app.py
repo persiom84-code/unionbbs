@@ -234,6 +234,7 @@ class CondoFacility(db.Model):
     price_info    = db.Column(db.Text)
     extra_info    = db.Column(db.Text)
     sort_order    = db.Column(db.Integer, default=0)
+    region_name   = db.Column(db.String(50))
     use_yn        = db.Column(db.String(1), default='Y')
     created_dt    = db.Column(db.DateTime, default=datetime.now)
     updated_dt    = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -967,12 +968,19 @@ def api_condo_resorts():
 @app.route('/api/condo/facilities')
 @login_required
 def api_condo_facilities():
-    resort_id = request.args.get('resort_id')
-    facilities = CondoFacility.query.filter_by(resort_id=resort_id, use_yn='Y').order_by(CondoFacility.sort_order).all()
+    region_name = request.args.get('region_name')
+    query = CondoFacility.query.filter_by(use_yn='Y')
+    if region_name:
+        query = query.filter_by(region_name=region_name)
+    facilities = query.options(
+        joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
+    ).order_by(CondoFacility.sort_order).all()
     return jsonify([{
         'facility_id':   f.facility_id,
         'facility_name': f.facility_name,
+        'brand_name':    f.resort.brand.brand_name if f.resort and f.resort.brand else '',
         'location':      f.location or '',
+        'region_name':   f.region_name or '',
         'area_info':     f.area_info or '',
         'price_info':    f.price_info or '',
         'extra_info':    f.extra_info or '',
@@ -1142,7 +1150,8 @@ def condo_facility_save():
             area_info     = request.form.get('area_info'),
             price_info    = request.form.get('price_info'),
             extra_info    = request.form.get('extra_info'),
-            sort_order    = int(request.form.get('sort_order', 0))
+            sort_order    = int(request.form.get('sort_order', 0)),
+            region_name   = request.form.get('region_name')
         ))
         flash('시설이 등록되었습니다.')
     elif action == 'edit':
@@ -1155,6 +1164,7 @@ def condo_facility_save():
         f.price_info    = request.form.get('price_info')
         f.extra_info    = request.form.get('extra_info')
         f.sort_order    = int(request.form.get('sort_order', f.sort_order))
+        f.region_name   = request.form.get('region_name')
         f.updated_dt    = datetime.now()
         flash('시설 정보가 수정되었습니다.')
     elif action == 'delete':
@@ -1738,6 +1748,7 @@ def migrate():
             conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '리솜리조트', 'fn': '제천', 's': 41})
             conn.execute(db.text('INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, sort_order, use_yn) SELECT r.resort_id, :fn, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn AND NOT EXISTS (SELECT 1 FROM "TB_CONDO_FACILITY" WHERE facility_name=:fn AND resort_id=r.resort_id)'), {'rn': '용평리조트', 'fn': '용평', 's': 42})
 
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_FACILITY" ADD COLUMN IF NOT EXISTS region_name VARCHAR(50)'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
