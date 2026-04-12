@@ -1737,7 +1737,7 @@ def migrate():
             conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_FACILITY" RESTART IDENTITY CASCADE'))
             conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_RESORT" RESTART IDENTITY CASCADE'))
             conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_BRAND" RESTART IDENTITY CASCADE'))
-
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_FACILITY" ADD COLUMN IF NOT EXISTS region_name VARCHAR(50)'))
             # 브랜드 7개
             for nm, seq in [('소노',1),('한화',2),('보광',3),('켄싱턴',4),('리솜',5),('영랑호',6),('용평',7)]:
                 conn.execute(db.text('INSERT INTO "TB_CONDO_BRAND" (brand_name, sort_order, use_yn) VALUES (:n, :s, \'Y\')'), {'n': nm, 's': seq})
@@ -1811,8 +1811,6 @@ def migrate():
                     'INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, region_name, sort_order, use_yn) '
                     'SELECT r.resort_id, :fn, :rg, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn'
                 ), {'rn': resort_nm, 'fn': facility_nm, 'rg': region_nm, 's': sort})
-
-            conn.execute(db.text('ALTER TABLE "TB_CONDO_FACILITY" ADD COLUMN IF NOT EXISTS region_name VARCHAR(50)'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
