@@ -1201,7 +1201,68 @@ def condo_room_save():
         flash('객실이 삭제되었습니다.')
     db.session.commit()
     return redirect(url_for('admin_condo'))
+@app.route('/admin/condo/import', methods=['POST'])
+@level_required(1)
+def condo_facility_import():
+    import csv, io
+    f = request.files.get('csv_file')
+    if not f or not f.filename.endswith('.csv'):
+        flash('CSV 파일을 선택해주세요.')
+        return redirect(url_for('admin_condo'))
+    try:
+        stream = io.StringIO(f.stream.read().decode('utf-8-sig'))
+        reader = csv.DictReader(stream)
+        rows = list(reader)
 
+        # 기존 데이터 초기화
+        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_FACILITY" RESTART IDENTITY CASCADE'))
+        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_RESORT" RESTART IDENTITY CASCADE'))
+        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_BRAND" RESTART IDENTITY CASCADE'))
+
+        # 브랜드 중복없이 삽입
+        brands = {}
+        for i, row in enumerate(dict.fromkeys(r['brand_name'] for r in rows), 1):
+            b = CondoBrand(brand_name=row, sort_order=i)
+            db.session.add(b)
+            db.session.flush()
+            brands[row] = b.brand_id
+
+        # 리조트 중복없이 삽입
+        resorts = {}
+        seen_resorts = []
+        for row in rows:
+            key = (row['brand_name'], row['resort_name'])
+            if key not in seen_resorts:
+                seen_resorts.append(key)
+                r = CondoResort(
+                    brand_id=brands[row['brand_name']],
+                    resort_name=row['resort_name'],
+                    sort_order=len(seen_resorts)
+                )
+                db.session.add(r)
+                db.session.flush()
+                resorts[key] = r.resort_id
+
+        # 시설 삽입
+        for row in rows:
+            key = (row['brand_name'], row['resort_name'])
+            db.session.add(CondoFacility(
+                resort_id     = resorts[key],
+                facility_name = row['facility_name'],
+                region_name   = row.get('region_name') or None,
+                location      = row.get('location') or None,
+                area_info     = row.get('area_info') or None,
+                price_info    = row.get('price_info') or None,
+                extra_info    = row.get('extra_info') or None,
+                sort_order    = int(row.get('sort_order') or 0)
+            ))
+
+        db.session.commit()
+        flash(f'CSV 가져오기 완료! 시설 {len(rows)}개 등록됨.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'오류: {str(e)}', 'error')
+    return redirect(url_for('admin_condo'))
 # ══════════════════════════════════════════════════════════
 # Routes - 도서
 # ══════════════════════════════════════════════════════════
