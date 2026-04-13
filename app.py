@@ -1732,7 +1732,16 @@ def migrate():
                 updated_dt    TIMESTAMP DEFAULT NOW()
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS facility_id INTEGER REFERENCES "TB_CONDO_FACILITY"(facility_id)'))
-            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS room_id SERIAL'))
+            conn.execute(db.text('DROP TABLE IF EXISTS "TB_CONDO_ROOM" CASCADE'))
+            conn.execute(db.text('''CREATE TABLE "TB_CONDO_ROOM" (
+                room_id     SERIAL PRIMARY KEY,
+                facility_id INTEGER,
+                room_type   VARCHAR(100) NOT NULL,
+                price       INTEGER DEFAULT 0,
+                extra_info  TEXT,
+                sort_order  INT DEFAULT 0,
+                use_yn      CHAR(1) DEFAULT \'Y\'
+            )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER'))
 
             # 기존 데이터 초기화 후 CSV 기준 재삽입
