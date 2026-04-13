@@ -12,14 +12,23 @@
             <div class="page-title"><i class="fas fa-concierge-bell"></i>콘도 관리</div>
             <div class="page-subtitle">예약 승인 · 시설 목록 · 객실 관리 · 브랜드/리조트 관리</div>
         </div>
-        <div style="display:flex;gap:8px;">
-            <button onclick="showTab('reserve')" id="tab-reserve" class="btn-primary">예약 현황</button>
-            <button onclick="showTab('facility')" id="tab-facility" class="btn-secondary">시설 목록</button>
-            <button onclick="showTab('room')" id="tab-room" class="btn-secondary">객실 관리</button>
-            <button onclick="showTab('master')" id="tab-master" class="btn-secondary">브랜드/리조트</button>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+            <div style="display:flex;gap:8px;">
+                <button onclick="showTab('reserve')" id="tab-reserve" class="btn-primary">예약 현황</button>
+                <button onclick="showTab('facility')" id="tab-facility" class="btn-secondary">시설 목록</button>
+                <button onclick="showTab('room')" id="tab-room" class="btn-secondary">객실 관리</button>
+                <button onclick="showTab('master')" id="tab-master" class="btn-secondary">브랜드/리조트</button>
+            </div>
+            <form action="/admin/condo/import" method="POST" enctype="multipart/form-data" style="display:inline-flex;align-items:center;gap:6px;">
+                <label style="font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;">CSV 가져오기</label>
+                <input type="file" name="csv_file" accept=".csv" required
+                    style="font-size:11px;border:1px solid #e2e8f0;border-radius:8px;padding:4px 8px;background:#fff;">
+                <button type="submit" class="btn-secondary" style="font-size:11px;padding:6px 12px;white-space:nowrap;">
+                    <i class="fas fa-upload"></i>업로드
+                </button>
+            </form>
         </div>
     </div>
-
     <!-- ══ 탭1: 예약 현황 ══ -->
     <div id="tab-content-reserve">
         <div class="card" style="overflow:hidden;">
@@ -500,4 +509,4 @@
         m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
     });
 </script>
-{% endblock %}
+{% endblock %}lfwl
