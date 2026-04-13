@@ -958,6 +958,14 @@ def condo():
         active_menu='condo'
     )
 
+@app.route('/api/condo/regions')
+@login_required
+def api_condo_regions():
+    regions = db.session.query(CondoFacility.region_name)\
+        .filter(CondoFacility.use_yn == 'Y', CondoFacility.region_name != None)\
+        .distinct().order_by(CondoFacility.region_name).all()
+    return jsonify([r[0] for r in regions if r[0]])
+
 @app.route('/api/condo/resorts')
 @login_required
 def api_condo_resorts():
