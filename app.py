@@ -1732,6 +1732,8 @@ def migrate():
                 updated_dt    TIMESTAMP DEFAULT NOW()
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS facility_id INTEGER REFERENCES "TB_CONDO_FACILITY"(facility_id)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS room_id SERIAL'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER'))
 
             # 기존 데이터 초기화 후 CSV 기준 재삽입
             conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_FACILITY" RESTART IDENTITY CASCADE'))
@@ -1757,60 +1759,6 @@ def migrate():
                     'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn'
                 ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
 
-            # 46개 시설 (CSV 기준, region_name 포함)
-            facilities_data = [
-                ('켄싱턴리조트','가평','수도권',1),
-                ('대명리조트','거제','경상도',2),
-                ('한화리조트','거제','경상도',3),
-                ('대명리조트','경주','경상도',4),
-                ('한화리조트','경주','경상도',5),
-                ('켄싱턴리조트','경주','경상도',6),
-                ('대명호텔','남해(쏠비치)','경상도',7),
-                ('대명리조트','단양','충청도',8),
-                ('한화리조트','대천','충청도',9),
-                ('리솜리조트','덕산(스플라스)','충청도',10),
-                ('대명리조트','변산','전라도',11),
-                ('대명리조트','비발디(홍천)','강원도',12),
-                ('소노펠리체','비발디(홍천)','강원도',13),
-                ('한화리조트','산정호수','수도권',14),
-                ('대명리조트','삼척(쏠비치)','강원도',15),
-                ('대명리조트','설악(델피노)','강원도',16),
-                ('한화리조트','설악(별관)','강원도',17),
-                ('켄싱턴리조트','설악(비치)','강원도',18),
-                ('한화리조트','설악(쏘라노)','강원도',19),
-                ('켄싱턴리조트','설악밸리','강원도',20),
-                ('영랑호리조트','속초','강원도',21),
-                ('리솜리조트','안면도(아일랜드)','충청도',22),
-                ('대명리조트','양양(쏠비치)','강원도',23),
-                ('대명리조트','양평','수도권',24),
-                ('한화호텔','여수(벨메르)','전라도',25),
-                ('대명리조트','여수(엠블)','전라도',26),
-                ('한화리조트','용인','수도권',27),
-                ('용평리조트','용평','강원도',28),
-                ('대명리조트','일산kintex(엠블호텔)','수도권',29),
-                ('대명리조트','제주도','제주도',30),
-                ('한화리조트','제주도','제주도',31),
-                ('보광휘닉스아일랜드','제주도','제주도',32),
-                ('켄싱턴리조트(한림)','제주도','제주도',33),
-                ('켄싱턴리조트(서귀포)','제주도','제주도',34),
-                ('켄싱턴리조트(중문)','중문','제주도',35),
-                ('리솜리조트','제천','충청도',36),
-                ('켄싱턴리조트','지리산(남원)','전라도',37),
-                ('켄싱턴리조트','지리산(하동)','경상도',38),
-                ('대명리조트','진도(쏠비치)','전라도',39),
-                ('대명리조트','천안','충청도',40),
-                ('대명리조트','청송','경상도',41),
-                ('켄싱턴리조트','충주','충청도',42),
-                ('보광휘닉스파크','평창','강원도',43),
-                ('한화리조트','평창','강원도',44),
-                ('한화리조트','해운대','경상도',45),
-                ('대명리조트','해운대','경상도',46),
-            ]
-            for resort_nm, facility_nm, region_nm, sort in facilities_data:
-                conn.execute(db.text(
-                    'INSERT INTO "TB_CONDO_FACILITY" (resort_id, facility_name, region_name, sort_order, use_yn) '
-                    'SELECT r.resort_id, :fn, :rg, :s, \'Y\' FROM "TB_CONDO_RESORT" r WHERE r.resort_name=:rn'
-                ), {'rn': resort_nm, 'fn': facility_nm, 'rg': region_nm, 's': sort})
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
