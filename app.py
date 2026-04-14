@@ -254,7 +254,7 @@ class CondoReserve(db.Model):
     __tablename__ = 'TB_CONDO_RESERVE'
     reserve_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
-    room_id     = db.Column(db.Integer, db.ForeignKey('TB_CONDO_ROOM.room_id'))
+    room_id     = db.Column(db.Integer)
     emp_no      = db.Column(db.String(20))
     check_in    = db.Column(db.Date, nullable=False)
     check_out   = db.Column(db.Date, nullable=False)
