@@ -254,7 +254,7 @@ class CondoReserve(db.Model):
     __tablename__ = 'TB_CONDO_RESERVE'
     reserve_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
-    room_id     = db.Column(db.Integer)
+    room_id     = db.Column(db.Integer, db.ForeignKey('TB_CONDO_ROOM.room_id'))
     emp_no      = db.Column(db.String(20))
     check_in    = db.Column(db.Date, nullable=False)
     check_out   = db.Column(db.Date, nullable=False)
@@ -1789,14 +1789,11 @@ def migrate():
                     'INSERT INTO "TB_CONDO_RESORT" (brand_id, resort_name, sort_order, use_yn) '
                     'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn'
                 ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
-conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ALTER COLUMN condo_seq DROP NOT NULL'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ALTER COLUMN reserve_seq DROP NOT NULL'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
-        return f'오류: {str(e)}'
-
-
-
+        return f'오류: {str(e)}'     
 # ══════════════════════════════════════════════════════════
 # Routes - 분회 관리
 # ══════════════════════════════════════════════════════════
