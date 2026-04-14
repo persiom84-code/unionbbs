@@ -1007,8 +1007,22 @@ def api_condo_rooms():
         'extra_info': r.extra_info or '',
     } for r in rooms])
 
-@app.route('/condo/apply', methods=['POST'])
+@app.route('/api/condo/availability')
 @login_required
+def api_condo_availability():
+    facility_id = request.args.get('facility_id')
+    check_in    = request.args.get('check_in')
+    check_out   = request.args.get('check_out')
+    count = CondoReserve.query.filter(
+        CondoReserve.facility_id == facility_id,
+        CondoReserve.status.in_(['APPLY','CONFIRM']),
+        CondoReserve.use_yn == 'Y',
+        CondoReserve.check_in < check_out,
+        CondoReserve.check_out > check_in
+    ).count()
+    return jsonify({'count': count})
+@app.route('/condo/apply', methods=['POST'])
+@login_required   
 def condo_apply():
     current_user = get_current_user()
     check_in  = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d').date()

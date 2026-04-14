@@ -5,75 +5,130 @@
 
 {% block page_style %}
 <style>
+    /* ── 권역 버튼 ── */
     .region-btn {
-        padding: 8px 20px;
+        padding: 14px 24px;
         border: 2px solid #e2e8f0;
-        border-radius: 24px;
-        font-size: 13px;
-        font-weight: 700;
-        color: #64748b;
-        cursor: pointer;
-        transition: all .15s;
-        background: #fff;
-    }
-    .region-btn:hover { border-color: #00479d; color: #00479d; }
-    .region-btn.active { background: #00479d; color: #fff; border-color: #00479d; }
-
-    .facility-card {
-        border: 1.5px solid #e8eef5;
-        border-radius: 16px;
-        padding: 16px;
-        cursor: pointer;
-        transition: all .15s;
-        background: #fff;
-    }
-    .facility-card:hover { border-color: #00479d; box-shadow: 0 4px 12px rgba(0,71,157,.08); }
-    .facility-card.selected { border-color: #00479d; background: #eff6ff; }
-
-    .room-card {
-        border: 1.5px solid #e2e8f0;
         border-radius: 12px;
-        padding: 14px 16px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #475569;
         cursor: pointer;
-        transition: all .15s;
+        transition: all .2s;
+        background: #f8fafc;
+        min-width: 100px;
+        text-align: center;
+    }
+    .region-btn:hover {
+        border-color: #00479d;
+        color: #00479d;
+        background: #eff6ff;
+        box-shadow: 0 4px 12px rgba(0,71,157,.1);
+        transform: translateY(-2px);
+    }
+    .region-btn.active {
+        background: #00479d;
+        color: #fff;
+        border-color: #00479d;
+        box-shadow: 0 4px 12px rgba(0,71,157,.25);
+    }
+
+    /* ── 단계 블록 ── */
+    .step-block {
+        background: #fff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        overflow: hidden;
+        transition: all .2s;
+    }
+    .step-block.active { border-color: #00479d; box-shadow: 0 4px 16px rgba(0,71,157,.08); }
+    .step-block.done { border-color: #86efac; background: #f0fdf4; }
+    .step-header {
+        padding: 18px 24px;
         display: flex;
         align-items: center;
         gap: 12px;
     }
-    .room-card:hover { border-color: #00479d; }
-    .room-card.selected { border-color: #00479d; background: #eff6ff; }
-
+    .step-body {
+        padding: 0 24px 20px;
+    }
     .step-badge {
+        width: 28px; height: 28px;
+        background: #e2e8f0;
+        color: #94a3b8;
+        border-radius: 50%;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 20px; height: 20px;
-        background: #00479d;
-        color: #fff;
-        border-radius: 50%;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 800;
-        margin-right: 6px;
         flex-shrink: 0;
+        transition: all .2s;
     }
-    .step-label {
-        font-size: 11px;
+    .step-block.active .step-badge { background: #00479d; color: #fff; }
+    .step-block.done .step-badge { background: #22c55e; color: #fff; }
+    .step-title {
+        font-size: 15px;
         font-weight: 800;
-        color: #64748b;
+        color: #94a3b8;
+        transition: color .2s;
+    }
+    .step-block.active .step-title { color: #0f172a; }
+    .step-block.done .step-title { color: #16a34a; }
+    .step-summary {
+        margin-left: auto;
+        font-size: 13px;
+        font-weight: 700;
+        color: #16a34a;
+    }
+
+    /* ── 시설 카드 ── */
+    .facility-card {
+        border: 1.5px solid #e8eef5;
+        border-radius: 14px;
+        padding: 16px 18px;
+        cursor: pointer;
+        transition: all .15s;
+        background: #fff;
+        margin-bottom: 10px;
+    }
+    .facility-card:hover { border-color: #00479d; box-shadow: 0 4px 12px rgba(0,71,157,.08); }
+    .facility-card.selected { border-color: #00479d; background: #eff6ff; }
+
+    /* ── 객실 카드 ── */
+    .room-card {
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 18px;
+        cursor: pointer;
+        transition: all .15s;
         display: flex;
         align-items: center;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-        letter-spacing: .05em;
+        gap: 14px;
+        margin-bottom: 8px;
     }
-    .section-block {
-        margin-bottom: 22px;
+    .room-card:hover { border-color: #00479d; }
+    .room-card.selected { border-color: #00479d; background: #eff6ff; }
+
+    /* ── 혼잡도 표시 ── */
+    .availability-box {
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: none;
     }
+    .availability-box.low { background: #f0fdf4; border: 1px solid #86efac; color: #16a34a; }
+    .availability-box.mid { background: #fff7ed; border: 1px solid #fed7aa; color: #c2410c; }
+    .availability-box.high { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+
     .empty-msg {
-        padding: 32px;
+        padding: 28px;
         text-align: center;
         color: #cbd5e1;
-        font-size: 13px;
+        font-size: 14px;
         font-style: italic;
     }
 </style>
@@ -83,110 +138,130 @@
 <div class="page-header">
     <div>
         <div class="page-title"><i class="fas fa-hotel"></i>콘도 신청</div>
-        <div class="page-subtitle">권역 → 시설 → 객실 순으로 선택 후 신청</div>
+        <div class="page-subtitle">단계별로 선택 후 예약 신청해주세요</div>
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;">
+<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;">
 
-    <!-- ══ 좌측: 검색/선택 영역 ══ -->
+    <!-- ══ 좌측: 단계별 선택 ══ -->
     <div>
         <form action="/condo/apply" method="POST" id="condoApplyForm" onsubmit="return validateForm()">
             <input type="hidden" name="facility_id" id="selected_facility_id">
             <input type="hidden" name="room_id" id="selected_room_id">
 
             <!-- Step 1: 권역 선택 -->
-            <div class="card section-block" style="padding:20px 24px;">
-                <div class="step-label">
-                    <span class="step-badge">1</span>권역 선택
+            <div class="step-block active" id="step1">
+                <div class="step-header">
+                    <span class="step-badge">1</span>
+                    <span class="step-title">권역 선택</span>
+                    <span class="step-summary" id="summary-region-badge" style="display:none;"></span>
                 </div>
-                <div id="region-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-                    <div class="empty-msg" style="padding:12px;">권역 정보를 불러오는 중...</div>
+                <div class="step-body">
+                    <div id="region-list" style="display:flex;flex-wrap:wrap;gap:10px;">
+                        <div class="empty-msg" style="padding:12px;">권역 정보를 불러오는 중...</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Step 2: 시설 선택 -->
-            <div class="card section-block" style="padding:20px 24px;">
-                <div class="step-label">
-                    <span class="step-badge">2</span>시설 선택
-                    <span id="facility-count" style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:600;"></span>
+            <div class="step-block" id="step2">
+                <div class="step-header">
+                    <span class="step-badge">2</span>
+                    <span class="step-title">시설 선택</span>
+                    <span class="step-summary" id="summary-facility-badge" style="display:none;"></span>
                 </div>
-                <div id="facility-list">
-                    <div class="empty-msg">권역을 먼저 선택해주세요.</div>
+                <div class="step-body" id="step2-body" style="display:none;">
+                    <div id="facility-list">
+                        <div class="empty-msg">권역을 먼저 선택해주세요.</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Step 3: 객실 선택 -->
-            <div class="card section-block" style="padding:20px 24px;" id="room-section" style="display:none;">
-                <div class="step-label">
-                    <span class="step-badge">3</span>객실 선택
+            <div class="step-block" id="step3">
+                <div class="step-header">
+                    <span class="step-badge">3</span>
+                    <span class="step-title">객실 선택</span>
+                    <span class="step-summary" id="summary-room-badge" style="display:none;"></span>
                 </div>
-                <div id="room-list">
-                    <div class="empty-msg">시설을 먼저 선택해주세요.</div>
+                <div class="step-body" id="step3-body" style="display:none;">
+                    <div id="room-list">
+                        <div class="empty-msg">시설을 먼저 선택해주세요.</div>
+                    </div>
+                    <p id="room-warn" style="display:none;font-size:13px;color:#dc2626;font-weight:600;margin-top:8px;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>객실을 선택해주세요.
+                    </p>
                 </div>
-                <p id="room-warn" style="display:none;font-size:11px;color:#dc2626;font-weight:600;margin-top:8px;">
-                    <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>객실을 선택해주세요.
-                </p>
             </div>
 
-            <!-- 날짜 + 신청 -->
-            <div class="card section-block" style="padding:20px 24px;" id="date-section" style="display:none;">
-                <div class="step-label">
-                    <span class="step-badge">4</span>이용 기간 선택
+            <!-- Step 4: 날짜 선택 -->
+            <div class="step-block" id="step4">
+                <div class="step-header">
+                    <span class="step-badge">4</span>
+                    <span class="step-title">이용 기간 선택</span>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                    <div>
-                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">체크인</label>
-                        <input type="date" name="check_in" class="form-input" required id="checkInDate" onchange="validateDates()">
+                <div class="step-body" id="step4-body" style="display:none;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                        <div>
+                            <label style="font-size:13px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">체크인</label>
+                            <input type="date" name="check_in" class="form-input" required id="checkInDate" onchange="validateDates()">
+                        </div>
+                        <div>
+                            <label style="font-size:13px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">체크아웃</label>
+                            <input type="date" name="check_out" class="form-input" required id="checkOutDate" onchange="validateDates()">
+                        </div>
                     </div>
-                    <div>
-                        <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">체크아웃</label>
-                        <input type="date" name="check_out" class="form-input" required id="checkOutDate" onchange="validateDates()">
+                    <p id="date-warn" style="display:none;font-size:13px;color:#dc2626;font-weight:600;margin-bottom:10px;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>퇴실일은 입실일보다 늦어야 합니다.
+                    </p>
+                    <!-- 혼잡도 표시 -->
+                    <div class="availability-box" id="availability-box">
+                        <i class="fas fa-info-circle" style="margin-right:6px;"></i>
+                        <span id="availability-text"></span>
                     </div>
+                    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#c2410c;font-weight:600;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+                        신청 후 관리자 승인 시 확정됩니다.
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:15px;">
+                        <i class="fas fa-check" style="margin-right:8px;"></i>예약 신청하기
+                    </button>
                 </div>
-                <p id="date-warn" style="display:none;font-size:11px;color:#dc2626;font-weight:600;margin-bottom:10px;">
-                    <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>퇴실일은 입실일보다 늦어야 합니다.
-                </p>
-                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#c2410c;font-weight:600;">
-                    <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
-                    신청 후 관리자 승인 시 확정됩니다.
-                </div>
-                <button type="submit" class="btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px;">
-                    <i class="fas fa-check" style="margin-right:6px;"></i>예약 신청하기
-                </button>
             </div>
+
         </form>
     </div>
 
     <!-- ══ 우측: 선택 요약 + 내 예약 ══ -->
     <div>
         <!-- 선택 요약 -->
-        <div class="card" style="padding:20px 24px;margin-bottom:16px;" id="summary-box">
-            <h3 style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:14px;">
+        <div class="card" style="padding:20px 24px;margin-bottom:16px;">
+            <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:14px;">
                 <i class="fas fa-clipboard-check" style="color:#00479d;margin-right:6px;"></i>선택 현황
             </h3>
-            <div id="summary-region" style="font-size:12px;color:#94a3b8;margin-bottom:6px;">권역: 미선택</div>
-            <div id="summary-facility" style="font-size:12px;color:#94a3b8;margin-bottom:6px;">시설: 미선택</div>
-            <div id="summary-room" style="font-size:12px;color:#94a3b8;margin-bottom:6px;">객실: 미선택</div>
-            <div id="summary-price" style="font-size:13px;font-weight:700;color:#00479d;display:none;"></div>
-            <div id="summary-extra" style="font-size:11px;color:#64748b;margin-top:4px;display:none;"></div>
+            <div id="summary-region" style="font-size:13px;color:#94a3b8;margin-bottom:8px;">권역: 미선택</div>
+            <div id="summary-facility" style="font-size:13px;color:#94a3b8;margin-bottom:8px;">시설: 미선택</div>
+            <div id="summary-room" style="font-size:13px;color:#94a3b8;margin-bottom:8px;">객실: 미선택</div>
+            <div id="summary-price" style="font-size:14px;font-weight:700;color:#00479d;display:none;"></div>
+            <div id="summary-extra" style="font-size:12px;color:#64748b;margin-top:4px;display:none;"></div>
         </div>
 
         <!-- 내 예약 현황 -->
         <div class="card" style="padding:20px 24px;">
-            <h3 style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:14px;">
+            <h3 style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:14px;">
                 <i class="fas fa-list" style="color:#00479d;margin-right:6px;"></i>내 예약 현황
             </h3>
             {% if my_reserves %}
                 {% for r in my_reserves %}
-                <div style="border:1px solid #e8eef5;border-radius:10px;padding:12px;margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <span style="font-size:13px;font-weight:700;color:#1e293b;">{{ r.facility_name }}</span>
+                <div style="border:1px solid #e8eef5;border-radius:10px;padding:14px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:14px;font-weight:700;color:#1e293b;">{{ r.facility_name }}</span>
                         <span class="badge {% if r.status=='CONFIRM' %}badge-green{% elif r.status=='CANCEL' %}badge-gray{% else %}badge-yellow{% endif %}">
                             {% if r.status=='CONFIRM' %}승인{% elif r.status=='CANCEL' %}취소{% else %}검토중{% endif %}
                         </span>
                     </div>
-                    <p style="font-size:11px;color:#64748b;">
+                    <p style="font-size:12px;color:#64748b;">
                         <i class="fas fa-calendar" style="margin-right:4px;"></i>
                         {{ r.check_in.strftime('%Y.%m.%d') if r.check_in else '-' }} ~
                         {{ r.check_out.strftime('%Y.%m.%d') if r.check_out else '-' }}
@@ -194,7 +269,7 @@
                 </div>
                 {% endfor %}
             {% else %}
-            <div style="padding:24px 0;text-align:center;color:#cbd5e1;font-size:13px;font-style:italic;">
+            <div style="padding:24px 0;text-align:center;color:#cbd5e1;font-size:14px;font-style:italic;">
                 <i class="fas fa-calendar-times" style="font-size:24px;display:block;margin-bottom:8px;"></i>
                 신청 내역이 없습니다.
             </div>
@@ -206,14 +281,14 @@
 
 {% block page_script %}
 <script>
-    // 페이지 로드 시 권역 목록 가져오기
+    // 페이지 로드 시 권역 목록
     document.addEventListener('DOMContentLoaded', () => {
         fetch('/api/condo/regions')
             .then(r => r.json())
             .then(regions => {
                 const div = document.getElementById('region-list');
                 if (regions.length === 0) {
-                    div.innerHTML = '<div class="empty-msg" style="padding:12px;">등록된 권역이 없습니다. 관리자에게 문의하세요.</div>';
+                    div.innerHTML = '<div class="empty-msg">등록된 권역이 없습니다. 관리자에게 문의하세요.</div>';
                 } else {
                     div.innerHTML = regions.map(rg =>
                         `<button type="button" class="region-btn" onclick="selectRegion('${rg}', this)">${rg}</button>`
@@ -222,39 +297,49 @@
             });
     });
 
+    function setStep(active) {
+        // 1~4 단계 상태 관리
+        for (let i = 1; i <= 4; i++) {
+            const block = document.getElementById('step' + i);
+            block.classList.remove('active', 'done');
+            if (i < active) block.classList.add('done');
+            else if (i === active) block.classList.add('active');
+        }
+    }
+
     function selectRegion(region, el) {
         document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
         el.classList.add('active');
+
         document.getElementById('summary-region').textContent = '권역: ' + region;
         document.getElementById('summary-region').style.color = '#1e293b';
+        document.getElementById('summary-region-badge').textContent = '✅ ' + region;
+        document.getElementById('summary-region-badge').style.display = 'inline';
 
-        // 초기화
         resetFrom('facility');
+        setStep(2);
 
+        document.getElementById('step2-body').style.display = 'block';
         document.getElementById('facility-list').innerHTML = '<div class="empty-msg">불러오는 중...</div>';
 
         fetch('/api/condo/facilities?region_name=' + encodeURIComponent(region))
             .then(r => r.json())
             .then(facilities => {
-                const count = document.getElementById('facility-count');
-                const list  = document.getElementById('facility-list');
+                const list = document.getElementById('facility-list');
                 if (facilities.length === 0) {
                     list.innerHTML = '<div class="empty-msg">해당 권역에 등록된 시설이 없습니다.</div>';
-                    count.textContent = '';
                 } else {
-                    count.textContent = facilities.length + '개 시설';
                     list.innerHTML = facilities.map(f => `
-                        <div class="facility-card" onclick="selectFacility(${f.facility_id},'${esc(f.facility_name)}','${esc(f.brand_name)}','${esc(f.location)}','${esc(f.price_info)}','${esc(f.extra_info)}', this)"
-                             style="margin-bottom:10px;">
+                        <div class="facility-card" onclick="selectFacility(${f.facility_id},'${esc(f.facility_name)}','${esc(f.brand_name)}','${esc(f.location)}','${esc(f.price_info)}','${esc(f.extra_info)}', this)">
                             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
                                 <div>
-                                    <p style="font-weight:800;color:#1e293b;font-size:14px;">${f.facility_name}</p>
-                                    <p style="font-size:11px;color:#64748b;margin-top:2px;">${f.brand_name || ''} ${f.location ? '· ' + f.location : ''}</p>
+                                    <p style="font-weight:800;color:#1e293b;font-size:16px;">${f.facility_name}</p>
+                                    <p style="font-size:13px;color:#64748b;margin-top:3px;">${f.brand_name || ''} ${f.location ? '· ' + f.location : ''}</p>
                                 </div>
-                                ${f.area_info ? `<span style="font-size:10px;background:#f1f5f9;padding:2px 8px;border-radius:10px;font-weight:600;color:#475569;">${f.area_info}</span>` : ''}
+                                ${f.area_info ? `<span style="font-size:12px;background:#f1f5f9;padding:3px 10px;border-radius:10px;font-weight:600;color:#475569;">${f.area_info}</span>` : ''}
                             </div>
-                            ${f.price_info ? `<p style="font-size:12px;color:#00479d;font-weight:600;"><i class="fas fa-won-sign" style="margin-right:4px;"></i>${f.price_info}</p>` : ''}
-                            ${f.extra_info ? `<p style="font-size:11px;color:#94a3b8;margin-top:4px;">${f.extra_info}</p>` : ''}
+                            ${f.price_info ? `<p style="font-size:13px;color:#00479d;font-weight:600;"><i class="fas fa-won-sign" style="margin-right:4px;"></i>${f.price_info}</p>` : ''}
+                            ${f.extra_info ? `<p style="font-size:12px;color:#94a3b8;margin-top:4px;">${f.extra_info}</p>` : ''}
                         </div>`
                     ).join('');
                 }
@@ -267,9 +352,11 @@
         document.getElementById('selected_facility_id').value = id;
         document.getElementById('selected_room_id').value = '';
 
-        // 요약 업데이트
         document.getElementById('summary-facility').textContent = '시설: ' + name;
         document.getElementById('summary-facility').style.color = '#1e293b';
+        document.getElementById('summary-facility-badge').textContent = '✅ ' + name;
+        document.getElementById('summary-facility-badge').style.display = 'inline';
+
         if (price) {
             document.getElementById('summary-price').textContent = price;
             document.getElementById('summary-price').style.display = 'block';
@@ -280,10 +367,9 @@
         }
 
         resetFrom('room');
+        setStep(3);
 
-        // 객실 로드
-        const roomSection = document.getElementById('room-section');
-        roomSection.style.display = 'block';
+        document.getElementById('step3-body').style.display = 'block';
         document.getElementById('room-list').innerHTML = '<div class="empty-msg">객실 정보를 불러오는 중...</div>';
 
         fetch('/api/condo/rooms?facility_id=' + id)
@@ -294,13 +380,12 @@
                     list.innerHTML = '<div class="empty-msg">등록된 객실이 없습니다. 관리자에게 문의하세요.</div>';
                 } else {
                     list.innerHTML = rooms.map(r => `
-                        <div class="room-card" onclick="selectRoom(${r.room_id}, '${esc(r.room_type)}', ${r.price || 0}, this)"
-                             style="margin-bottom:8px;">
-                            <input type="radio" name="_room_radio" style="width:16px;height:16px;accent-color:#00479d;flex-shrink:0;">
+                        <div class="room-card" onclick="selectRoom(${r.room_id}, '${esc(r.room_type)}', ${r.price || 0}, this)">
+                            <input type="radio" name="_room_radio" style="width:18px;height:18px;accent-color:#00479d;flex-shrink:0;">
                             <div style="flex:1;">
-                                <p style="font-weight:700;color:#1e293b;font-size:13px;">${r.room_type}</p>
-                                ${r.price ? `<p style="font-size:12px;color:#00479d;font-weight:600;margin-top:2px;">${r.price.toLocaleString()}원</p>` : ''}
-                                ${r.extra_info ? `<p style="font-size:11px;color:#64748b;">${r.extra_info}</p>` : ''}
+                                <p style="font-weight:700;color:#1e293b;font-size:15px;">${r.room_type}</p>
+                                ${r.price ? `<p style="font-size:13px;color:#00479d;font-weight:600;margin-top:3px;">${r.price.toLocaleString()}원</p>` : ''}
+                                ${r.extra_info ? `<p style="font-size:12px;color:#64748b;">${r.extra_info}</p>` : ''}
                             </div>
                         </div>`
                     ).join('');
@@ -314,48 +399,85 @@
         el.querySelector('input[type=radio]').checked = true;
         document.getElementById('selected_room_id').value = roomId;
         document.getElementById('room-warn').style.display = 'none';
+
         document.getElementById('summary-room').textContent = '객실: ' + roomType + (price ? ' (' + price.toLocaleString() + '원)' : '');
         document.getElementById('summary-room').style.color = '#1e293b';
+        document.getElementById('summary-room-badge').textContent = '✅ ' + roomType;
+        document.getElementById('summary-room-badge').style.display = 'inline';
 
-        // 날짜 섹션 표시
-        const dateSection = document.getElementById('date-section');
-        dateSection.style.display = 'block';
+        setStep(4);
+        document.getElementById('step4-body').style.display = 'block';
+
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('checkInDate').min = today;
         document.getElementById('checkOutDate').min = today;
+    }
+
+    function validateDates() {
+        const ci = document.getElementById('checkInDate').value;
+        const co = document.getElementById('checkOutDate').value;
+        const warn = document.getElementById('date-warn');
+
+        if (ci && co && co <= ci) {
+            warn.style.display = 'block';
+            return;
+        }
+        warn.style.display = 'none';
+
+        // 날짜 둘 다 선택됐을 때 혼잡도 조회
+        const facilityId = document.getElementById('selected_facility_id').value;
+        if (ci && co && co > ci && facilityId) {
+            fetch(`/api/condo/availability?facility_id=${facilityId}&check_in=${ci}&check_out=${co}`)
+                .then(r => r.json())
+                .then(data => {
+                    const box = document.getElementById('availability-box');
+                    const text = document.getElementById('availability-text');
+                    box.className = 'availability-box';
+                    if (data.count === 0) {
+                        box.classList.add('low');
+                        text.textContent = '해당 기간 신청 건수: 0건 — 여유 있습니다.';
+                    } else if (data.count <= 2) {
+                        box.classList.add('mid');
+                        text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 있습니다.`;
+                    } else {
+                        box.classList.add('high');
+                        text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 많습니다.`;
+                    }
+                    box.style.display = 'block';
+                });
+        }
     }
 
     function resetFrom(from) {
         if (from === 'facility') {
             document.getElementById('selected_facility_id').value = '';
             document.getElementById('selected_room_id').value = '';
-            document.getElementById('room-section').style.display = 'none';
-            document.getElementById('date-section').style.display = 'none';
+            document.getElementById('step3-body').style.display = 'none';
+            document.getElementById('step4-body').style.display = 'none';
             document.getElementById('summary-facility').textContent = '시설: 미선택';
             document.getElementById('summary-facility').style.color = '#94a3b8';
+            document.getElementById('summary-facility-badge').style.display = 'none';
             document.getElementById('summary-room').textContent = '객실: 미선택';
             document.getElementById('summary-room').style.color = '#94a3b8';
+            document.getElementById('summary-room-badge').style.display = 'none';
             document.getElementById('summary-price').style.display = 'none';
             document.getElementById('summary-extra').style.display = 'none';
+            document.getElementById('availability-box').style.display = 'none';
         }
         if (from === 'room') {
             document.getElementById('selected_room_id').value = '';
-            document.getElementById('date-section').style.display = 'none';
+            document.getElementById('step4-body').style.display = 'none';
             document.getElementById('summary-room').textContent = '객실: 미선택';
             document.getElementById('summary-room').style.color = '#94a3b8';
+            document.getElementById('summary-room-badge').style.display = 'none';
+            document.getElementById('availability-box').style.display = 'none';
         }
-    }
-
-    function validateDates() {
-        const ci = document.getElementById('checkInDate').value;
-        const co = document.getElementById('checkOutDate').value;
-        document.getElementById('date-warn').style.display = (ci && co && co <= ci) ? 'block' : 'none';
     }
 
     function validateForm() {
         if (!document.getElementById('selected_room_id').value) {
             document.getElementById('room-warn').style.display = 'block';
-            document.getElementById('room-section').scrollIntoView({behavior:'smooth'});
+            document.getElementById('step3').scrollIntoView({behavior:'smooth'});
             return false;
         }
         const ci = document.getElementById('checkInDate').value;
