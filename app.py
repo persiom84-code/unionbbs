@@ -1789,7 +1789,7 @@ def migrate():
                     'INSERT INTO "TB_CONDO_RESORT" (brand_id, resort_name, sort_order, use_yn) '
                     'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn'
                 ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
-            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ALTER COLUMN reserve_seq DROP NOT NULL'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ALTER COLUMN condo_seq DROP NOT NULL'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
