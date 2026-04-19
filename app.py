@@ -242,13 +242,17 @@ class CondoFacility(db.Model):
 
 class CondoRoom(db.Model):
     __tablename__ = 'TB_CONDO_ROOM'
-    room_id     = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    facility_id = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
-    room_type   = db.Column(db.String(100), nullable=False)
-    price       = db.Column(db.Integer, default=0)
-    extra_info  = db.Column(db.Text)
-    sort_order  = db.Column(db.Integer, default=0)
-    use_yn      = db.Column(db.String(1), default='Y')
+    room_id       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    facility_id   = db.Column(db.Integer, db.ForeignKey('TB_CONDO_FACILITY.facility_id'), nullable=False)
+    room_type     = db.Column(db.String(100), nullable=False)
+    price         = db.Column(db.Integer, default=0)
+    price_offpeak = db.Column(db.Integer, default=0)
+    price_peak    = db.Column(db.Integer, default=0)
+    price_holiday = db.Column(db.Integer, default=0)
+    price_extra   = db.Column(db.Integer, default=0)
+    extra_info    = db.Column(db.Text)
+    sort_order    = db.Column(db.Integer, default=0)
+    use_yn        = db.Column(db.String(1), default='Y')
 
 class CondoReserve(db.Model):
     __tablename__ = 'TB_CONDO_RESERVE'
@@ -259,9 +263,19 @@ class CondoReserve(db.Model):
     check_in    = db.Column(db.Date, nullable=False)
     check_out   = db.Column(db.Date, nullable=False)
     status      = db.Column(db.String(10), default='APPLY')
+    memo        = db.Column(db.Text)
     cancel_dt   = db.Column(db.DateTime)
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
+
+class CondoSeason(db.Model):
+    __tablename__ = 'TB_CONDO_SEASON'
+    season_seq  = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    season_name = db.Column(db.String(100), nullable=False)
+    season_type = db.Column(db.String(20), nullable=False)  # peak/offpeak/holiday/extra
+    start_date  = db.Column(db.String(5), nullable=False)   # MM-DD 형식
+    end_date    = db.Column(db.String(5), nullable=False)   # MM-DD 형식
+    use_yn      = db.Column(db.String(1), default='Y')
 
 class GuestUser(db.Model):
     __tablename__ = 'TB_GUEST_USER'
@@ -1036,6 +1050,7 @@ def condo_apply():
         emp_no      = current_user.emp_no,
         check_in    = check_in,
         check_out   = check_out,
+        memo        = request.form.get('memo') or None,
         status      = 'APPLY'
     )
     db.session.add(reserve)
@@ -1089,13 +1104,47 @@ def admin_condo():
         'resort_name':   rs.resort_name,
         'facility_name': f.facility_name,
     } for r, f, rs, b in room_query]
+    seasons = CondoSeason.query.filter_by(use_yn='Y').order_by(CondoSeason.season_type, CondoSeason.start_date).all()
+
+    # 승인 목록 (기간별/사용자별 필터)
+    date_from = request.args.get('date_from', '')
+    date_to   = request.args.get('date_to', '')
+    emp_nm_q  = request.args.get('emp_nm', '')
+    approved_query = db.session.query(CondoReserve, CondoFacility, User)\
+        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)\
+        .outerjoin(User, CondoReserve.emp_no == User.emp_no)\
+        .filter(CondoReserve.status == 'CONFIRM', CondoReserve.use_yn == 'Y')
+    if date_from:
+        approved_query = approved_query.filter(CondoReserve.check_in >= date_from)
+    if date_to:
+        approved_query = approved_query.filter(CondoReserve.check_in <= date_to)
+    if emp_nm_q:
+        approved_query = approved_query.filter(User.emp_nm.ilike(f'%{emp_nm_q}%'))
+    approved_rows = []
+    for r, f, u in approved_query.order_by(CondoReserve.check_in.desc()).all():
+        approved_rows.append({
+            'reserve_seq':   r.reserve_seq,
+            'emp_nm':        u.emp_nm if u else '-',
+            'emp_no':        r.emp_no,
+            'facility_name': f.facility_name,
+            'check_in':      r.check_in,
+            'check_out':     r.check_out,
+            'reg_dt':        r.reg_dt,
+            'memo':          r.memo or '',
+        })
+
     return render_template('condo_admin.html',
         current_user=current_user,
         reserve_list=rows,
+        approved_list=approved_rows,
         brands=brands,
         resorts=resorts,
         facilities=facilities,
         rooms=rooms,
+        seasons=seasons,
+        date_from=date_from,
+        date_to=date_to,
+        emp_nm_q=emp_nm_q,
         active_menu='admin_condo'
     )
 
@@ -1202,20 +1251,28 @@ def condo_room_save():
     action = request.form.get('action')
     if action == 'add':
         db.session.add(CondoRoom(
-            facility_id = request.form.get('facility_id'),
-            room_type   = request.form.get('room_type'),
-            price       = int(request.form.get('price', 0)),
-            extra_info  = request.form.get('extra_info'),
-            sort_order  = int(request.form.get('sort_order', 0))
+            facility_id   = request.form.get('facility_id'),
+            room_type     = request.form.get('room_type'),
+            price         = int(request.form.get('price', 0)),
+            price_offpeak = int(request.form.get('price_offpeak', 0)),
+            price_peak    = int(request.form.get('price_peak', 0)),
+            price_holiday = int(request.form.get('price_holiday', 0)),
+            price_extra   = int(request.form.get('price_extra', 0)),
+            extra_info    = request.form.get('extra_info'),
+            sort_order    = int(request.form.get('sort_order', 0))
         ))
         flash('객실이 등록되었습니다.')
     elif action == 'edit':
         r = CondoRoom.query.get_or_404(request.form.get('room_id'))
-        r.facility_id = request.form.get('facility_id')
-        r.room_type   = request.form.get('room_type')
-        r.price       = int(request.form.get('price', 0))
-        r.extra_info  = request.form.get('extra_info')
-        r.sort_order  = int(request.form.get('sort_order', r.sort_order))
+        r.facility_id   = request.form.get('facility_id')
+        r.room_type     = request.form.get('room_type')
+        r.price         = int(request.form.get('price', 0))
+        r.price_offpeak = int(request.form.get('price_offpeak', 0))
+        r.price_peak    = int(request.form.get('price_peak', 0))
+        r.price_holiday = int(request.form.get('price_holiday', 0))
+        r.price_extra   = int(request.form.get('price_extra', 0))
+        r.extra_info    = request.form.get('extra_info')
+        r.sort_order    = int(request.form.get('sort_order', r.sort_order))
         flash('객실 정보가 수정되었습니다.')
     elif action == 'delete':
         r = CondoRoom.query.get_or_404(request.form.get('room_id'))
@@ -1286,6 +1343,68 @@ def condo_facility_import():
         flash(f'오류: {str(e)}', 'error')
     return redirect(url_for('admin_condo'))
 # ══════════════════════════════════════════════════════════
+@app.route('/admin/condo/reserve/export')
+@level_required(1)
+def condo_reserve_export():
+    import csv, io
+    date_from = request.args.get('date_from', '')
+    date_to   = request.args.get('date_to', '')
+    query = db.session.query(CondoReserve, CondoFacility, User)\
+        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)\
+        .outerjoin(User, CondoReserve.emp_no == User.emp_no)\
+        .filter(CondoReserve.status == 'CONFIRM', CondoReserve.use_yn == 'Y')
+    if date_from:
+        query = query.filter(CondoReserve.check_in >= date_from)
+    if date_to:
+        query = query.filter(CondoReserve.check_in <= date_to)
+    rows = query.order_by(CondoReserve.check_in).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['신청자','사번','시설명','체크인','체크아웃','신청일','비고'])
+    for r, f, u in rows:
+        writer.writerow([
+            u.emp_nm if u else '-',
+            r.emp_no,
+            f.facility_name,
+            r.check_in.strftime('%Y-%m-%d') if r.check_in else '',
+            r.check_out.strftime('%Y-%m-%d') if r.check_out else '',
+            r.reg_dt.strftime('%Y-%m-%d') if r.reg_dt else '',
+            r.memo or ''
+        ])
+    output.seek(0)
+    from flask import Response
+    return Response(
+        '﻿' + output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=condo_approved.csv'}
+    )
+
+@app.route('/admin/condo/season/save', methods=['POST'])
+@level_required(1)
+def condo_season_save():
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(CondoSeason(
+            season_name = request.form.get('season_name'),
+            season_type = request.form.get('season_type'),
+            start_date  = request.form.get('start_date'),
+            end_date    = request.form.get('end_date')
+        ))
+        flash('시즌이 등록되었습니다.')
+    elif action == 'edit':
+        s = CondoSeason.query.get_or_404(request.form.get('season_seq'))
+        s.season_name = request.form.get('season_name')
+        s.season_type = request.form.get('season_type')
+        s.start_date  = request.form.get('start_date')
+        s.end_date    = request.form.get('end_date')
+        flash('시즌이 수정되었습니다.')
+    elif action == 'delete':
+        s = CondoSeason.query.get_or_404(request.form.get('season_seq'))
+        s.use_yn = 'N'
+        flash('시즌이 삭제되었습니다.')
+    db.session.commit()
+    return redirect(url_for('admin_condo'))
+
 # Routes - 도서
 # ══════════════════════════════════════════════════════════
 
@@ -1766,30 +1885,25 @@ def migrate():
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS room_id INTEGER'))
 
-            # 기존 데이터 초기화 후 CSV 기준 재삽입
-            conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_FACILITY" RESTART IDENTITY CASCADE'))
-            conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_RESORT" RESTART IDENTITY CASCADE'))
-            conn.execute(db.text('TRUNCATE TABLE "TB_CONDO_BRAND" RESTART IDENTITY CASCADE'))
+            # 스키마 변경만 (데이터 초기화 없음)
             conn.execute(db.text('ALTER TABLE "TB_CONDO_FACILITY" ADD COLUMN IF NOT EXISTS region_name VARCHAR(50)'))
-            # 브랜드 7개
-            for nm, seq in [('소노',1),('한화',2),('보광',3),('켄싱턴',4),('리솜',5),('영랑호',6),('용평',7)]:
-                conn.execute(db.text('INSERT INTO "TB_CONDO_BRAND" (brand_name, sort_order, use_yn) VALUES (:n, :s, \'Y\')'), {'n': nm, 's': seq})
-
-            # 리조트 14개
-            resorts_data = [
-                ('소노','대명리조트',1),('소노','대명호텔',2),('소노','소노펠리체',3),
-                ('한화','한화리조트',1),('한화','한화호텔',2),
-                ('보광','보광휘닉스아일랜드',1),('보광','보광휘닉스파크',2),
-                ('켄싱턴','켄싱턴리조트',1),('켄싱턴','켄싱턴리조트(한림)',2),
-                ('켄싱턴','켄싱턴리조트(서귀포)',3),('켄싱턴','켄싱턴리조트(중문)',4),
-                ('리솜','리솜리조트',1),('영랑호','영랑호리조트',1),('용평','용평리조트',1),
-            ]
-            for brand_nm, resort_nm, sort in resorts_data:
-                conn.execute(db.text(
-                    'INSERT INTO "TB_CONDO_RESORT" (brand_id, resort_name, sort_order, use_yn) '
-                    'SELECT b.brand_id, :rn, :s, \'Y\' FROM "TB_CONDO_BRAND" b WHERE b.brand_name=:bn'
-                ), {'bn': brand_nm, 'rn': resort_nm, 's': sort})
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ALTER COLUMN condo_seq DROP NOT NULL'))
+            # TB_CONDO_ROOM 가격 4종 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS price_offpeak INTEGER DEFAULT 0'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS price_peak INTEGER DEFAULT 0'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS price_holiday INTEGER DEFAULT 0'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS price_extra INTEGER DEFAULT 0'))
+            # TB_CONDO_RESERVE 비고 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS memo TEXT'))
+            # TB_CONDO_SEASON 시즌 관리 테이블
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_SEASON" (
+                season_seq   SERIAL PRIMARY KEY,
+                season_name  VARCHAR(100) NOT NULL,
+                season_type  VARCHAR(20) NOT NULL,
+                start_date   VARCHAR(5) NOT NULL,
+                end_date     VARCHAR(5) NOT NULL,
+                use_yn       CHAR(1) DEFAULT 'Y'
+            )'''))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:

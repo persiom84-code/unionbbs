@@ -150,58 +150,14 @@
             <input type="hidden" name="facility_id" id="selected_facility_id">
             <input type="hidden" name="room_id" id="selected_room_id">
 
-            <!-- Step 1: 권역 선택 -->
+            <!-- Step 1: 이용 기간 선택 -->
             <div class="step-block active" id="step1">
                 <div class="step-header">
                     <span class="step-badge">1</span>
-                    <span class="step-title">권역 선택</span>
-                    <span class="step-summary" id="summary-region-badge" style="display:none;"></span>
+                    <span class="step-title">이용 기간 선택</span>
+                    <span class="step-summary" id="summary-date-badge" style="display:none;"></span>
                 </div>
                 <div class="step-body">
-                    <div id="region-list" style="display:flex;flex-wrap:wrap;gap:10px;">
-                        <div class="empty-msg" style="padding:12px;">권역 정보를 불러오는 중...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 2: 시설 선택 -->
-            <div class="step-block" id="step2">
-                <div class="step-header">
-                    <span class="step-badge">2</span>
-                    <span class="step-title">시설 선택</span>
-                    <span class="step-summary" id="summary-facility-badge" style="display:none;"></span>
-                </div>
-                <div class="step-body" id="step2-body" style="display:none;">
-                    <div id="facility-list">
-                        <div class="empty-msg">권역을 먼저 선택해주세요.</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 3: 객실 선택 -->
-            <div class="step-block" id="step3">
-                <div class="step-header">
-                    <span class="step-badge">3</span>
-                    <span class="step-title">객실 선택</span>
-                    <span class="step-summary" id="summary-room-badge" style="display:none;"></span>
-                </div>
-                <div class="step-body" id="step3-body" style="display:none;">
-                    <div id="room-list">
-                        <div class="empty-msg">시설을 먼저 선택해주세요.</div>
-                    </div>
-                    <p id="room-warn" style="display:none;font-size:13px;color:#dc2626;font-weight:600;margin-top:8px;">
-                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>객실을 선택해주세요.
-                    </p>
-                </div>
-            </div>
-
-            <!-- Step 4: 날짜 선택 -->
-            <div class="step-block" id="step4">
-                <div class="step-header">
-                    <span class="step-badge">4</span>
-                    <span class="step-title">이용 기간 선택</span>
-                </div>
-                <div class="step-body" id="step4-body" style="display:none;">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                         <div>
                             <label style="font-size:13px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">체크인</label>
@@ -213,8 +169,72 @@
                         </div>
                     </div>
                     <p id="date-warn" style="display:none;font-size:13px;color:#dc2626;font-weight:600;margin-bottom:10px;">
-                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>퇴실일은 입실일보다 늦어야 합니다.
+                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>
+                        <span id="date-warn-msg">퇴실일은 입실일보다 늦어야 합니다.</span>
                     </p>
+                </div>
+            </div>
+
+            <!-- Step 2: 권역 선택 -->
+            <div class="step-block" id="step2">
+                <div class="step-header">
+                    <span class="step-badge">2</span>
+                    <span class="step-title">권역 선택</span>
+                    <span class="step-summary" id="summary-region-badge" style="display:none;"></span>
+                </div>
+                <div class="step-body" id="step2-body" style="display:none;">
+                    <div id="region-list" style="display:flex;flex-wrap:wrap;gap:10px;">
+                        <div class="empty-msg" style="padding:12px;">권역 정보를 불러오는 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: 시설 선택 -->
+            <div class="step-block" id="step3">
+                <div class="step-header">
+                    <span class="step-badge">3</span>
+                    <span class="step-title">시설 선택</span>
+                    <span class="step-summary" id="summary-facility-badge" style="display:none;"></span>
+                </div>
+                <div class="step-body" id="step3-body" style="display:none;">
+                    <div id="facility-list">
+                        <div class="empty-msg">권역을 먼저 선택해주세요.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: 객실 선택 -->
+            <div class="step-block" id="step4">
+                <div class="step-header">
+                    <span class="step-badge">4</span>
+                    <span class="step-title">객실 선택</span>
+                    <span class="step-summary" id="summary-room-badge" style="display:none;"></span>
+                </div>
+                <div class="step-body" id="step4-body" style="display:none;">
+                    <div id="room-list">
+                        <div class="empty-msg">시설을 먼저 선택해주세요.</div>
+                    </div>
+                    <p id="room-warn" style="display:none;font-size:13px;color:#dc2626;font-weight:600;margin-top:8px;">
+                        <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>객실을 선택해주세요.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 5: 비고 + 신청 -->
+            <div class="step-block" id="step5">
+                <div class="step-header">
+                    <span class="step-badge">5</span>
+                    <span class="step-title">비고 및 신청</span>
+                </div>
+                <div class="step-body" id="step5-body" style="display:none;">
+                    <div style="margin-bottom:14px;">
+                        <label style="font-size:13px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">
+                            비고 <span style="font-weight:400;color:#94a3b8;">(선택사항)</span>
+                        </label>
+                        <textarea name="memo" class="form-input" rows="3"
+                            placeholder="유료서비스 추가 요청, 기타 문의사항 등 자유롭게 입력해주세요."
+                            style="resize:vertical;"></textarea>
+                    </div>
                     <!-- 혼잡도 표시 -->
                     <div class="availability-box" id="availability-box">
                         <i class="fas fa-info-circle" style="margin-right:6px;"></i>
@@ -281,14 +301,21 @@
 
 {% block page_script %}
 <script>
-    // 페이지 로드 시 권역 목록
+    // 페이지 로드 시 날짜 최솟값 설정 (오늘+21일)
     document.addEventListener('DOMContentLoaded', () => {
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + 21);
+        const minStr = minDate.toISOString().split('T')[0];
+        document.getElementById('checkInDate').min = minStr;
+        document.getElementById('checkOutDate').min = minStr;
+
+        // 권역 목록 미리 로드
         fetch('/api/condo/regions')
             .then(r => r.json())
             .then(regions => {
                 const div = document.getElementById('region-list');
                 if (regions.length === 0) {
-                    div.innerHTML = '<div class="empty-msg">등록된 권역이 없습니다. 관리자에게 문의하세요.</div>';
+                    div.innerHTML = '<div class="empty-msg">등록된 권역이 없습니다.</div>';
                 } else {
                     div.innerHTML = regions.map(rg =>
                         `<button type="button" class="region-btn" onclick="selectRegion('${rg}', this)">${rg}</button>`
@@ -298,28 +325,68 @@
     });
 
     function setStep(active) {
-        // 1~4 단계 상태 관리
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const block = document.getElementById('step' + i);
+            if (!block) continue;
             block.classList.remove('active', 'done');
             if (i < active) block.classList.add('done');
             else if (i === active) block.classList.add('active');
         }
     }
 
+    function validateDates() {
+        const ci = document.getElementById('checkInDate').value;
+        const co = document.getElementById('checkOutDate').value;
+        const warn = document.getElementById('date-warn');
+        const msg  = document.getElementById('date-warn-msg');
+
+        if (!ci) return;
+
+        // 3주 이내 체크
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + 21);
+        if (new Date(ci) < minDate) {
+            msg.textContent = '최소 3주 후 날짜를 선택해 주세요.';
+            warn.style.display = 'block';
+            document.getElementById('checkInDate').value = '';
+            return;
+        }
+
+        if (co && co <= ci) {
+            msg.textContent = '퇴실일은 입실일보다 늦어야 합니다.';
+            warn.style.display = 'block';
+            return;
+        }
+        warn.style.display = 'none';
+
+        // 날짜 모두 유효하면 Step2(권역) 열기
+        if (ci && co && co > ci) {
+            const ciDate = new Date(ci);
+            const coDate = new Date(co);
+            const diff = Math.round((coDate - ciDate) / (1000*60*60*24));
+            document.getElementById('summary-date-badge').textContent =
+                `✅ ${ci.replace(/-/g,'.')} ~ ${co.replace(/-/g,'.')} (${diff}박)`;
+            document.getElementById('summary-date-badge').style.display = 'inline';
+            setStep(2);
+            document.getElementById('step2-body').style.display = 'block';
+
+            // 혼잡도 업데이트 (시설 선택 후)
+            const facilityId = document.getElementById('selected_facility_id').value;
+            if (facilityId) checkAvailability(facilityId, ci, co);
+        }
+    }
+
     function selectRegion(region, el) {
         document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
         el.classList.add('active');
-
         document.getElementById('summary-region').textContent = '권역: ' + region;
         document.getElementById('summary-region').style.color = '#1e293b';
         document.getElementById('summary-region-badge').textContent = '✅ ' + region;
         document.getElementById('summary-region-badge').style.display = 'inline';
 
         resetFrom('facility');
-        setStep(2);
-
-        document.getElementById('step2-body').style.display = 'block';
+        setStep(3);
+        document.getElementById('step3-body').style.display = 'block';
         document.getElementById('facility-list').innerHTML = '<div class="empty-msg">불러오는 중...</div>';
 
         fetch('/api/condo/facilities?region_name=' + encodeURIComponent(region))
@@ -339,7 +406,6 @@
                                 ${f.area_info ? `<span style="font-size:12px;background:#f1f5f9;padding:3px 10px;border-radius:10px;font-weight:600;color:#475569;">${f.area_info}</span>` : ''}
                             </div>
                             ${f.price_info ? `<p style="font-size:13px;color:#00479d;font-weight:600;"><i class="fas fa-won-sign" style="margin-right:4px;"></i>${f.price_info}</p>` : ''}
-                            ${f.extra_info ? `<p style="font-size:12px;color:#94a3b8;margin-top:4px;">${f.extra_info}</p>` : ''}
                         </div>`
                     ).join('');
                 }
@@ -357,19 +423,12 @@
         document.getElementById('summary-facility-badge').textContent = '✅ ' + name;
         document.getElementById('summary-facility-badge').style.display = 'inline';
 
-        if (price) {
-            document.getElementById('summary-price').textContent = price;
-            document.getElementById('summary-price').style.display = 'block';
-        }
-        if (extra) {
-            document.getElementById('summary-extra').textContent = extra;
-            document.getElementById('summary-extra').style.display = 'block';
-        }
+        if (price) { document.getElementById('summary-price').textContent = price; document.getElementById('summary-price').style.display = 'block'; }
+        if (extra) { document.getElementById('summary-extra').textContent = extra; document.getElementById('summary-extra').style.display = 'block'; }
 
         resetFrom('room');
-        setStep(3);
-
-        document.getElementById('step3-body').style.display = 'block';
+        setStep(4);
+        document.getElementById('step4-body').style.display = 'block';
         document.getElementById('room-list').innerHTML = '<div class="empty-msg">객실 정보를 불러오는 중...</div>';
 
         fetch('/api/condo/rooms?facility_id=' + id)
@@ -405,55 +464,43 @@
         document.getElementById('summary-room-badge').textContent = '✅ ' + roomType;
         document.getElementById('summary-room-badge').style.display = 'inline';
 
-        setStep(4);
-        document.getElementById('step4-body').style.display = 'block';
+        setStep(5);
+        document.getElementById('step5-body').style.display = 'block';
 
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('checkInDate').min = today;
-        document.getElementById('checkOutDate').min = today;
-    }
-
-    function validateDates() {
+        // 혼잡도 표시
         const ci = document.getElementById('checkInDate').value;
         const co = document.getElementById('checkOutDate').value;
-        const warn = document.getElementById('date-warn');
+        const fid = document.getElementById('selected_facility_id').value;
+        if (ci && co && fid) checkAvailability(fid, ci, co);
+    }
 
-        if (ci && co && co <= ci) {
-            warn.style.display = 'block';
-            return;
-        }
-        warn.style.display = 'none';
-
-        // 날짜 둘 다 선택됐을 때 혼잡도 조회
-        const facilityId = document.getElementById('selected_facility_id').value;
-        if (ci && co && co > ci && facilityId) {
-            fetch(`/api/condo/availability?facility_id=${facilityId}&check_in=${ci}&check_out=${co}`)
-                .then(r => r.json())
-                .then(data => {
-                    const box = document.getElementById('availability-box');
-                    const text = document.getElementById('availability-text');
-                    box.className = 'availability-box';
-                    if (data.count === 0) {
-                        box.classList.add('low');
-                        text.textContent = '해당 기간 신청 건수: 0건 — 여유 있습니다.';
-                    } else if (data.count <= 2) {
-                        box.classList.add('mid');
-                        text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 있습니다.`;
-                    } else {
-                        box.classList.add('high');
-                        text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 많습니다.`;
-                    }
-                    box.style.display = 'block';
-                });
-        }
+    function checkAvailability(facilityId, ci, co) {
+        fetch(`/api/condo/availability?facility_id=${facilityId}&check_in=${ci}&check_out=${co}`)
+            .then(r => r.json())
+            .then(data => {
+                const box  = document.getElementById('availability-box');
+                const text = document.getElementById('availability-text');
+                box.className = 'availability-box';
+                if (data.count === 0) {
+                    box.classList.add('low');
+                    text.textContent = '해당 기간 신청 건수: 0건 — 여유 있습니다.';
+                } else if (data.count <= 2) {
+                    box.classList.add('mid');
+                    text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 있습니다.`;
+                } else {
+                    box.classList.add('high');
+                    text.textContent = `해당 기간 신청 건수: ${data.count}건 — 신청이 많습니다.`;
+                }
+                box.style.display = 'block';
+            });
     }
 
     function resetFrom(from) {
         if (from === 'facility') {
             document.getElementById('selected_facility_id').value = '';
             document.getElementById('selected_room_id').value = '';
-            document.getElementById('step3-body').style.display = 'none';
             document.getElementById('step4-body').style.display = 'none';
+            document.getElementById('step5-body').style.display = 'none';
             document.getElementById('summary-facility').textContent = '시설: 미선택';
             document.getElementById('summary-facility').style.color = '#94a3b8';
             document.getElementById('summary-facility-badge').style.display = 'none';
@@ -466,7 +513,7 @@
         }
         if (from === 'room') {
             document.getElementById('selected_room_id').value = '';
-            document.getElementById('step4-body').style.display = 'none';
+            document.getElementById('step5-body').style.display = 'none';
             document.getElementById('summary-room').textContent = '객실: 미선택';
             document.getElementById('summary-room').style.color = '#94a3b8';
             document.getElementById('summary-room-badge').style.display = 'none';
@@ -475,22 +522,23 @@
     }
 
     function validateForm() {
-        if (!document.getElementById('selected_room_id').value) {
-            document.getElementById('room-warn').style.display = 'block';
-            document.getElementById('step3').scrollIntoView({behavior:'smooth'});
-            return false;
-        }
         const ci = document.getElementById('checkInDate').value;
         const co = document.getElementById('checkOutDate').value;
         if (!ci || !co || co <= ci) {
             document.getElementById('date-warn').style.display = 'block';
+            document.getElementById('step1').scrollIntoView({behavior:'smooth'});
+            return false;
+        }
+        if (!document.getElementById('selected_room_id').value) {
+            document.getElementById('room-warn').style.display = 'block';
+            document.getElementById('step4').scrollIntoView({behavior:'smooth'});
             return false;
         }
         return true;
     }
 
     function esc(str) {
-        return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return (str || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
     }
 </script>
 {% endblock %}
