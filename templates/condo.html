@@ -172,6 +172,11 @@
                         <i class="fas fa-exclamation-circle" style="margin-right:4px;"></i>
                         <span id="date-warn-msg">퇴실일은 입실일보다 늦어야 합니다.</span>
                     </p>
+                    <!-- 혼잡도 표시 -->
+                    <div class="availability-box" id="availability-box" style="margin-top:10px;">
+                        <i class="fas fa-info-circle" style="margin-right:6px;"></i>
+                        <span id="availability-text"></span>
+                    </div>
                 </div>
             </div>
 
@@ -234,11 +239,6 @@
                         <textarea name="memo" class="form-input" rows="3"
                             placeholder="유료서비스 추가 요청, 기타 문의사항 등 자유롭게 입력해주세요."
                             style="resize:vertical;"></textarea>
-                    </div>
-                    <!-- 혼잡도 표시 -->
-                    <div class="availability-box" id="availability-box">
-                        <i class="fas fa-info-circle" style="margin-right:6px;"></i>
-                        <span id="availability-text"></span>
                     </div>
                     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#c2410c;font-weight:600;">
                         <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
@@ -341,17 +341,14 @@
         const msg  = document.getElementById('date-warn-msg');
 
         if (!ci) return;
-
-        // 3주 이내 체크
+        // 3주 이내 선택 차단
         const minDate = new Date();
         minDate.setDate(minDate.getDate() + 21);
         if (new Date(ci) < minDate) {
-            msg.textContent = '최소 3주 후 날짜를 선택해 주세요.';
-            warn.style.display = 'block';
+            alert('오늘 기준 3주 이내 선택 불가!');
             document.getElementById('checkInDate').value = '';
             return;
         }
-
         if (co && co <= ci) {
             msg.textContent = '퇴실일은 입실일보다 늦어야 합니다.';
             warn.style.display = 'block';
@@ -359,20 +356,21 @@
         }
         warn.style.display = 'none';
 
-        // 날짜 모두 유효하면 Step2(권역) 열기
         if (ci && co && co > ci) {
-            const ciDate = new Date(ci);
-            const coDate = new Date(co);
-            const diff = Math.round((coDate - ciDate) / (1000*60*60*24));
+            const diff = Math.round((new Date(co) - new Date(ci)) / (1000*60*60*24));
             document.getElementById('summary-date-badge').textContent =
                 `✅ ${ci.replace(/-/g,'.')} ~ ${co.replace(/-/g,'.')} (${diff}박)`;
             document.getElementById('summary-date-badge').style.display = 'inline';
             setStep(2);
             document.getElementById('step2-body').style.display = 'block';
 
-            // 혼잡도 업데이트 (시설 선택 후)
+            // 시설 선택된 경우 혼잡도 즉시 표시
             const facilityId = document.getElementById('selected_facility_id').value;
-            if (facilityId) checkAvailability(facilityId, ci, co);
+            if (facilityId) {
+                checkAvailability(facilityId, ci, co);
+            } else {
+                document.getElementById('availability-box').style.display = 'none';
+            }
         }
     }
 
@@ -426,6 +424,11 @@
         if (price) { document.getElementById('summary-price').textContent = price; document.getElementById('summary-price').style.display = 'block'; }
         if (extra) { document.getElementById('summary-extra').textContent = extra; document.getElementById('summary-extra').style.display = 'block'; }
 
+        // 시설 선택 시 날짜 이미 선택된 경우 혼잡도 표시
+        const ci = document.getElementById('checkInDate').value;
+        const co = document.getElementById('checkOutDate').value;
+        if (ci && co) checkAvailability(id, ci, co);
+
         resetFrom('room');
         setStep(4);
         document.getElementById('step4-body').style.display = 'block';
@@ -467,11 +470,7 @@
         setStep(5);
         document.getElementById('step5-body').style.display = 'block';
 
-        // 혼잡도 표시
-        const ci = document.getElementById('checkInDate').value;
-        const co = document.getElementById('checkOutDate').value;
-        const fid = document.getElementById('selected_facility_id').value;
-        if (ci && co && fid) checkAvailability(fid, ci, co);
+
     }
 
     function checkAvailability(facilityId, ci, co) {
