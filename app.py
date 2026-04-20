@@ -1293,51 +1293,72 @@ def condo_facility_import():
         reader = csv.DictReader(stream)
         rows = list(reader)
 
-        # 기존 데이터 초기화
-        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_FACILITY" RESTART IDENTITY CASCADE'))
-        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_RESORT" RESTART IDENTITY CASCADE'))
-        db.session.execute(db.text('TRUNCATE TABLE "TB_CONDO_BRAND" RESTART IDENTITY CASCADE'))
-
-        # 브랜드 중복없이 삽입
+        # ── 브랜드: 이름 기준 중복 체크 후 INSERT ──
         brands = {}
-        for i, row in enumerate(dict.fromkeys(r['brand_name'] for r in rows), 1):
-            b = CondoBrand(brand_name=row, sort_order=i)
-            db.session.add(b)
-            db.session.flush()
-            brands[row] = b.brand_id
+        for i, brand_name in enumerate(dict.fromkeys(r['brand_name'] for r in rows), 1):
+            existing = CondoBrand.query.filter_by(brand_name=brand_name).first()
+            if existing:
+                brands[brand_name] = existing.brand_id
+            else:
+                b = CondoBrand(brand_name=brand_name, sort_order=i)
+                db.session.add(b)
+                db.session.flush()
+                brands[brand_name] = b.brand_id
 
-        # 리조트 중복없이 삽입
+        # ── 리조트: (brand_id, resort_name) 기준 중복 체크 후 INSERT ──
         resorts = {}
         seen_resorts = []
         for row in rows:
             key = (row['brand_name'], row['resort_name'])
             if key not in seen_resorts:
                 seen_resorts.append(key)
-                r = CondoResort(
-                    brand_id=brands[row['brand_name']],
-                    resort_name=row['resort_name'],
-                    sort_order=len(seen_resorts)
-                )
-                db.session.add(r)
-                db.session.flush()
-                resorts[key] = r.resort_id
+                brand_id = brands[row['brand_name']]
+                existing = CondoResort.query.filter_by(
+                    brand_id=brand_id, resort_name=row['resort_name']
+                ).first()
+                if existing:
+                    resorts[key] = existing.resort_id
+                else:
+                    r = CondoResort(
+                        brand_id=brand_id,
+                        resort_name=row['resort_name'],
+                        sort_order=len(seen_resorts)
+                    )
+                    db.session.add(r)
+                    db.session.flush()
+                    resorts[key] = r.resort_id
 
-        # 시설 삽입
+        # ── 시설: (resort_id, facility_name) 기준 중복 체크 → 있으면 UPDATE, 없으면 INSERT ──
+        inserted = updated = 0
         for row in rows:
             key = (row['brand_name'], row['resort_name'])
-            db.session.add(CondoFacility(
-                resort_id     = resorts[key],
-                facility_name = row['facility_name'],
-                region_name   = row.get('region_name') or None,
-                location      = row.get('location') or None,
-                area_info     = row.get('area_info') or None,
-                price_info    = row.get('price_info') or None,
-                extra_info    = row.get('extra_info') or None,
-                sort_order    = int(row.get('sort_order') or 0)
-            ))
+            resort_id = resorts[key]
+            existing = CondoFacility.query.filter_by(
+                resort_id=resort_id, facility_name=row['facility_name']
+            ).first()
+            if existing:
+                existing.region_name = row.get('region_name') or existing.region_name
+                existing.location    = row.get('location')    or existing.location
+                existing.area_info   = row.get('area_info')   or existing.area_info
+                existing.price_info  = row.get('price_info')  or existing.price_info
+                existing.extra_info  = row.get('extra_info')  or existing.extra_info
+                existing.sort_order  = int(row.get('sort_order') or existing.sort_order)
+                updated += 1
+            else:
+                db.session.add(CondoFacility(
+                    resort_id     = resort_id,
+                    facility_name = row['facility_name'],
+                    region_name   = row.get('region_name') or None,
+                    location      = row.get('location') or None,
+                    area_info     = row.get('area_info') or None,
+                    price_info    = row.get('price_info') or None,
+                    extra_info    = row.get('extra_info') or None,
+                    sort_order    = int(row.get('sort_order') or 0)
+                ))
+                inserted += 1
 
         db.session.commit()
-        flash(f'CSV 가져오기 완료! 시설 {len(rows)}개 등록됨.', 'success')
+        flash(f'CSV 가져오기 완료! 신규 {inserted}개 등록, {updated}개 업데이트됨.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'오류: {str(e)}', 'error')
@@ -1374,9 +1395,13 @@ def condo_reserve_export():
     output.seek(0)
     from flask import Response
     return Response(
-        '﻿' + output.getvalue(),
+        '\ufeff' + output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment; filename=condo_approved.csv'}
+        headers={
+            'Content-Disposition': 'attachment; filename=condo_approved.csv',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+        }
     )
 
 @app.route('/admin/condo/season/save', methods=['POST'])
@@ -1873,8 +1898,7 @@ def migrate():
                 updated_dt    TIMESTAMP DEFAULT NOW()
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS facility_id INTEGER REFERENCES "TB_CONDO_FACILITY"(facility_id)'))
-            conn.execute(db.text('DROP TABLE IF EXISTS "TB_CONDO_ROOM" CASCADE'))
-            conn.execute(db.text('''CREATE TABLE "TB_CONDO_ROOM" (
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_ROOM" (
                 room_id     SERIAL PRIMARY KEY,
                 facility_id INTEGER,
                 room_type   VARCHAR(100) NOT NULL,

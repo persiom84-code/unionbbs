@@ -36,7 +36,7 @@ from datetime import date, datetime
 
 # Flask 앱 컨텍스트 로드
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from app import app, db, User
+from app import app, db, User, CondoBrand, CondoResort, CondoFacility
 import bcrypt
 
 
@@ -317,67 +317,105 @@ CONDO_DATA = [
 ]
 
 
+# 브랜드 코드 → 표시명 매핑
+BRAND_NAME_MAP = {
+    'SONO':       '소노',
+    'HANWHA':     '한화',
+    'BOGWANG':    '보광',
+    'KENSINGTON': '켄싱턴',
+    'ETC':        '기타',
+}
+
+# 리조트 코드 → 표시명 매핑
+RESORT_NAME_MAP = {
+    'SOLBEACH':       '소노 솔비치',
+    'HANWHA_RESORT':  '한화리조트',
+    'HANWHA_HOTEL':   '한화호텔',
+    'ANTO':           '안토',
+    'PHOENIX_ISLAND': '휘닉스아일랜드',
+    'PHOENIX_PARK':   '휘닉스파크',
+    'KENSINGTON':     '켄싱턴리조트',
+    'KENSINGTON_JEJU':'켄싱턴리조트(제주)',
+    'RISOM':          '리솜리조트',
+    'YONGPYONG':      '용평리조트',
+}
+
 # ──────────────────────────────────────────────
-# 커맨드: condo
+# 커맨드: condo  (신규 스키마 BRAND/RESORT/FACILITY 기반 seeding)
 # ──────────────────────────────────────────────
 
 def cmd_condo():
-    """TB_CONDO 컬럼 변경 + 데이터 초기화 + INSERT"""
-    from sqlalchemy import text
-    from app import db as _db
+    """TB_CONDO_BRAND / TB_CONDO_RESORT / TB_CONDO_FACILITY duplicate-check INSERT"""
 
     with app.app_context():
-        conn = _db.engine.connect()
-        trans = conn.begin()
-        try:
-            print("▶ STEP1: 기존 컬럼 제거 및 신규 컬럼 추가")
-            conn.execute(text('ALTER TABLE "TB_CONDO" DROP COLUMN IF EXISTS region_cd'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" DROP COLUMN IF EXISTS brand_cd'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS brand_group_cd VARCHAR(20)'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS resort_cd      VARCHAR(30)'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS image_url      VARCHAR(500)'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS price_info     TEXT'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS area_info      VARCHAR(200)'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS extra_info     TEXT'))
-            conn.execute(text('ALTER TABLE "TB_CONDO" ADD COLUMN IF NOT EXISTS sort_order     INTEGER DEFAULT 0'))
-            print("  완료")
+        inserted_b = inserted_r = inserted_f = skipped = 0
 
-            print("▶ STEP2: 기존 데이터 초기화")
-            conn.execute(text('DELETE FROM "TB_CONDO_RESERVE"'))
-            conn.execute(text('DELETE FROM "TB_CONDO_ROOM"'))
-            conn.execute(text('DELETE FROM "TB_CONDO"'))
-            conn.execute(text('ALTER SEQUENCE "TB_CONDO_condo_seq_seq" RESTART WITH 1'))
-            print("  완료")
+        # ── 1. 브랜드 ──
+        seen_brands = {}  # brand_group_cd → brand_id
+        brand_sort = {}
+        for _, bg_cd, _, _, so in CONDO_DATA:
+            if bg_cd not in brand_sort:
+                brand_sort[bg_cd] = so  # 첫 등장 sort_order 사용
 
-            print("▶ STEP3: 콘도 초기 데이터 INSERT")
-            for row in CONDO_DATA:
-                conn.execute(text("""
-                    INSERT INTO "TB_CONDO"
-                        (condo_nm, brand_group_cd, resort_cd, location, sort_order, use_yn)
-                    VALUES (:nm, :bg, :rc, :loc, :so, 'Y')
-                """), {"nm": row[0], "bg": row[1], "rc": row[2], "loc": row[3], "so": row[4]})
-            print(f"  {len(CONDO_DATA)}개 INSERT 완료")
+        for bg_cd, b_sort in brand_sort.items():
+            b_name = BRAND_NAME_MAP.get(bg_cd, bg_cd)
+            existing = CondoBrand.query.filter_by(brand_name=b_name).first()
+            if existing:
+                seen_brands[bg_cd] = existing.brand_id
+            else:
+                b = CondoBrand(brand_name=b_name, sort_order=b_sort, use_yn='Y')
+                db.session.add(b)
+                db.session.flush()
+                seen_brands[bg_cd] = b.brand_id
+                inserted_b += 1
+                print(f"  [브랜드 신규] {b_name}")
 
-            trans.commit()
+        # ── 2. 리조트 ──
+        seen_resorts = {}  # (bg_cd, rc_cd) → resort_id
+        resort_sort = {}
+        for _, bg_cd, rc_cd, _, so in CONDO_DATA:
+            key = (bg_cd, rc_cd)
+            if key not in resort_sort:
+                resort_sort[key] = so
 
-            print("▶ STEP4: 결과 확인")
-            result = conn.execute(text("""
-                SELECT brand_group_cd, resort_cd, COUNT(*) AS cnt
-                FROM "TB_CONDO"
-                GROUP BY brand_group_cd, resort_cd
-                ORDER BY brand_group_cd, resort_cd
-            """))
-            for r in result:
-                print(f"  {r.brand_group_cd:12} | {r.resort_cd:20} | {r.cnt}개")
+        for (bg_cd, rc_cd), r_sort in resort_sort.items():
+            r_name = RESORT_NAME_MAP.get(rc_cd, rc_cd)
+            brand_id = seen_brands[bg_cd]
+            existing = CondoResort.query.filter_by(
+                brand_id=brand_id, resort_name=r_name
+            ).first()
+            if existing:
+                seen_resorts[(bg_cd, rc_cd)] = existing.resort_id
+            else:
+                r = CondoResort(brand_id=brand_id, resort_name=r_name,
+                                sort_order=r_sort, use_yn='Y')
+                db.session.add(r)
+                db.session.flush()
+                seen_resorts[(bg_cd, rc_cd)] = r.resort_id
+                inserted_r += 1
+                print(f"  [리조트 신규] {r_name}")
 
-        except Exception as e:
-            trans.rollback()
-            print(f"\n❌ 오류 발생, 롤백: {e}")
-            sys.exit(1)
-        finally:
-            conn.close()
+        # ── 3. 시설 ──
+        for facility_nm, bg_cd, rc_cd, location, sort_order in CONDO_DATA:
+            resort_id = seen_resorts[(bg_cd, rc_cd)]
+            existing = CondoFacility.query.filter_by(
+                resort_id=resort_id, facility_name=facility_nm
+            ).first()
+            if existing:
+                skipped += 1
+            else:
+                db.session.add(CondoFacility(
+                    resort_id     = resort_id,
+                    facility_name = facility_nm,
+                    location      = location,
+                    sort_order    = sort_order,
+                    use_yn        = 'Y',
+                ))
+                inserted_f += 1
+                print(f"  [시설 신규] {facility_nm}")
 
-    print("\n✅ 콘도 마이그레이션 완료!")
+        db.session.commit()
+        print(f"\n✅ 완료! 브랜드 {inserted_b}개, 리조트 {inserted_r}개, 시설 {inserted_f}개 신규 등록 / {skipped}개 건너뜀")
 
 
 # ──────────────────────────────────────────────
