@@ -342,6 +342,14 @@ class VoteTarget(db.Model):
 # Auth Helpers
 # ══════════════════════════════════════════════════════════
 
+FORCE_PWD_EXEMPT = {'login', 'logout', 'force_pwd_change', 'static'}
+
+@app.before_request
+def enforce_force_pwd_change():
+    if session.get('force_pwd_change') and request.endpoint not in FORCE_PWD_EXEMPT:
+        return redirect(url_for('force_pwd_change'))
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -1814,8 +1822,8 @@ def add_test_users(batch=1):
                 emp_type_cd   = '01',
                 user_level    = level,
                 pwd_hash      = pwd_hash,
-                pwd_chg_dt    = date.today(),
-                pwd_init_yn   = 'N',
+                pwd_chg_dt    = None,
+                pwd_init_yn   = 'Y',
                 use_yn        = 'Y'
             ))
             db.session.commit()
