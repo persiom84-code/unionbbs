@@ -1593,36 +1593,90 @@ def admin_about_save():
 # Routes - 프로필
 # ══════════════════════════════════════════════════════════
 
-@app.route('/profile/edit', methods=['GET', 'POST'])
+@app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile_edit():
     current_user = get_current_user()
+
     if request.method == 'POST':
-        new_pwd = request.form.get('new_password', '')
-        cur_pwd = request.form.get('current_password', '')
+        action = request.form.get('action')
 
-        try:
-            pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
-        except Exception:
-            pw_match = (cur_pwd == current_user.emp_no)
+        if action == 'change_pwd':
+            cur_pwd = request.form.get('current_password', '')
+            new_pwd = request.form.get('new_password', '')
+            new_pwd_cfm = request.form.get('new_password_confirm', '')
+            try:
+                pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
+            except Exception:
+                pw_match = (cur_pwd == current_user.emp_no)
+            if not pw_match:
+                flash('현재 비밀번호가 올바르지 않습니다.', 'error')
+            elif len(new_pwd) < 8:
+                flash('새 비밀번호는 8자리 이상이어야 합니다.', 'error')
+            elif new_pwd != new_pwd_cfm:
+                flash('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error')
+            elif new_pwd == current_user.emp_no:
+                flash('사번과 동일한 비밀번호는 사용할 수 없습니다.', 'error')
+            else:
+                hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
+                current_user.pwd_hash   = hashed
+                current_user.pwd_chg_dt = date.today()
+                current_user.pwd_init_yn = 'N'
+                current_user.mod_dt     = datetime.now()
+                db.session.commit()
+                flash('비밀번호가 변경되었습니다.', 'success')
+            return redirect(url_for('profile_edit'))
 
-        if not pw_match:
-            flash('현재 비밀번호가 올바르지 않습니다.')
-        elif len(new_pwd) < 8:
-            flash('새 비밀번호는 8자리 이상이어야 합니다.')
-        else:
-            hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
-            current_user.pwd_hash   = hashed
-            current_user.pwd_chg_dt = date.today()
-            current_user.mod_dt     = datetime.now()
+        elif action == 'update_contact':
+            phone_no = request.form.get('phone_no', '').strip()
+            email    = request.form.get('email', '').strip()
+            current_user.phone_no = phone_no or None
+            current_user.email    = email    or None
+            current_user.mod_dt   = datetime.now()
             db.session.commit()
-            flash('비밀번호가 변경되었습니다.')
-            return redirect(url_for('main'))
+            flash('연락처가 업데이트되었습니다.', 'success')
+            return redirect(url_for('profile_edit'))
 
-    return render_template('main.html',
+    # 직급명 조회
+    rank_map = {c.code_cd: c.code_nm for c in Code.query.filter_by(code_grp='RANK').all()}
+    # 분회명 조회
+    union_dept = UnionDept.query.filter_by(
+        union_dept_cd=current_user.union_dept_cd, use_yn='Y'
+    ).first() if current_user.union_dept_cd else None
+    # 회사 부서명 조회
+    comp_dept = CompDept.query.filter_by(
+        dept_cd=current_user.dept_cd, use_yn='Y'
+    ).first() if current_user.dept_cd else None
+    # 레벨명
+    level_map = {0:'관리자', 1:'집행위원', 2:'대의원', 3:'분회장', 4:'조합원', 5:'명예조합원', 99:'비조합원'}
+    # 직책명
+    position_map = {
+        'CHAIRMAN': '위원장', 'SENIOR_VICE': '수석부위원장',
+        'VICE': '부위원장', 'AUDITOR': '감사'
+    }
+    # 콘도 히스토리
+    condo_history = db.session.query(CondoReserve, CondoFacility)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).limit(20).all()
+    condo_rows = [{
+        'facility_name': f.facility_name,
+        'check_in':  r.check_in,
+        'check_out': r.check_out,
+        'status':    r.status,
+        'memo':      r.memo or '',
+        'reg_dt':    r.reg_dt,
+    } for r, f in condo_history]
+
+    STATUS_KR = {'APPLY':'신청', 'CONFIRM':'승인', 'CANCEL':'취소', 'REJECT':'반려'}
+
+    return render_template('profile.html',
         current_user=current_user,
-        show_profile=True,
-        active_menu='profile'
+        rank_nm      = rank_map.get(current_user.rank_cd, '-'),
+        union_dept_nm= union_dept.union_dept_nm if union_dept else '-',
+        comp_dept_nm = comp_dept.dept_nm if comp_dept else '-',
+        level_nm     = level_map.get(current_user.user_level, '-'),
+        position_nm  = position_map.get(current_user.position_cd, '-') if current_user.position_cd else '-',
+        condo_rows   = condo_rows,
+        STATUS_KR    = STATUS_KR,
+        active_menu  = 'profile'
     )
 
 
