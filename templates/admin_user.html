@@ -19,8 +19,44 @@
             </h2>
             <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">사용자 계정 및 비밀번호 관리</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
             <span class="text-xs text-slate-400 font-medium">총 <strong class="text-slate-700">{{ user_rows|length }}</strong>명</span>
+            <!-- CSV 다운로드 -->
+            <a href="/admin/user/export"
+               class="btn-secondary text-xs gap-1 px-3 py-2" style="text-decoration:none;">
+                <i class="fas fa-download"></i>CSV 다운로드
+            </a>
+            <!-- CSV 업로드 버튼 -->
+            <button onclick="document.getElementById('csv-upload-area').classList.toggle('hidden')"
+                class="btn-primary text-xs gap-1 px-3 py-2">
+                <i class="fas fa-upload"></i>CSV 업로드
+            </button>
+        </div>
+    </div>
+
+    <!-- CSV 업로드 영역 (토글) -->
+    <div id="csv-upload-area" class="hidden">
+        <div class="content-card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-file-csv text-yuanta"></i>
+                <span class="font-bold text-slate-700 text-sm">인사 CSV 업로드</span>
+                <span class="text-[10px] text-slate-400 font-medium ml-2">— 기존 사번은 정보 업데이트, 신규 사번은 등록 (초기 비밀번호 = 사번)</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono bg-slate-50 rounded-lg p-3 mb-4">
+                필수 컬럼: emp_no, emp_nm, gender(M/F), birth_dt, phone_no, email, dept_cd, union_dept_cd, emp_type_cd, rank_cd, user_level
+            </div>
+            <form method="POST" action="/admin/user/import" enctype="multipart/form-data"
+                  class="flex items-center gap-3 flex-wrap">
+                <input type="file" name="csv_file" accept=".csv" required
+                    class="text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
+                           file:text-xs file:font-bold file:bg-slate-100 file:text-slate-600
+                           hover:file:bg-slate-200 cursor-pointer">
+                <button type="submit" class="btn-primary text-xs px-4 py-2">
+                    <i class="fas fa-upload mr-1"></i>업로드 실행
+                </button>
+                <button type="button" onclick="document.getElementById('csv-upload-area').classList.add('hidden')"
+                    class="btn-secondary text-xs px-4 py-2">취소</button>
+            </form>
         </div>
     </div>
 

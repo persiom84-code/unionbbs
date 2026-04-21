@@ -1593,90 +1593,36 @@ def admin_about_save():
 # Routes - 프로필
 # ══════════════════════════════════════════════════════════
 
-@app.route('/profile', methods=['GET', 'POST'])
+@app.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
 def profile_edit():
     current_user = get_current_user()
-
     if request.method == 'POST':
-        action = request.form.get('action')
+        new_pwd = request.form.get('new_password', '')
+        cur_pwd = request.form.get('current_password', '')
 
-        if action == 'change_pwd':
-            cur_pwd = request.form.get('current_password', '')
-            new_pwd = request.form.get('new_password', '')
-            new_pwd_cfm = request.form.get('new_password_confirm', '')
-            try:
-                pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
-            except Exception:
-                pw_match = (cur_pwd == current_user.emp_no)
-            if not pw_match:
-                flash('현재 비밀번호가 올바르지 않습니다.', 'error')
-            elif len(new_pwd) < 8:
-                flash('새 비밀번호는 8자리 이상이어야 합니다.', 'error')
-            elif new_pwd != new_pwd_cfm:
-                flash('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error')
-            elif new_pwd == current_user.emp_no:
-                flash('사번과 동일한 비밀번호는 사용할 수 없습니다.', 'error')
-            else:
-                hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
-                current_user.pwd_hash   = hashed
-                current_user.pwd_chg_dt = date.today()
-                current_user.pwd_init_yn = 'N'
-                current_user.mod_dt     = datetime.now()
-                db.session.commit()
-                flash('비밀번호가 변경되었습니다.', 'success')
-            return redirect(url_for('profile_edit'))
+        try:
+            pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
+        except Exception:
+            pw_match = (cur_pwd == current_user.emp_no)
 
-        elif action == 'update_contact':
-            phone_no = request.form.get('phone_no', '').strip()
-            email    = request.form.get('email', '').strip()
-            current_user.phone_no = phone_no or None
-            current_user.email    = email    or None
-            current_user.mod_dt   = datetime.now()
+        if not pw_match:
+            flash('현재 비밀번호가 올바르지 않습니다.')
+        elif len(new_pwd) < 8:
+            flash('새 비밀번호는 8자리 이상이어야 합니다.')
+        else:
+            hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
+            current_user.pwd_hash   = hashed
+            current_user.pwd_chg_dt = date.today()
+            current_user.mod_dt     = datetime.now()
             db.session.commit()
-            flash('연락처가 업데이트되었습니다.', 'success')
-            return redirect(url_for('profile_edit'))
+            flash('비밀번호가 변경되었습니다.')
+            return redirect(url_for('main'))
 
-    # 직급명 조회
-    rank_map = {c.code_cd: c.code_nm for c in Code.query.filter_by(code_grp='RANK').all()}
-    # 분회명 조회
-    union_dept = UnionDept.query.filter_by(
-        union_dept_cd=current_user.union_dept_cd, use_yn='Y'
-    ).first() if current_user.union_dept_cd else None
-    # 회사 부서명 조회
-    comp_dept = CompDept.query.filter_by(
-        dept_cd=current_user.dept_cd, use_yn='Y'
-    ).first() if current_user.dept_cd else None
-    # 레벨명
-    level_map = {0:'관리자', 1:'집행위원', 2:'대의원', 3:'분회장', 4:'조합원', 5:'명예조합원', 99:'비조합원'}
-    # 직책명
-    position_map = {
-        'CHAIRMAN': '위원장', 'SENIOR_VICE': '수석부위원장',
-        'VICE': '부위원장', 'AUDITOR': '감사'
-    }
-    # 콘도 히스토리
-    condo_history = db.session.query(CondoReserve, CondoFacility)        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')        .order_by(CondoReserve.reg_dt.desc()).limit(20).all()
-    condo_rows = [{
-        'facility_name': f.facility_name,
-        'check_in':  r.check_in,
-        'check_out': r.check_out,
-        'status':    r.status,
-        'memo':      r.memo or '',
-        'reg_dt':    r.reg_dt,
-    } for r, f in condo_history]
-
-    STATUS_KR = {'APPLY':'신청', 'CONFIRM':'승인', 'CANCEL':'취소', 'REJECT':'반려'}
-
-    return render_template('profile.html',
+    return render_template('main.html',
         current_user=current_user,
-        rank_nm      = rank_map.get(current_user.rank_cd, '-'),
-        union_dept_nm= union_dept.union_dept_nm if union_dept else '-',
-        comp_dept_nm = comp_dept.dept_nm if comp_dept else '-',
-        level_nm     = level_map.get(current_user.user_level, '-'),
-        position_nm  = position_map.get(current_user.position_cd, '-') if current_user.position_cd else '-',
-        condo_rows   = condo_rows,
-        STATUS_KR    = STATUS_KR,
-        active_menu  = 'profile'
+        show_profile=True,
+        active_menu='profile'
     )
 
 
@@ -1997,6 +1943,132 @@ def migrate():
 # ══════════════════════════════════════════════════════════
 # Routes - 분회 관리
 # ══════════════════════════════════════════════════════════
+
+@app.route('/admin/user/export')
+@level_required(1)
+def admin_user_export():
+    import csv, io
+    users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
+    rank_map = {c.code_cd: c.code_nm for c in Code.query.filter_by(code_grp='RANK').all()}
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['emp_no','emp_nm','gender','birth_dt','phone_no','email',
+                     'dept_cd','union_dept_cd','emp_type_cd','rank_cd','user_level'])
+    for u in users:
+        writer.writerow([
+            u.emp_no,
+            u.emp_nm,
+            u.gender or '',
+            u.birth_dt.strftime('%Y-%m-%d') if u.birth_dt else '',
+            u.phone_no or '',
+            u.email or '',
+            u.dept_cd or '',
+            u.union_dept_cd or '',
+            u.emp_type_cd or '',
+            u.rank_cd or '',
+            u.user_level if u.user_level is not None else 4,
+        ])
+    output.seek(0)
+    from flask import Response
+    return Response(
+        '﻿' + output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename=users.csv',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+        }
+    )
+
+
+@app.route('/admin/user/import', methods=['POST'])
+@level_required(1)
+def admin_user_import():
+    import csv, io
+    f = request.files.get('csv_file')
+    if not f or not f.filename.endswith('.csv'):
+        flash('CSV 파일을 선택해주세요.', 'error')
+        return redirect(url_for('admin_user_list'))
+    try:
+        stream = io.StringIO(f.stream.read().decode('utf-8-sig'))
+        reader = csv.DictReader(stream)
+        rows = list(reader)
+
+        inserted = updated = skipped = 0
+        for row in rows:
+            emp_no = row.get('emp_no', '').strip()
+            emp_nm = row.get('emp_nm', '').strip()
+            if not emp_no or not emp_nm:
+                skipped += 1
+                continue
+
+            gender = row.get('gender', 'M').strip()
+            gender = 'M' if gender in ('M', '남') else 'F'
+
+            def parse_date(val):
+                if not val or not val.strip():
+                    return None
+                val = val.strip().replace('/', '-').replace('.', '-')
+                for fmt in ('%Y-%m-%d', '%Y%m%d'):
+                    try:
+                        return datetime.strptime(val, fmt).date()
+                    except ValueError:
+                        continue
+                return None
+
+            level_str = row.get('user_level', '4').strip()
+            try:
+                level = int(level_str) if level_str else 4
+            except ValueError:
+                level = 4
+
+            existing = User.query.filter_by(emp_no=emp_no).first()
+            if existing:
+                # 기존 사용자 업데이트 (union_dept_cd는 공란이면 기존값 유지)
+                existing.emp_nm      = emp_nm
+                existing.gender      = gender
+                existing.birth_dt    = parse_date(row.get('birth_dt', ''))
+                existing.phone_no    = row.get('phone_no', '').strip() or existing.phone_no
+                existing.email       = row.get('email', '').strip() or existing.email
+                existing.dept_cd     = row.get('dept_cd', '').strip() or existing.dept_cd
+                if row.get('union_dept_cd', '').strip():
+                    existing.union_dept_cd = row.get('union_dept_cd', '').strip()
+                existing.emp_type_cd = row.get('emp_type_cd', '').strip() or existing.emp_type_cd
+                existing.rank_cd     = row.get('rank_cd', '').strip() or existing.rank_cd
+                existing.user_level  = level
+                existing.mod_dt      = datetime.now()
+                if existing.use_yn == 'N':
+                    existing.use_yn = 'Y'
+                updated += 1
+            else:
+                # 신규 사용자 INSERT
+                pwd_hash = bcrypt.hashpw(emp_no.encode(), bcrypt.gensalt()).decode()
+                db.session.add(User(
+                    emp_no        = emp_no,
+                    emp_nm        = emp_nm,
+                    gender        = gender,
+                    birth_dt      = parse_date(row.get('birth_dt', '')),
+                    phone_no      = row.get('phone_no', '').strip() or None,
+                    email         = row.get('email', '').strip() or None,
+                    dept_cd       = row.get('dept_cd', '').strip() or None,
+                    union_dept_cd = row.get('union_dept_cd', '').strip() or None,
+                    emp_type_cd   = row.get('emp_type_cd', '').strip() or None,
+                    rank_cd       = row.get('rank_cd', '').strip() or None,
+                    user_level    = level,
+                    pwd_hash      = pwd_hash,
+                    pwd_init_yn   = 'Y',
+                    pwd_chg_dt    = None,
+                    use_yn        = 'Y',
+                ))
+                inserted += 1
+
+        db.session.commit()
+        flash(f'CSV 업로드 완료! 신규 {inserted}명 등록, {updated}명 업데이트, {skipped}건 건너뜀.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'오류: {str(e)}', 'error')
+    return redirect(url_for('admin_user_list'))
+
 
 @app.route('/admin/union-dept')
 @level_required(0)
