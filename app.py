@@ -1585,6 +1585,34 @@ def admin_about_save():
         else:
             flash('해당 사번의 사용자를 찾을 수 없습니다.')
 
+    elif section == 'executive':
+        action = request.form.get('action')
+        emp_no = request.form.get('emp_no', '').strip()
+        user   = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+        if user:
+            if action == 'add':
+                user.user_level = 1
+                flash(f'{user.emp_nm} 집행위원으로 등록되었습니다.')
+            elif action == 'remove':
+                user.user_level = 4
+                flash(f'{user.emp_nm} 집행위원 해제되었습니다. (조합원으로 변경)')
+        else:
+            flash('해당 사번의 사용자를 찾을 수 없습니다.')
+
+    elif section == 'delegate':
+        action = request.form.get('action')
+        emp_no = request.form.get('emp_no', '').strip()
+        user   = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+        if user:
+            if action == 'add':
+                user.user_level = 2
+                flash(f'{user.emp_nm} 대의원으로 등록되었습니다.')
+            elif action == 'remove':
+                user.user_level = 4
+                flash(f'{user.emp_nm} 대의원 해제되었습니다. (조합원으로 변경)')
+        else:
+            flash('해당 사번의 사용자를 찾을 수 없습니다.')
+
     db.session.commit()
     return redirect(url_for('about'))
 

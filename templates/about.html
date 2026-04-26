@@ -99,9 +99,9 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:14px;font-weight:900;color:#334155;"><i class="fas fa-users-cog" style="color:#00479d;margin-right:8px;"></i>집행위원회</h4>
             {% if current_user and current_user.user_level == 0 %}
-            <a href="/admin/user/list" class="btn-primary" style="font-size:10px;padding:6px 14px;text-decoration:none;">
-                <i class="fas fa-cog"></i>사용자 관리에서 편집
-            </a>
+            <button onclick="openModal('modal-executive')" class="btn-primary" style="font-size:10px;padding:6px 14px;">
+                <i class="fas fa-cog"></i>집행위원 관리
+            </button>
             {% endif %}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;">
@@ -129,9 +129,9 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:14px;font-weight:900;color:#334155;"><i class="fas fa-user-friends" style="color:#00479d;margin-right:8px;"></i>대의원회</h4>
             {% if current_user and current_user.user_level == 0 %}
-            <a href="/admin/user/list" class="btn-primary" style="font-size:10px;padding:6px 14px;text-decoration:none;">
-                <i class="fas fa-cog"></i>사용자 관리에서 편집
-            </a>
+            <button onclick="openModal('modal-delegate')" class="btn-primary" style="font-size:10px;padding:6px 14px;">
+                <i class="fas fa-cog"></i>대의원 관리
+            </button>
             {% endif %}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
@@ -260,6 +260,82 @@
             <input type="hidden" name="section" value="auditor">
             <input type="hidden" name="action" value="add">
             <p style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">회계감사 추가</p>
+            <div style="display:flex;gap:8px;">
+                <input type="text" name="emp_no" class="form-input" placeholder="사번 입력" style="flex:1;">
+                <button type="submit" class="btn-primary"><i class="fas fa-plus"></i>추가</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 집행위원 관리 -->
+<div id="modal-executive" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">집행위원 관리</h3>
+            <button onclick="closeModal('modal-executive')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <div style="margin-bottom:20px;">
+            <p style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">현재 집행위원</p>
+            {% if executives %}
+                {% for e in executives %}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border-radius:10px;margin-bottom:6px;">
+                    <span style="font-size:13px;font-weight:700;">{{ e.emp_nm }} <span style="color:#94a3b8;font-size:11px;">({{ e.emp_no }})</span></span>
+                    <form action="/admin/about/save" method="POST" style="display:inline;">
+                        <input type="hidden" name="section" value="executive">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="emp_no" value="{{ e.emp_no }}">
+                        <button type="submit" style="background:#fef2f2;border:none;color:#dc2626;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">해제</button>
+                    </form>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">등록된 집행위원이 없습니다.</p>
+            {% endif %}
+        </div>
+        <form action="/admin/about/save" method="POST">
+            <input type="hidden" name="section" value="executive">
+            <input type="hidden" name="action" value="add">
+            <p style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">집행위원 추가 (사번 입력)</p>
+            <div style="display:flex;gap:8px;">
+                <input type="text" name="emp_no" class="form-input" placeholder="사번 입력" style="flex:1;">
+                <button type="submit" class="btn-primary"><i class="fas fa-plus"></i>추가</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 대의원 관리 -->
+<div id="modal-delegate" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">대의원 관리</h3>
+            <button onclick="closeModal('modal-delegate')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+        </div>
+        <div style="margin-bottom:20px;">
+            <p style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">현재 대의원</p>
+            {% if delegates %}
+                {% for d in delegates %}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8fafc;border-radius:10px;margin-bottom:6px;">
+                    <span style="font-size:13px;font-weight:700;">{{ d.emp_nm }} <span style="color:#94a3b8;font-size:11px;">({{ d.emp_no }})</span>
+                        {% if d.union_dept_cd %}<span style="font-size:9px;background:#eff6ff;color:#00479d;padding:1px 6px;border-radius:4px;margin-left:4px;">{{ d.union_dept_cd }}</span>{% endif %}
+                    </span>
+                    <form action="/admin/about/save" method="POST" style="display:inline;">
+                        <input type="hidden" name="section" value="delegate">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="emp_no" value="{{ d.emp_no }}">
+                        <button type="submit" style="background:#fef2f2;border:none;color:#dc2626;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">해제</button>
+                    </form>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">등록된 대의원이 없습니다.</p>
+            {% endif %}
+        </div>
+        <form action="/admin/about/save" method="POST">
+            <input type="hidden" name="section" value="delegate">
+            <input type="hidden" name="action" value="add">
+            <p style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">대의원 추가 (사번 입력)</p>
             <div style="display:flex;gap:8px;">
                 <input type="text" name="emp_no" class="form-input" placeholder="사번 입력" style="flex:1;">
                 <button type="submit" class="btn-primary"><i class="fas fa-plus"></i>추가</button>
