@@ -116,55 +116,116 @@
 
         <!-- VIEW 3: 도서 목록 관리 (Hidden) -->
         <section id="view-books" class="hidden bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 flex-wrap gap-3">
                 <h3 class="font-bold text-slate-700 flex items-center italic text-sm">
-                    <i class="fas fa-books text-yuanta mr-2"></i>등록된 도서 마스터 목록
+                    <i class="fas fa-book text-yuanta mr-2"></i>등록된 도서 마스터 목록
+                    <span class="ml-2 text-xs text-slate-400">(총 {{ book_list|length }}권)</span>
                 </h3>
-                <button onclick="openBookModal()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-yuanta transition-all">
-                    <i class="fas fa-plus mr-1"></i>신규 도서 등록
-                </button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <a href="/admin/book/export"
+                       class="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-slate-200 transition-all"
+                       style="text-decoration:none;">
+                        <i class="fas fa-download mr-1"></i>CSV 다운로드
+                    </a>
+                    <button type="button" onclick="document.getElementById('book-csv-area').classList.toggle('hidden')"
+                       class="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-slate-200 transition-all">
+                        <i class="fas fa-upload mr-1"></i>CSV 업로드
+                    </button>
+                    <button onclick="openAddBookModal()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-yuanta transition-all">
+                        <i class="fas fa-plus mr-1"></i>신규 도서 등록
+                    </button>
+                </div>
+            </div>
+
+            <!-- CSV 업로드 영역 (토글) -->
+            <div id="book-csv-area" class="hidden p-5 bg-blue-50/40 border-b border-slate-100">
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="fas fa-file-csv text-yuanta"></i>
+                    <span class="font-bold text-slate-700 text-sm">도서 목록 CSV 업로드</span>
+                    <span class="text-[10px] text-slate-400 font-medium ml-2">— 동일 제목+저자 도서는 정보 업데이트, 신규는 등록</span>
+                </div>
+                <div class="text-[10px] text-slate-400 font-mono bg-white rounded-lg p-3 mb-3 border border-slate-100">
+                    필수 컬럼: title, author, publisher, category, total_cnt, avail_cnt, use_yn
+                </div>
+                <form method="POST" action="/admin/book/import" enctype="multipart/form-data" class="flex items-center gap-3 flex-wrap">
+                    <input type="file" name="csv_file" accept=".csv" required
+                        class="text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
+                               file:text-xs file:font-bold file:bg-slate-100 file:text-slate-600 hover:file:bg-slate-200 cursor-pointer">
+                    <button type="submit" class="px-4 py-2 bg-yuanta text-white rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-blue-800">
+                        <i class="fas fa-upload mr-1"></i>업로드 실행
+                    </button>
+                    <button type="button" onclick="document.getElementById('book-csv-area').classList.add('hidden')"
+                        class="px-4 py-2 bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black tracking-widest uppercase">취소</button>
+                </form>
+            </div>
+
+            <!-- 검색 -->
+            <div class="p-4 bg-white border-b border-slate-100">
+                <form method="GET" action="/admin/book" class="flex items-center gap-2">
+                    <input type="text" name="q" value="{{ keyword or '' }}" placeholder="도서명 또는 저자 검색"
+                        class="form-input flex-1" style="max-width:400px;">
+                    <button type="submit" class="px-4 py-2 bg-yuanta text-white rounded-xl text-[10px] font-black tracking-widest uppercase hover:bg-blue-800">
+                        <i class="fas fa-search mr-1"></i>검색
+                    </button>
+                    {% if keyword %}
+                    <a href="/admin/book" class="px-4 py-2 bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black tracking-widest uppercase" style="text-decoration:none;">
+                        <i class="fas fa-times mr-1"></i>초기화
+                    </a>
+                    {% endif %}
+                </form>
             </div>
             
             <div class="overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
                     <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th class="px-6 py-4 w-20 text-center">SEQ</th>
-                            <th class="px-6 py-4">도서명 / 저자</th>
-                            <th class="px-6 py-4 w-24 text-center">보유수량</th>
-                            <th class="px-6 py-4 w-32 text-center">상태</th>
-                            <th class="px-6 py-4 w-24 text-center">관리</th>
+                            <th class="px-6 py-4 w-16 text-center">SEQ</th>
+                            <th class="px-6 py-4">도서명</th>
+                            <th class="px-6 py-4 w-32">저자</th>
+                            <th class="px-6 py-4 w-32">출판사</th>
+                            <th class="px-6 py-4 w-24 text-center">분류</th>
+                            <th class="px-6 py-4 w-24 text-center">대출가능</th>
+                            <th class="px-6 py-4 w-32 text-center">관리</th>
                         </tr>
                     </thead>
                     <tbody class="text-sm">
-                        <!-- 파이썬에서 book_list 리스트를 받아와 렌더링 -->
                         {% for book in book_list %}
                         <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                            <td class="px-6 py-5 text-center text-slate-400 font-mono">{{ book.book_seq }}</td>
-                            <td class="px-6 py-5">
-                                <p class="font-black text-slate-800 text-sm">
-                                    {{ book.title }}
-                                    {% if book.is_new == 'Y' %}
-                                    <span class="ml-1 text-[8px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold uppercase tracking-widest align-middle">NEW</span>
-                                    {% endif %}
-                                </p>
-                                <p class="text-[10px] text-slate-400 mt-1 font-medium">{{ book.author|default('-') }}</p>
-                            </td>
-                            <td class="px-6 py-5 text-center font-bold text-slate-600">{{ book.total_cnt }} 권</td>
-                            <td class="px-6 py-5 text-center">
-                                {% if book.use_yn == 'Y' %}
-                                <span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold">사용중(Y)</span>
+                            <td class="px-6 py-4 text-center text-slate-400 font-mono text-xs">{{ book.book_seq }}</td>
+                            <td class="px-6 py-4 font-black text-slate-800">{{ book.title }}</td>
+                            <td class="px-6 py-4 text-slate-500">{{ book.author or '-' }}</td>
+                            <td class="px-6 py-4 text-slate-500">{{ book.publisher or '-' }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {% if book.category %}
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[10px] font-bold">{{ book.category }}</span>
                                 {% else %}
-                                <span class="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold">미사용(N)</span>
+                                <span class="text-slate-300">-</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-5 text-center space-x-1">
-                                <button onclick="editBook('{{ book.book_seq }}')" class="text-slate-400 hover:text-yuanta transition-colors p-2"><i class="fas fa-cog"></i></button>
+                            <td class="px-6 py-4 text-center">
+                                {% if book.avail_cnt and book.avail_cnt > 0 %}
+                                <span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold">가능</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-amber-50 text-amber-600 rounded text-[10px] font-bold">대출중</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-center space-x-1">
+                                <button type="button"
+                                    onclick="openEditBookModal({{ book.book_seq }}, {{ book.title|tojson }}, {{ (book.author or '')|tojson }}, {{ (book.publisher or '')|tojson }}, {{ (book.category or '')|tojson }})"
+                                    class="text-slate-400 hover:text-yuanta transition-colors p-2"><i class="fas fa-edit"></i></button>
+                                <form method="POST" action="/admin/book/save" style="display:inline;"
+                                      onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="book_seq" value="{{ book.book_seq }}">
+                                    <button type="submit" class="text-slate-400 hover:text-red-600 transition-colors p-2"><i class="fas fa-trash"></i></button>
+                                </form>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="py-12 text-center text-slate-400 italic border-b border-slate-50">등록된 도서가 없습니다.</td>
+                            <td colspan="7" class="py-12 text-center text-slate-400 italic border-b border-slate-50">
+                                {% if keyword %}'{{ keyword }}' 검색결과가 없습니다.{% else %}등록된 도서가 없습니다. CSV 업로드 또는 신규 도서 등록 버튼을 눌러주세요.{% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -179,59 +240,47 @@
         <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden transform transition-transform duration-300 scale-95 flex flex-col max-h-[90vh]">
             
             <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-                <h3 class="text-xl font-black text-slate-800 italic"><i class="fas fa-book-medical text-yuanta mr-2"></i>도서 입고 및 등록</h3>
+                <h3 id="book-modal-title" class="text-xl font-black text-slate-800 italic"><i class="fas fa-book-medical text-yuanta mr-2"></i>도서 등록</h3>
                 <button onclick="closeBookModal()" class="text-slate-400 hover:text-yuanta transition-colors"><i class="fas fa-times text-2xl"></i></button>
             </div>
-            
+
             <div class="p-8 overflow-y-auto flex-1">
                 <form action="/admin/book/save" method="POST" class="space-y-6">
-                    <!-- 도서명 (TITLE) -->
+                    <input type="hidden" id="book-modal-action" name="action" value="add">
+                    <input type="hidden" id="book-modal-seq" name="book_seq" value="">
+
+                    <!-- 도서명 -->
                     <div>
-                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">도서명 (TITLE)</label>
-                        <input type="text" name="title" required placeholder="책 제목을 입력하세요" class="form-input">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">도서명 *</label>
+                        <input type="text" id="book-modal-title-input" name="title" required placeholder="책 제목을 입력하세요" class="form-input">
                     </div>
-                    
+
                     <div class="grid grid-cols-2 gap-6">
-                        <!-- 저자 (AUTHOR) -->
                         <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">저자 (AUTHOR)</label>
-                            <input type="text" name="author" class="form-input">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">저자</label>
+                            <input type="text" id="book-modal-author" name="author" class="form-input">
                         </div>
-                        <!-- 출판사 (PUBLISHER) -->
                         <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">출판사 (PUBLISHER)</label>
-                            <input type="text" name="publisher" class="form-input">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">출판사</label>
+                            <input type="text" id="book-modal-publisher" name="publisher" class="form-input">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-slate-50 border border-slate-100 rounded-2xl">
-                        <!-- ISBN -->
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">ISBN 고유번호</label>
-                            <input type="text" name="isbn" placeholder="예: 9788960777330" class="form-input bg-white">
-                        </div>
-                        <!-- 보유수량 (TOTAL_CNT) -->
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">총 보유수량 (TOTAL_CNT)</label>
-                            <input type="number" name="total_cnt" value="1" min="1" required class="form-input bg-white">
-                        </div>
-                    </div>
-
-                    <!-- 상태 설정 (IS_NEW, USE_YN) -->
-                    <div class="flex items-center justify-start space-x-8 pt-2 ml-1">
-                        <label class="flex items-center space-x-2 cursor-pointer group">
-                            <input type="checkbox" name="is_new" value="Y" class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta rounded">
-                            <span class="text-xs font-bold text-slate-600 group-hover:text-yuanta transition-colors">신규 도서로 표시 (NEW 뱃지)</span>
-                        </label>
-                        <label class="flex items-center space-x-2 cursor-pointer group">
-                            <input type="checkbox" name="use_yn" value="Y" checked class="w-4 h-4 border-slate-300 text-yuanta focus:ring-yuanta rounded">
-                            <span class="text-xs font-bold text-slate-600 group-hover:text-yuanta transition-colors">대출 가능 상태로 등록 (USE_YN)</span>
-                        </label>
+                    <!-- 분류 -->
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">분류</label>
+                        <input type="text" id="book-modal-category" name="category" class="form-input"
+                               placeholder="경영, 경제, 인문, IT, 자기계발 등" list="category-suggestions">
+                        <datalist id="category-suggestions">
+                            {% for c in category_list %}
+                            <option value="{{ c }}">
+                            {% endfor %}
+                        </datalist>
                     </div>
 
                     <div class="pt-4 text-center border-t border-slate-100 mt-6">
                         <button type="submit" class="w-full py-4 bg-slate-800 text-white font-black rounded-2xl text-sm uppercase hover:bg-yuanta shadow-xl shadow-slate-200 transition-all tracking-widest">
-                            DB에 등록하기
+                            저장
                         </button>
                     </div>
                 </form>
@@ -273,11 +322,6 @@
             }
         }
 
-        function editBook(bookSeq) {
-            // 도서 수정 로직 (기존 정보 로드 후 모달 오픈 등)
-            alert(`도서 고유번호 [${bookSeq}] 설정 창을 엽니다.`);
-        }
-
         function openBookModal() {
             const modal = document.getElementById('book-modal');
             modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -288,6 +332,28 @@
             const modal = document.getElementById('book-modal');
             modal.classList.add('opacity-0', 'pointer-events-none');
             modal.children[0].classList.add('scale-95');
+        }
+
+        function openAddBookModal() {
+            document.getElementById('book-modal-title').innerHTML = '<i class="fas fa-book-medical text-yuanta mr-2"></i>도서 등록';
+            document.getElementById('book-modal-action').value = 'add';
+            document.getElementById('book-modal-seq').value = '';
+            document.getElementById('book-modal-title-input').value = '';
+            document.getElementById('book-modal-author').value = '';
+            document.getElementById('book-modal-publisher').value = '';
+            document.getElementById('book-modal-category').value = '';
+            openBookModal();
+        }
+
+        function openEditBookModal(seq, title, author, publisher, category) {
+            document.getElementById('book-modal-title').innerHTML = '<i class="fas fa-edit text-yuanta mr-2"></i>도서 수정';
+            document.getElementById('book-modal-action').value = 'edit';
+            document.getElementById('book-modal-seq').value = seq;
+            document.getElementById('book-modal-title-input').value = title;
+            document.getElementById('book-modal-author').value = author;
+            document.getElementById('book-modal-publisher').value = publisher;
+            document.getElementById('book-modal-category').value = category;
+            openBookModal();
         }
     </script>
 {% endblock %}

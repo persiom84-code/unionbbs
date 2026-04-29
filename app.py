@@ -295,6 +295,7 @@ class Book(db.Model):
     author     = db.Column(db.String(100))
     publisher  = db.Column(db.String(100))
     isbn       = db.Column(db.String(20), unique=True)
+    category   = db.Column(db.String(50))
     total_cnt  = db.Column(db.Integer, default=1)
     avail_cnt  = db.Column(db.Integer, default=1)
     is_new     = db.Column(db.String(1), default='N')
@@ -319,6 +320,7 @@ class BookRequest(db.Model):
     author      = db.Column(db.String(100))
     publisher   = db.Column(db.String(100))
     reason      = db.Column(db.Text)
+    req_year    = db.Column(db.Integer)
     status      = db.Column(db.String(10), default='WAIT')
     emp_no      = db.Column(db.String(20), nullable=False)
     use_yn      = db.Column(db.String(1), default='Y')
@@ -878,33 +880,28 @@ def admin_vote():
 @level_required(1)
 def admin_book():
     current_user = get_current_user()
-    rental_requests = db.session.query(BookRental, Book, User)\
-        .join(Book, BookRental.book_seq == Book.book_seq)\
-        .outerjoin(User, BookRental.emp_no == User.emp_no)\
-        .filter(BookRental.use_yn == 'Y')\
-        .order_by(BookRental.reg_dt.desc()).all()
+    keyword = request.args.get('q', '').strip()
+    query = Book.query.filter_by(use_yn='Y')
+    if keyword:
+        query = query.filter(
+            Book.title.ilike(f'%{keyword}%') | Book.author.ilike(f'%{keyword}%')
+        )
+    book_list = query.order_by(Book.reg_dt.desc()).all()
 
-    req_rows = []
-    for r, b, u in rental_requests:
-        req_rows.append({
-            'req_seq': r.rental_seq,
-            'type':    '대출',
-            'emp_nm':  u.emp_nm if u else '-',
-            'title':   b.title,
-            'req_dt':  r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-',
-            'status':  r.status,
-        })
+    # 카테고리 분포 (필터 dropdown용)
+    categories = db.session.query(Book.category)\
+        .filter(Book.use_yn == 'Y', Book.category != None)\
+        .distinct().order_by(Book.category).all()
+    category_list = [c[0] for c in categories if c[0]]
 
-    purchase_list = BookRequest.query.filter_by(use_yn='Y').order_by(BookRequest.reg_dt.desc()).all()
-    book_list     = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
-    my_rentals = []
-    return render_template('book.html',
+    return render_template('book_admin.html',
         current_user=current_user,
-        rental_requests=req_rows,
-        purchase_list=purchase_list,
         book_list=book_list,
-        my_rentals=my_rentals,
-        active_menu='book'
+        category_list=category_list,
+        keyword=keyword,
+        rental_requests=[],
+        purchase_list=[],
+        active_menu='book_admin'
     )
 
 @app.route('/admin/vote/create', methods=['POST'])
@@ -1494,19 +1491,113 @@ def book_request():
 @app.route('/admin/book/save', methods=['POST'])
 @level_required(1)
 def book_admin_save():
-    book = Book(
-        title     = request.form.get('title'),
-        author    = request.form.get('author'),
-        publisher = request.form.get('publisher'),
-        isbn      = request.form.get('isbn'),
-        total_cnt = int(request.form.get('total_cnt', 1)),
-        avail_cnt = int(request.form.get('total_cnt', 1)),
-        is_new    = 'Y'
-    )
-    db.session.add(book)
+    action = request.form.get('action')
+    if action == 'add':
+        db.session.add(Book(
+            title     = request.form.get('title', '').strip(),
+            author    = request.form.get('author', '').strip() or None,
+            publisher = request.form.get('publisher', '').strip() or None,
+            category  = request.form.get('category', '').strip() or None,
+            total_cnt = 1,
+            avail_cnt = 1,
+            use_yn    = 'Y'
+        ))
+        flash('도서가 등록되었습니다.', 'success')
+    elif action == 'edit':
+        b = Book.query.get_or_404(request.form.get('book_seq'))
+        b.title     = request.form.get('title', '').strip()
+        b.author    = request.form.get('author', '').strip() or None
+        b.publisher = request.form.get('publisher', '').strip() or None
+        b.category  = request.form.get('category', '').strip() or None
+        flash('도서 정보가 수정되었습니다.', 'success')
+    elif action == 'delete':
+        b = Book.query.get_or_404(request.form.get('book_seq'))
+        b.use_yn = 'N'
+        flash('도서가 삭제되었습니다.', 'success')
     db.session.commit()
-    flash('도서가 등록되었습니다.')
-    return redirect(url_for('book'))
+    return redirect(url_for('admin_book'))
+
+
+@app.route('/admin/book/import', methods=['POST'])
+@level_required(1)
+def admin_book_import():
+    import csv, io
+    f = request.files.get('csv_file')
+    if not f or not f.filename.endswith('.csv'):
+        flash('CSV 파일을 선택해주세요.', 'error')
+        return redirect(url_for('admin_book'))
+    try:
+        stream = io.StringIO(f.stream.read().decode('utf-8-sig'))
+        reader = csv.DictReader(stream)
+        rows = list(reader)
+
+        inserted = updated = skipped = 0
+        for row in rows:
+            title = (row.get('title') or '').strip()
+            if not title:
+                skipped += 1
+                continue
+            author    = (row.get('author') or '').strip() or None
+            publisher = (row.get('publisher') or '').strip() or None
+            category  = (row.get('category') or '').strip() or None
+
+            # 중복판정: title + author 조합
+            existing = Book.query.filter_by(title=title, author=author).first()
+            if existing:
+                existing.publisher = publisher or existing.publisher
+                existing.category  = category  or existing.category
+                if existing.use_yn == 'N':
+                    existing.use_yn = 'Y'
+                updated += 1
+            else:
+                db.session.add(Book(
+                    title     = title,
+                    author    = author,
+                    publisher = publisher,
+                    category  = category,
+                    total_cnt = 1,
+                    avail_cnt = 1,
+                    use_yn    = 'Y'
+                ))
+                inserted += 1
+
+        db.session.commit()
+        flash(f'CSV 업로드 완료! 신규 {inserted}권, {updated}권 업데이트, {skipped}건 건너뜀.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'오류: {str(e)}', 'error')
+    return redirect(url_for('admin_book'))
+
+
+@app.route('/admin/book/export')
+@level_required(1)
+def admin_book_export():
+    import csv, io
+    books = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['title','author','publisher','category','total_cnt','avail_cnt','use_yn'])
+    for b in books:
+        writer.writerow([
+            b.title or '',
+            b.author or '',
+            b.publisher or '',
+            b.category or '',
+            b.total_cnt if b.total_cnt is not None else 1,
+            b.avail_cnt if b.avail_cnt is not None else 1,
+            b.use_yn or 'Y',
+        ])
+    output.seek(0)
+    from flask import Response
+    return Response(
+        '\ufeff' + output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename=books.csv',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+        }
+    )
 
 @app.route('/admin/book/request/process', methods=['POST'])
 @level_required(1)
@@ -1964,6 +2055,9 @@ def migrate():
                 end_date     VARCHAR(5) NOT NULL,
                 use_yn       CHAR(1) DEFAULT 'Y'
             )'''))
+            # 도서 시스템 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS category VARCHAR(50)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOOK_REQUEST" ADD COLUMN IF NOT EXISTS req_year INTEGER'))
             conn.commit()
         return '마이그레이션 완료!'
     except Exception as e:
