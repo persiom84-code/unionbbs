@@ -2,7 +2,24 @@
 {% block title %} - 도서 대출{% endblock %}
 
 {% set active_menu = 'book' %}
-{%- set lv = (current_user.user_level if current_user else 99) | int -%}
+
+{% block page_style %}
+.cat-chip {
+    display:inline-block; padding:5px 12px; border-radius:20px;
+    font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9;
+    cursor:pointer; transition:all .15s; text-decoration:none;
+    border:1px solid transparent;
+}
+.cat-chip:hover { background:#e2e8f0; color:#0f172a; }
+.cat-chip.active { background:#00479d; color:#fff; border-color:#00479d; }
+.penalty-banner {
+    background:#fef2f2; border:1px solid #fecaca; color:#b91c1c;
+    padding:14px 18px; border-radius:12px; margin-bottom:16px;
+    display:flex; align-items:center; gap:12px;
+}
+.penalty-banner i { font-size:18px; flex-shrink:0; }
+.book-row td { vertical-align: middle; }
+{% endblock %}
 
 {% block content %}
 
@@ -10,31 +27,55 @@
 <div class="page-header">
     <div>
         <div class="page-title"><i class="fas fa-book-open"></i>도서 대출</div>
-        <div class="page-subtitle">조합원 전용 도서관 — 대출·반납·희망 신청</div>
+        <div class="page-subtitle">조합원 전용 도서관 — 신청 후 행낭 발송 / 14일 대출 / 행낭 반납</div>
     </div>
-    {% if lv <= 1 %}
     <div style="display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:12px;">
         <button class="tab-btn active" id="tab-list" onclick="switchView('list')">도서 목록</button>
-        <button class="tab-btn" id="tab-request" onclick="switchView('request')">희망 신청</button>
         <button class="tab-btn" id="tab-history" onclick="switchView('history')">내 이용 이력</button>
-        <button class="tab-btn" id="tab-manage" onclick="switchView('manage')">도서 관리</button>
-        <button class="tab-btn" id="tab-approve" onclick="switchView('approve')">대출 승인</button>
+        <button class="tab-btn" id="tab-request" onclick="switchView('request')">매입 신청</button>
     </div>
-    {% else %}
-    <div style="display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:12px;">
-        <button class="tab-btn active" id="tab-list" onclick="switchView('list')">도서 검색/대출</button>
-        <button class="tab-btn" id="tab-request" onclick="switchView('request')">희망 도서 신청</button>
-        <button class="tab-btn" id="tab-history" onclick="switchView('history')">나의 이용 이력</button>
-    </div>
-    {% endif %}
 </div>
+
+<!-- 패널티 알림 -->
+{% if has_penalty %}
+<div class="penalty-banner">
+    <i class="fas fa-exclamation-triangle"></i>
+    <div>
+        <div style="font-weight:800;font-size:13px;margin-bottom:2px;">연체 중인 도서가 있습니다</div>
+        <div style="font-size:12px;">반납 전까지 추가 대출 신청 및 매입 신청이 제한됩니다.</div>
+    </div>
+</div>
+{% endif %}
 
 <!-- ══ VIEW: 도서 목록 ══ -->
 <div id="view-list">
-    <!-- 검색 바 -->
-    <div class="card" style="padding:14px 20px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-search" style="color:#94a3b8;font-size:14px;"></i>
-        <input type="text" id="search-input" placeholder="도서명, 저자, 출판사로 검색" style="flex:1;border:none;outline:none;font-size:14px;font-weight:600;color:#334155;font-family:'Pretendard',sans-serif;background:transparent;" onkeyup="filterBooks(this.value)">
+    <!-- 검색 + 카테고리 -->
+    <div class="card" style="padding:16px 20px;margin-bottom:14px;">
+        <form method="GET" action="/book" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <i class="fas fa-search" style="color:#94a3b8;font-size:14px;"></i>
+            <input type="text" name="q" value="{{ keyword }}"
+                placeholder="도서명, 저자, 출판사로 검색"
+                style="flex:1;border:none;outline:none;font-size:14px;font-weight:600;color:#334155;font-family:'Pretendard',sans-serif;background:transparent;">
+            {% if active_category %}
+            <input type="hidden" name="category" value="{{ active_category }}">
+            {% endif %}
+            <button type="submit" class="btn-primary" style="font-size:11px;padding:7px 14px;">검색</button>
+            {% if keyword or active_category %}
+            <a href="/book" class="btn-secondary" style="font-size:11px;padding:7px 14px;text-decoration:none;">초기화</a>
+            {% endif %}
+        </form>
+
+        <!-- 카테고리 칩 -->
+        {% if category_list %}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <a href="/book{% if keyword %}?q={{ keyword }}{% endif %}"
+               class="cat-chip {% if not active_category %}active{% endif %}">전체</a>
+            {% for c in category_list %}
+            <a href="/book?category={{ c }}{% if keyword %}&q={{ keyword }}{% endif %}"
+               class="cat-chip {% if active_category == c %}active{% endif %}">{{ c }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 
     <div class="card" style="overflow:hidden;">
@@ -42,32 +83,51 @@
         <div style="overflow-x:auto;">
             <table class="data-table">
                 <thead>
-                    <tr><th>신규</th><th>도서명</th><th>저자</th><th>출판사</th><th style="text-align:center;">가용/전체</th><th style="text-align:center;">대출</th></tr>
+                    <tr>
+                        <th>분류</th>
+                        <th>도서명</th>
+                        <th>저자</th>
+                        <th>출판사</th>
+                        <th style="text-align:center;">상태</th>
+                        <th style="text-align:center;">신청</th>
+                    </tr>
                 </thead>
-                <tbody id="book-tbody">
+                <tbody>
                     {% for book in book_list %}
-                    <tr class="book-row" data-title="{{ book.title }}" data-author="{{ book.author | default('') }}" data-publisher="{{ book.publisher | default('') }}">
+                    <tr class="book-row">
                         <td>
-                            {% if book.is_new == 'Y' %}
-                            <span class="badge badge-blue">NEW</span>
+                            {% if book.category %}
+                            <span class="badge badge-blue">{{ book.category }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">-</span>
                             {% endif %}
                         </td>
-                        <td style="font-weight:700;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ book.title }}</td>
-                        <td style="color:#64748b;">{{ book.author | default('-') }}</td>
-                        <td style="color:#64748b;font-size:12px;">{{ book.publisher | default('-') }}</td>
+                        <td style="font-weight:700;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ book.title }}</td>
+                        <td style="color:#64748b;">{{ book.author or '-' }}</td>
+                        <td style="color:#64748b;font-size:12px;">{{ book.publisher or '-' }}</td>
                         <td style="text-align:center;">
-                            <span style="font-weight:800;color:{% if book.avail_cnt > 0 %}#16a34a{% else %}#dc2626{% endif %};">{{ book.avail_cnt }}</span>
-                            <span style="color:#94a3b8;">/{{ book.total_cnt }}</span>
+                            {% if book.book_seq in pending_book_seqs %}
+                                <span class="badge badge-yellow">신청중</span>
+                            {% elif book.avail_cnt and book.avail_cnt > 0 %}
+                                <span class="badge badge-green">대출가능</span>
+                            {% else %}
+                                <span class="badge badge-gray">대출중</span>
+                            {% endif %}
                         </td>
                         <td style="text-align:center;">
-                            {% if book.avail_cnt > 0 %}
-                            <form action="/book/rental/{{ book.book_seq }}" method="POST" style="display:inline;">
-                                <button type="submit" class="btn-primary" style="font-size:10px;padding:5px 12px;">
-                                    <i class="fas fa-hand-holding"></i>대출
-                                </button>
-                            </form>
+                            {% if book.book_seq in pending_book_seqs %}
+                                <span style="font-size:11px;color:#94a3b8;">신청완료</span>
+                            {% elif book.avail_cnt and book.avail_cnt > 0 and not has_penalty %}
+                                <form action="/book/rental/{{ book.book_seq }}" method="POST" style="display:inline;"
+                                      onsubmit="return confirm('{{ book.title }} 도서를 신청하시겠습니까? 승인 후 행낭으로 발송됩니다.');">
+                                    <button type="submit" class="btn-primary" style="font-size:10px;padding:5px 12px;">
+                                        <i class="fas fa-hand-holding"></i>대출 신청
+                                    </button>
+                                </form>
+                            {% elif has_penalty %}
+                                <span class="badge badge-red">신청불가</span>
                             {% else %}
-                            <span class="badge badge-gray">대출불가</span>
+                                <span class="badge badge-gray">불가</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -77,17 +137,100 @@
         </div>
         {% else %}
         <div style="padding:64px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">
-            <i class="fas fa-books" style="font-size:32px;display:block;margin-bottom:12px;"></i>
-            등록된 도서가 없습니다.
+            <i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:12px;"></i>
+            {% if keyword or active_category %}
+                검색 결과가 없습니다.
+            {% else %}
+                등록된 도서가 없습니다.
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
 
-<!-- ══ VIEW: 희망 도서 신청 ══ -->
+<!-- ══ VIEW: 내 이용 이력 ══ -->
+<div id="view-history" style="display:none;">
+    <div class="card" style="overflow:hidden;">
+        {% if my_rentals %}
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>도서명</th>
+                        <th style="text-align:center;">신청일</th>
+                        <th style="text-align:center;">대출일</th>
+                        <th style="text-align:center;">반납기한</th>
+                        <th style="text-align:center;">반납일</th>
+                        <th style="text-align:center;">상태</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in my_rentals %}
+                    <tr>
+                        <td style="font-weight:700;">{{ r.book_title }}</td>
+                        <td style="text-align:center;font-family:monospace;font-size:12px;color:#94a3b8;">
+                            {{ r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-' }}
+                        </td>
+                        <td style="text-align:center;font-family:monospace;font-size:12px;">
+                            {{ r.rental_dt.strftime('%Y.%m.%d') if r.rental_dt else '-' }}
+                        </td>
+                        <td style="text-align:center;font-family:monospace;font-size:12px;">
+                            {% if r.status in ['LOAN', 'OVERDUE'] and r.due_dt %}
+                                {{ r.due_dt.strftime('%Y.%m.%d') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;font-family:monospace;font-size:12px;color:#64748b;">
+                            {{ r.return_dt.strftime('%Y.%m.%d') if r.return_dt else '-' }}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if r.status == 'APPLY' %}
+                                <span class="badge badge-yellow">승인 대기</span>
+                            {% elif r.status == 'APPROVE' %}
+                                <span class="badge badge-blue">승인됨 (발송 예정)</span>
+                            {% elif r.status == 'LOAN' %}
+                                <span class="badge badge-blue">대출중</span>
+                            {% elif r.status == 'OVERDUE' %}
+                                <span class="badge badge-red">연체</span>
+                            {% elif r.status == 'RETURN' %}
+                                <span class="badge badge-green">반납완료</span>
+                            {% elif r.status == 'REJECT' %}
+                                <span class="badge badge-gray">반려</span>
+                            {% else %}
+                                <span class="badge badge-gray">{{ r.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">
+            <i class="fas fa-history" style="font-size:28px;display:block;margin-bottom:12px;"></i>
+            이용 이력이 없습니다.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══ VIEW: 매입 신청 ══ -->
 <div id="view-request" style="display:none;">
     <div class="card" style="padding:28px;max-width:600px;">
-        <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:20px;"><i class="fas fa-book-medical" style="color:#00479d;margin-right:8px;"></i>희망 도서 구매 신청</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <h3 style="font-size:15px;font-weight:800;color:#0f172a;">
+                <i class="fas fa-book-medical" style="color:#00479d;margin-right:8px;"></i>도서 매입 신청
+            </h3>
+            <span style="font-size:11px;color:#64748b;font-weight:700;">
+                올해 잔여 신청: <strong style="color:#00479d;">{{ remaining_purchases }}</strong>/5권
+            </span>
+        </div>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:18px;">
+            매입 신청은 연간 5권까지 가능합니다 (승인 기준). 패널티 상태일 경우 신청이 제한됩니다.
+        </p>
+
+        {% if remaining_purchases > 0 and not has_penalty %}
         <form action="/book/request" method="POST">
             <div style="margin-bottom:14px;">
                 <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">도서명 *</label>
@@ -111,218 +254,31 @@
                 <i class="fas fa-paper-plane"></i>신청하기
             </button>
         </form>
-    </div>
-</div>
-
-<!-- ══ VIEW: 내 이용 이력 ══ -->
-<div id="view-history" style="display:none;">
-    <div class="card" style="overflow:hidden;">
-        {% if my_rentals %}
-        <div style="overflow-x:auto;">
-            <table class="data-table">
-                <thead><tr><th>도서명</th><th style="text-align:center;">대출일</th><th style="text-align:center;">반납기한</th><th style="text-align:center;">반납일</th><th style="text-align:center;">상태</th></tr></thead>
-                <tbody>
-                    {% for r in my_rentals %}
-                    <tr>
-                        <td style="font-weight:700;">{{ r.book.title if r.book else r.book_seq }}</td>
-                        <td style="text-align:center;font-family:monospace;font-size:12px;">{{ r.rental_dt.strftime('%Y.%m.%d') if r.rental_dt else '-' }}</td>
-                        <td style="text-align:center;font-family:monospace;font-size:12px;">{{ r.due_dt.strftime('%Y.%m.%d') if r.due_dt else '-' }}</td>
-                        <td style="text-align:center;font-family:monospace;font-size:12px;color:#64748b;">{{ r.return_dt.strftime('%Y.%m.%d') if r.return_dt else '-' }}</td>
-                        <td style="text-align:center;">
-                            <span class="badge {% if r.status=='RETURN' %}badge-green{% elif r.status=='OVERDUE' %}badge-red{% else %}badge-blue{% endif %}">
-                                {% if r.status=='RETURN' %}반납완료{% elif r.status=='OVERDUE' %}연체{% else %}대출중{% endif %}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
         {% else %}
-        <div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">
-            <i class="fas fa-history" style="font-size:28px;display:block;margin-bottom:12px;"></i>
-            이용 이력이 없습니다.
+        <div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:12px;">
+            {% if has_penalty %}
+                <i class="fas fa-ban" style="font-size:28px;display:block;margin-bottom:12px;color:#dc2626;"></i>
+                연체 중인 도서가 있어 매입 신청이 불가합니다.
+            {% else %}
+                <i class="fas fa-check-double" style="font-size:28px;display:block;margin-bottom:12px;"></i>
+                올해 매입 신청 한도(5권)를 모두 사용하셨습니다.
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
-
-<!-- ══ VIEW: 관리자 - 도서 등록 관리 ══ -->
-{% if lv <= 1 %}
-<div id="view-manage" style="display:none;">
-    <div class="card" style="padding:28px;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:15px;font-weight:800;color:#0f172a;"><i class="fas fa-cogs" style="color:#00479d;margin-right:8px;"></i>도서 목록 관리</h3>
-            <button class="btn-primary" onclick="document.getElementById('modal-add-book').classList.add('open')">
-                <i class="fas fa-plus"></i>도서 등록
-            </button>
-        </div>
-        {% if book_list %}
-        <div style="overflow-x:auto;">
-            <table class="data-table">
-                <thead><tr><th>도서명</th><th>저자</th><th>출판사</th><th>ISBN</th><th style="text-align:center;">전체/가용</th><th style="text-align:center;">상태</th></tr></thead>
-                <tbody>
-                    {% for b in book_list %}
-                    <tr>
-                        <td style="font-weight:700;">{{ b.title }}</td>
-                        <td style="color:#64748b;">{{ b.author | default('-') }}</td>
-                        <td style="color:#64748b;">{{ b.publisher | default('-') }}</td>
-                        <td style="font-family:monospace;font-size:11px;color:#94a3b8;">{{ b.isbn | default('-') }}</td>
-                        <td style="text-align:center;font-weight:700;">{{ b.total_cnt }}/{{ b.avail_cnt }}</td>
-                        <td style="text-align:center;"><span class="badge {% if b.use_yn=='Y' %}badge-green{% else %}badge-gray{% endif %}">{{ '운영' if b.use_yn=='Y' else '중단' }}</span></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">등록된 도서가 없습니다.</div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- ══ VIEW: 관리자 - 대출 승인 ══ -->
-<div id="view-approve" style="display:none;">
-    <div class="card" style="padding:28px;margin-bottom:16px;">
-        <h3 style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:20px;"><i class="fas fa-clipboard-check" style="color:#00479d;margin-right:8px;"></i>대출 현황 및 희망 신청 처리</h3>
-
-        <!-- 대출 현황 -->
-        <h4 style="font-size:12px;font-weight:800;color:#64748b;margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em;">대출 현황</h4>
-        {% if rental_requests %}
-        <div style="overflow-x:auto;margin-bottom:24px;">
-            <table class="data-table">
-                <thead><tr><th>신청자</th><th>도서명</th><th>대출일</th><th>반납기한</th><th>상태</th></tr></thead>
-                <tbody>
-                    {% for r in rental_requests %}
-                    <tr>
-                        <td style="font-weight:700;">{{ r.emp_nm }}</td>
-                        <td>{{ r.title }}</td>
-                        <td style="font-family:monospace;font-size:11px;">{{ r.req_dt }}</td>
-                        <td style="font-family:monospace;font-size:11px;">-</td>
-                        <td><span class="badge badge-blue">대출중</span></td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">대출 내역이 없습니다.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-
-        <!-- 희망 신청 -->
-        <h4 style="font-size:12px;font-weight:800;color:#64748b;margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em;">희망 도서 신청</h4>
-        {% if purchase_list %}
-        <div style="overflow-x:auto;">
-            <table class="data-table">
-                <thead><tr><th>도서명</th><th>저자</th><th>신청자</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-                <tbody>
-                    {% for p in purchase_list %}
-                    <tr>
-                        <td style="font-weight:700;">{{ p.title }}</td>
-                        <td style="color:#64748b;">{{ p.author | default('-') }}</td>
-                        <td style="color:#64748b;">{{ p.emp_no }}</td>
-                        <td style="font-family:monospace;font-size:11px;">{{ p.reg_dt.strftime('%Y.%m.%d') if p.reg_dt else '-' }}</td>
-                        <td>
-                            <span class="badge {% if p.status=='DONE' %}badge-green{% elif p.status=='REJECT' %}badge-gray{% else %}badge-yellow{% endif %}">
-                                {% if p.status=='DONE' %}구매완료{% elif p.status=='REJECT' %}반려{% else %}검토중{% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            {% if p.status=='WAIT' %}
-                            <div style="display:flex;gap:4px;">
-                                <form action="/admin/book/request/process" method="POST" style="display:inline;">
-                                    <input type="hidden" name="request_seq" value="{{ p.request_seq }}">
-                                    <input type="hidden" name="action" value="approve">
-                                    <button type="submit" class="btn-primary" style="font-size:10px;padding:5px 10px;">승인</button>
-                                </form>
-                                <form action="/admin/book/request/process" method="POST" style="display:inline;">
-                                    <input type="hidden" name="request_seq" value="{{ p.request_seq }}">
-                                    <input type="hidden" name="action" value="reject">
-                                    <button type="submit" class="btn-secondary" style="font-size:10px;padding:5px 10px;">반려</button>
-                                </form>
-                            </div>
-                            {% else %}
-                            <span style="font-size:11px;color:#94a3b8;">처리완료</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic;">희망 신청 내역이 없습니다.</div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- 도서 등록 모달 -->
-<div id="modal-add-book" class="modal-overlay">
-    <div class="modal-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">도서 등록</h3>
-            <button onclick="document.getElementById('modal-add-book').classList.remove('open')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
-        </div>
-        <form action="/admin/book/save" method="POST">
-            <div style="margin-bottom:14px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">도서명 *</label>
-                <input type="text" name="title" class="form-input" required placeholder="도서 제목">
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">저자</label>
-                    <input type="text" name="author" class="form-input" placeholder="저자명">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">출판사</label>
-                    <input type="text" name="publisher" class="form-input" placeholder="출판사">
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">ISBN</label>
-                    <input type="text" name="isbn" class="form-input" placeholder="ISBN">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">권수 *</label>
-                    <input type="number" name="total_cnt" min="1" value="1" class="form-input" required>
-                </div>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="document.getElementById('modal-add-book').classList.remove('open')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-save"></i>등록</button>
-            </div>
-        </form>
-    </div>
-</div>
-{% endif %}
 
 {% endblock %}
 
 {% block page_script %}
 <script>
-const ALL_TABS = {{ "['list','request','history','manage','approve']" if lv <= 1 else "['list','request','history']" }};
-
 function switchView(view) {
-    ALL_TABS.forEach(v => {
+    ['list', 'history', 'request'].forEach(v => {
         const el = document.getElementById('view-' + v);
-        if (el) el.style.display = v === view ? 'block' : 'none';
+        if (el) el.style.display = (v === view) ? 'block' : 'none';
         const btn = document.getElementById('tab-' + v);
         if (btn) btn.classList.toggle('active', v === view);
     });
 }
-function filterBooks(q) {
-    const rows = document.querySelectorAll('.book-row');
-    const kw = q.toLowerCase();
-    rows.forEach(row => {
-        const text = (row.dataset.title + row.dataset.author + row.dataset.publisher).toLowerCase();
-        row.style.display = text.includes(kw) ? '' : 'none';
-    });
-}
-document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', function(e) {
-        if (e.target === this) this.classList.remove('open');
-    });
-});
 </script>
 {% endblock %}
