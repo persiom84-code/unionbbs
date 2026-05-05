@@ -310,7 +310,7 @@ class BookRental(db.Model):
     rental_dt  = db.Column(db.Date, default=date.today)
     due_dt     = db.Column(db.Date, nullable=False)
     return_dt  = db.Column(db.Date)
-    status     = db.Column(db.String(10), default='RENTAL')
+    status     = db.Column(db.String(10), default='APPLY')
     reg_dt     = db.Column(db.DateTime, default=datetime.now)
 
 class BookRequest(db.Model):
@@ -1438,54 +1438,188 @@ def condo_season_save():
 # Routes - 도서
 # ══════════════════════════════════════════════════════════
 
+def _check_overdue(rentals):
+    """대출 목록의 연체 자동 판정 — D+17(due_dt+3) 부터 OVERDUE로 변경"""
+    today = date.today()
+    changed = False
+    for r in rentals:
+        if r.status == 'LOAN' and r.due_dt and (today - r.due_dt).days > 3:
+            r.status = 'OVERDUE'
+            changed = True
+    if changed:
+        db.session.commit()
+
+
+def _has_penalty(emp_no):
+    """해당 사용자가 패널티 상태인지 (OVERDUE 보유 여부) — 자동 판정 포함"""
+    rentals = BookRental.query.filter(
+        BookRental.emp_no == emp_no,
+        BookRental.status.in_(['LOAN', 'OVERDUE'])
+    ).all()
+    _check_overdue(rentals)
+    return any(r.status == 'OVERDUE' for r in rentals)
+
+
 @app.route('/book')
 @login_required
 def book():
     current_user = get_current_user()
-    books        = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
-    my_rentals   = BookRental.query.filter_by(emp_no=current_user.emp_no)\
-                    .order_by(BookRental.rental_dt.desc()).all()
+    keyword  = request.args.get('q', '').strip()
+    category = request.args.get('category', '').strip()
+
+    query = Book.query.filter_by(use_yn='Y')
+    if keyword:
+        query = query.filter(
+            Book.title.ilike(f'%{keyword}%') |
+            Book.author.ilike(f'%{keyword}%') |
+            Book.publisher.ilike(f'%{keyword}%')
+        )
+    if category:
+        query = query.filter_by(category=category)
+    books = query.order_by(Book.reg_dt.desc()).all()
+
+    # 카테고리 목록 (필터 dropdown용)
+    categories = db.session.query(Book.category)\
+        .filter(Book.use_yn == 'Y', Book.category != None)\
+        .distinct().order_by(Book.category).all()
+    category_list = [c[0] for c in categories if c[0]]
+
+    # 내 대출 이력 + 연체 자동 판정
+    my_rentals = db.session.query(BookRental, Book)\
+        .outerjoin(Book, BookRental.book_seq == Book.book_seq)\
+        .filter(BookRental.emp_no == current_user.emp_no)\
+        .order_by(BookRental.reg_dt.desc()).all()
+    _check_overdue([r for r, b in my_rentals])
+
+    rental_rows = [{
+        'book_title': b.title if b else f'도서#{r.book_seq}',
+        'rental_dt':  r.rental_dt,
+        'due_dt':     r.due_dt,
+        'return_dt':  r.return_dt,
+        'status':     r.status,
+        'reg_dt':     r.reg_dt,
+    } for r, b in my_rentals]
+
+    # 패널티 여부
+    has_penalty = any(r['status'] == 'OVERDUE' for r in rental_rows)
+
+    # 신청 진행중인 book_seq 목록 (중복 신청 방지용)
+    pending_book_seqs = {r.book_seq for r, b in my_rentals
+                        if r.status in ('APPLY', 'APPROVE', 'LOAN', 'OVERDUE')}
+
+    # 매입 신청 잔여 카운트 (연간 5권, 승인기준)
+    this_year = date.today().year
+    approved_this_year = BookRequest.query.filter(
+        BookRequest.emp_no == current_user.emp_no,
+        BookRequest.req_year == this_year,
+        BookRequest.status == 'APPROVE',
+        BookRequest.use_yn == 'Y',
+    ).count()
+    remaining_purchases = max(0, 5 - approved_this_year)
+
     return render_template('book.html',
         current_user=current_user,
         book_list=books,
-        my_rentals=my_rentals,
+        category_list=category_list,
+        keyword=keyword,
+        active_category=category,
+        my_rentals=rental_rows,
+        pending_book_seqs=pending_book_seqs,
+        has_penalty=has_penalty,
+        remaining_purchases=remaining_purchases,
         active_menu='book'
     )
+
 
 @app.route('/book/rental/<int:book_seq>', methods=['POST'])
 @login_required
 def book_rental(book_seq):
+    """대출 신청 — APPLY 상태로 등록 (관리자 승인 후 LOAN으로 전환)"""
     current_user = get_current_user()
-    b = Book.query.get_or_404(book_seq)
-    if b.avail_cnt <= 0:
-        flash('현재 대출 가능한 도서가 없습니다.')
+
+    # 패널티 차단
+    if _has_penalty(current_user.emp_no):
+        flash('연체된 도서가 있어 대출 신청이 불가합니다. 반납 후 이용해주세요.', 'error')
         return redirect(url_for('book'))
+
+    b = Book.query.get_or_404(book_seq)
+
+    # 이미 신청/승인/대출중이면 차단
+    existing = BookRental.query.filter(
+        BookRental.book_seq == book_seq,
+        BookRental.emp_no == current_user.emp_no,
+        BookRental.status.in_(['APPLY', 'APPROVE', 'LOAN', 'OVERDUE'])
+    ).first()
+    if existing:
+        flash('이미 신청 또는 대출 중인 도서입니다.', 'error')
+        return redirect(url_for('book'))
+
+    # 다른 사람이 대출중이면 차단
+    if b.avail_cnt is None or b.avail_cnt <= 0:
+        flash('현재 대출 가능한 도서가 아닙니다.', 'error')
+        return redirect(url_for('book'))
+
+    # 다른 사람이 신청/승인 단계여도 차단 (선착순)
+    other_pending = BookRental.query.filter(
+        BookRental.book_seq == book_seq,
+        BookRental.status.in_(['APPLY', 'APPROVE'])
+    ).first()
+    if other_pending:
+        flash('다른 조합원이 이미 신청한 도서입니다.', 'error')
+        return redirect(url_for('book'))
+
     rental = BookRental(
         book_seq  = book_seq,
         emp_no    = current_user.emp_no,
-        rental_dt = date.today(),
-        due_dt    = date.today() + timedelta(days=14)
+        rental_dt = None,
+        due_dt    = date.today() + timedelta(days=14),  # 임시값, 승인 시점에 재설정
+        status    = 'APPLY',
     )
-    b.avail_cnt -= 1
     db.session.add(rental)
     db.session.commit()
-    flash('대출 신청이 완료되었습니다.')
+    flash('대출 신청이 완료되었습니다. 관리자 승인 후 도서가 발송됩니다.', 'success')
     return redirect(url_for('book'))
+
 
 @app.route('/book/request', methods=['POST'])
 @login_required
 def book_request():
+    """매입 신청 — 연간 5권(승인기준) 제한 + 패널티 차단"""
     current_user = get_current_user()
+
+    # 패널티 차단
+    if _has_penalty(current_user.emp_no):
+        flash('연체된 도서가 있어 매입 신청이 불가합니다.', 'error')
+        return redirect(url_for('book'))
+
+    this_year = date.today().year
+    approved_cnt = BookRequest.query.filter(
+        BookRequest.emp_no == current_user.emp_no,
+        BookRequest.req_year == this_year,
+        BookRequest.status == 'APPROVE',
+        BookRequest.use_yn == 'Y',
+    ).count()
+    if approved_cnt >= 5:
+        flash(f'올해 매입 신청 한도(5권)를 모두 사용하셨습니다.', 'error')
+        return redirect(url_for('book'))
+
+    title = (request.form.get('title') or '').strip()
+    if not title:
+        flash('도서명을 입력해주세요.', 'error')
+        return redirect(url_for('book'))
+
     req = BookRequest(
-        title     = request.form.get('title'),
-        author    = request.form.get('author'),
-        publisher = request.form.get('publisher'),
-        reason    = request.form.get('reason'),
-        emp_no    = current_user.emp_no
+        title     = title,
+        author    = (request.form.get('author') or '').strip() or None,
+        publisher = (request.form.get('publisher') or '').strip() or None,
+        reason    = (request.form.get('reason') or '').strip() or None,
+        req_year  = this_year,
+        status    = 'WAIT',
+        emp_no    = current_user.emp_no,
     )
     db.session.add(req)
     db.session.commit()
-    flash('도서 구매 희망 신청이 완료되었습니다.')
+    flash('도서 매입 신청이 완료되었습니다.', 'success')
     return redirect(url_for('book'))
 
 @app.route('/admin/book/save', methods=['POST'])
