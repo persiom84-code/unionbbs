@@ -83,12 +83,6 @@
                                     <input type="hidden" name="action" value="reject">
                                     <button type="submit" onclick="return confirm('반려하시겠습니까?')" class="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-300 transition-colors">반려</button>
                                 </form>
-                                {% elif req.status == 'APPROVE' %}
-                                <form method="POST" action="/admin/book/rental/process" style="display:inline;">
-                                    <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">
-                                    <input type="hidden" name="action" value="loan">
-                                    <button type="submit" onclick="return confirm('도서 발송 완료 처리(대출중)로 전환하시겠습니까?')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-700 transition-colors">대출 처리</button>
-                                </form>
                                 {% elif req.status in ['LOAN', 'OVERDUE'] %}
                                 <form method="POST" action="/admin/book/rental/process" style="display:inline;">
                                     <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">

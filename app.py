@@ -965,8 +965,12 @@ def admin_book_rental_process():
         if r.status != 'APPLY':
             flash('승인 가능한 상태가 아닙니다.', 'error')
         else:
-            r.status = 'APPROVE'
-            flash(f'"{title}" 대출 신청을 승인했습니다.', 'success')
+            r.status = 'LOAN'
+            r.rental_dt = date.today()
+            r.due_dt = date.today() + timedelta(days=16)  # 14일 + 발송버퍼 2일
+            if b and b.avail_cnt and b.avail_cnt > 0:
+                b.avail_cnt -= 1
+            flash(f'"{title}" 대출 승인 완료. 반납기한: {r.due_dt.strftime("%Y.%m.%d")}', 'success')
 
     elif action == 'reject':
         if r.status != 'APPLY':
@@ -974,17 +978,6 @@ def admin_book_rental_process():
         else:
             r.status = 'REJECT'
             flash(f'"{title}" 대출 신청을 반려했습니다.', 'success')
-
-    elif action == 'loan':
-        if r.status != 'APPROVE':
-            flash('대출 처리 가능한 상태가 아닙니다.', 'error')
-        else:
-            r.status = 'LOAN'
-            r.rental_dt = date.today()
-            r.due_dt = date.today() + timedelta(days=14)
-            if b and b.avail_cnt and b.avail_cnt > 0:
-                b.avail_cnt -= 1
-            flash(f'"{title}" 대출 처리되었습니다. (반납기한: {r.due_dt.strftime("%Y.%m.%d")})', 'success')
 
     elif action == 'return':
         if r.status not in ('LOAN', 'OVERDUE'):
