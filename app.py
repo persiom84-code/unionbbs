@@ -1591,9 +1591,16 @@ def book():
     # 패널티 여부
     has_penalty = any(r['status'] == 'OVERDUE' for r in rental_rows)
 
-    # 신청 진행중인 book_seq 목록 (중복 신청 방지용)
-    pending_book_seqs = {r.book_seq for r, b in my_rentals
-                        if r.status in ('APPLY', 'APPROVE', 'LOAN', 'OVERDUE')}
+    # 사용자별 도서 상태 매핑 (book_seq → status)
+    my_book_status = {}
+    for r, b in my_rentals:
+        if r.status in ('APPLY', 'LOAN', 'OVERDUE'):
+            # 동일 도서 여러 이력이 있을 경우, 활성 상태 우선
+            if r.book_seq not in my_book_status:
+                my_book_status[r.book_seq] = r.status
+
+    # (호환용) 신청/대출 진행중인 book_seq 셋
+    pending_book_seqs = set(my_book_status.keys())
 
     # 매입 신청 잔여 카운트 (연간 5권, 승인기준)
     this_year = date.today().year
@@ -1613,6 +1620,7 @@ def book():
         active_category=category,
         my_rentals=rental_rows,
         pending_book_seqs=pending_book_seqs,
+        my_book_status=my_book_status,
         has_penalty=has_penalty,
         remaining_purchases=remaining_purchases,
         active_menu='book'

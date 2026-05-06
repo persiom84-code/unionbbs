@@ -65,7 +65,6 @@
             {% endif %}
         </form>
 
-        <!-- 카테고리 칩 -->
         {% if category_list %}
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
             <a href="/book{% if keyword %}?q={{ keyword }}{% endif %}"
@@ -94,6 +93,7 @@
                 </thead>
                 <tbody>
                     {% for book in book_list %}
+                    {% set my_status = my_book_status.get(book.book_seq) %}
                     <tr class="book-row">
                         <td>
                             {% if book.category %}
@@ -106,8 +106,12 @@
                         <td style="color:#64748b;">{{ book.author or '-' }}</td>
                         <td style="color:#64748b;font-size:12px;">{{ book.publisher or '-' }}</td>
                         <td style="text-align:center;">
-                            {% if book.book_seq in pending_book_seqs %}
+                            {% if my_status == 'APPLY' %}
                                 <span class="badge badge-yellow">신청중</span>
+                            {% elif my_status == 'LOAN' %}
+                                <span class="badge badge-blue">대출중 (내 도서)</span>
+                            {% elif my_status == 'OVERDUE' %}
+                                <span class="badge badge-red">연체 (내 도서)</span>
                             {% elif book.avail_cnt and book.avail_cnt > 0 %}
                                 <span class="badge badge-green">대출가능</span>
                             {% else %}
@@ -115,8 +119,10 @@
                             {% endif %}
                         </td>
                         <td style="text-align:center;">
-                            {% if book.book_seq in pending_book_seqs %}
-                                <span style="font-size:11px;color:#94a3b8;">신청완료</span>
+                            {% if my_status == 'APPLY' %}
+                                <span style="font-size:11px;color:#94a3b8;">승인 대기</span>
+                            {% elif my_status in ['LOAN', 'OVERDUE'] %}
+                                <span style="font-size:11px;color:#94a3b8;">대출중</span>
                             {% elif book.avail_cnt and book.avail_cnt > 0 and not has_penalty %}
                                 <form action="/book/rental/{{ book.book_seq }}" method="POST" style="display:inline;"
                                       onsubmit="return confirm('{{ book.title }} 도서를 신청하시겠습니까? 승인 후 행낭으로 발송됩니다.');">
@@ -187,8 +193,6 @@
                         <td style="text-align:center;">
                             {% if r.status == 'APPLY' %}
                                 <span class="badge badge-yellow">승인 대기</span>
-                            {% elif r.status == 'APPROVE' %}
-                                <span class="badge badge-blue">승인됨 (발송 예정)</span>
                             {% elif r.status == 'LOAN' %}
                                 <span class="badge badge-blue">대출중</span>
                             {% elif r.status == 'OVERDUE' %}
