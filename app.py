@@ -888,21 +888,116 @@ def admin_book():
         )
     book_list = query.order_by(Book.reg_dt.desc()).all()
 
-    # 카테고리 분포 (필터 dropdown용)
+    # 카테고리 분포
     categories = db.session.query(Book.category)\
         .filter(Book.use_yn == 'Y', Book.category != None)\
         .distinct().order_by(Book.category).all()
     category_list = [c[0] for c in categories if c[0]]
+
+    # 연체 자동 판정
+    active_loans = BookRental.query.filter(
+        BookRental.status.in_(['LOAN', 'OVERDUE'])
+    ).all()
+    _check_overdue(active_loans)
+
+    # 대출 신청/처리중 목록
+    rental_query = db.session.query(BookRental, Book, User)\
+        .outerjoin(Book, BookRental.book_seq == Book.book_seq)\
+        .outerjoin(User, BookRental.emp_no == User.emp_no)\
+        .filter(BookRental.status.in_(['APPLY', 'APPROVE', 'LOAN', 'OVERDUE']))\
+        .order_by(BookRental.reg_dt.desc()).all()
+
+    rental_requests = []
+    for r, b, u in rental_query:
+        rental_requests.append({
+            'rental_seq': r.rental_seq,
+            'emp_nm':     u.emp_nm if u else '-',
+            'emp_no':     r.emp_no,
+            'title':      b.title if b else f'도서#{r.book_seq}',
+            'reg_dt':     r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-',
+            'rental_dt':  r.rental_dt.strftime('%Y.%m.%d') if r.rental_dt else '-',
+            'due_dt':     r.due_dt.strftime('%Y.%m.%d') if r.due_dt else '-',
+            'status':     r.status,
+        })
+
+    # 매입 신청 목록
+    purchase_query = db.session.query(BookRequest, User)\
+        .outerjoin(User, BookRequest.emp_no == User.emp_no)\
+        .filter(BookRequest.use_yn == 'Y')\
+        .order_by(BookRequest.reg_dt.desc()).all()
+
+    purchase_list = []
+    for r, u in purchase_query:
+        purchase_list.append({
+            'request_seq': r.request_seq,
+            'emp_nm':      u.emp_nm if u else '-',
+            'title':       r.title,
+            'author':      r.author or '',
+            'publisher':   r.publisher or '',
+            'reason':      r.reason or '',
+            'req_year':    r.req_year,
+            'reg_dt':      r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-',
+            'status':      r.status,
+        })
 
     return render_template('book_admin.html',
         current_user=current_user,
         book_list=book_list,
         category_list=category_list,
         keyword=keyword,
-        rental_requests=[],
-        purchase_list=[],
+        rental_requests=rental_requests,
+        purchase_list=purchase_list,
         active_menu='book_admin'
     )
+
+
+@app.route('/admin/book/rental/process', methods=['POST'])
+@level_required(1)
+def admin_book_rental_process():
+    """대출 신청 처리 - approve/reject/loan/return"""
+    rental_seq = request.form.get('rental_seq')
+    action = request.form.get('action')
+    r = BookRental.query.get_or_404(rental_seq)
+    b = Book.query.get(r.book_seq)
+    title = b.title if b else "도서"
+
+    if action == 'approve':
+        if r.status != 'APPLY':
+            flash('승인 가능한 상태가 아닙니다.', 'error')
+        else:
+            r.status = 'APPROVE'
+            flash(f'"{title}" 대출 신청을 승인했습니다.', 'success')
+
+    elif action == 'reject':
+        if r.status != 'APPLY':
+            flash('반려 가능한 상태가 아닙니다.', 'error')
+        else:
+            r.status = 'REJECT'
+            flash(f'"{title}" 대출 신청을 반려했습니다.', 'success')
+
+    elif action == 'loan':
+        if r.status != 'APPROVE':
+            flash('대출 처리 가능한 상태가 아닙니다.', 'error')
+        else:
+            r.status = 'LOAN'
+            r.rental_dt = date.today()
+            r.due_dt = date.today() + timedelta(days=14)
+            if b and b.avail_cnt and b.avail_cnt > 0:
+                b.avail_cnt -= 1
+            flash(f'"{title}" 대출 처리되었습니다. (반납기한: {r.due_dt.strftime("%Y.%m.%d")})', 'success')
+
+    elif action == 'return':
+        if r.status not in ('LOAN', 'OVERDUE'):
+            flash('반납 가능한 상태가 아닙니다.', 'error')
+        else:
+            r.status = 'RETURN'
+            r.return_dt = date.today()
+            if b:
+                b.avail_cnt = (b.avail_cnt or 0) + 1
+            flash(f'"{title}" 반납 처리되었습니다.', 'success')
+
+    db.session.commit()
+    return redirect(url_for('admin_book'))
 
 @app.route('/admin/vote/create', methods=['POST'])
 @level_required(0)
@@ -1738,10 +1833,14 @@ def admin_book_export():
 def book_request_process():
     req = BookRequest.query.get_or_404(request.form.get('request_seq'))
     action = request.form.get('action')
-    req.status = 'DONE' if action == 'approve' else 'REJECT'
+    if action == 'approve':
+        req.status = 'APPROVE'
+        flash(f'"{req.title}" 매입 신청을 승인했습니다.', 'success')
+    elif action == 'reject':
+        req.status = 'REJECT'
+        flash(f'"{req.title}" 매입 신청을 반려했습니다.', 'success')
     db.session.commit()
-    flash('처리 완료되었습니다.')
-    return redirect(url_for('book'))
+    return redirect(url_for('admin_book'))
 
 
 # ══════════════════════════════════════════════════════════

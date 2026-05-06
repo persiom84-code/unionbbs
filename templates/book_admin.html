@@ -43,44 +43,71 @@
                 <table class="w-full text-left whitespace-nowrap">
                     <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th class="px-6 py-4 w-20 text-center">유형</th>
+                            <th class="px-6 py-4 w-24 text-center">상태</th>
                             <th class="px-6 py-4 w-24 text-center">신청자</th>
                             <th class="px-6 py-4">신청 도서</th>
-                            <th class="px-6 py-4 w-32 text-center">신청일</th>
-                            <th class="px-6 py-4 w-40 text-center">승인/반려</th>
+                            <th class="px-6 py-4 w-28 text-center">신청일</th>
+                            <th class="px-6 py-4 w-28 text-center">대출일</th>
+                            <th class="px-6 py-4 w-28 text-center">반납기한</th>
+                            <th class="px-6 py-4 w-44 text-center">처리</th>
                         </tr>
                     </thead>
                     <tbody class="text-sm">
-                        <!-- 파이썬에서 rental_requests 리스트를 받아와 렌더링 -->
                         {% for req in rental_requests %}
                         <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                            <td class="px-6 py-5 text-center">
-                                {% if req.type == '대출' %}
-                                <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded font-bold text-[10px]">대출</span>
-                                {% elif req.type == '예약' %}
-                                <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded font-bold text-[10px]">예약</span>
-                                {% else %}
-                                <span class="text-slate-600 bg-slate-100 px-2 py-1 rounded font-bold text-[10px]">{{ req.type }}</span>
+                            <td class="px-6 py-4 text-center">
+                                {% if req.status == 'APPLY' %}
+                                <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded font-bold text-[10px]">신청</span>
+                                {% elif req.status == 'APPROVE' %}
+                                <span class="text-blue-600 bg-blue-50 px-2 py-1 rounded font-bold text-[10px]">승인</span>
+                                {% elif req.status == 'LOAN' %}
+                                <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded font-bold text-[10px]">대출중</span>
+                                {% elif req.status == 'OVERDUE' %}
+                                <span class="text-red-600 bg-red-50 px-2 py-1 rounded font-bold text-[10px]">연체</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-5 text-center font-bold text-slate-700">{{ req.emp_nm }}</td>
-                            <td class="px-6 py-5 font-black text-slate-800">{{ req.title }}</td>
-                            <td class="px-6 py-5 text-center text-slate-500 font-mono text-xs">{{ req.req_dt }}</td>
-                            <td class="px-6 py-5 text-center space-x-1">
-                                <button onclick="processRequest(this, '승인', '{{ req.req_seq }}')" class="px-3 py-1.5 bg-yuanta text-white rounded-lg text-[10px] font-bold hover:bg-blue-800 transition-colors">승인</button>
-                                <button onclick="processRequest(this, '반려', '{{ req.req_seq }}')" class="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                            <td class="px-6 py-4 text-center font-bold text-slate-700">{{ req.emp_nm }}</td>
+                            <td class="px-6 py-4 font-black text-slate-800">{{ req.title }}</td>
+                            <td class="px-6 py-4 text-center text-slate-500 font-mono text-xs">{{ req.reg_dt }}</td>
+                            <td class="px-6 py-4 text-center text-slate-500 font-mono text-xs">{{ req.rental_dt }}</td>
+                            <td class="px-6 py-4 text-center font-mono text-xs {% if req.status == 'OVERDUE' %}text-red-600 font-bold{% else %}text-slate-500{% endif %}">{{ req.due_dt }}</td>
+                            <td class="px-6 py-4 text-center">
+                                {% if req.status == 'APPLY' %}
+                                <form method="POST" action="/admin/book/rental/process" style="display:inline;">
+                                    <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" onclick="return confirm('승인하시겠습니까?')" class="px-3 py-1.5 bg-yuanta text-white rounded-lg text-[10px] font-bold hover:bg-blue-800 transition-colors">승인</button>
+                                </form>
+                                <form method="POST" action="/admin/book/rental/process" style="display:inline;">
+                                    <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" onclick="return confirm('반려하시겠습니까?')" class="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                                </form>
+                                {% elif req.status == 'APPROVE' %}
+                                <form method="POST" action="/admin/book/rental/process" style="display:inline;">
+                                    <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">
+                                    <input type="hidden" name="action" value="loan">
+                                    <button type="submit" onclick="return confirm('도서 발송 완료 처리(대출중)로 전환하시겠습니까?')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-700 transition-colors">대출 처리</button>
+                                </form>
+                                {% elif req.status in ['LOAN', 'OVERDUE'] %}
+                                <form method="POST" action="/admin/book/rental/process" style="display:inline;">
+                                    <input type="hidden" name="rental_seq" value="{{ req.rental_seq }}">
+                                    <input type="hidden" name="action" value="return">
+                                    <button type="submit" onclick="return confirm('반납 처리하시겠습니까?')" class="px-3 py-1.5 bg-slate-700 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-colors">반납 처리</button>
+                                </form>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="py-12 text-center text-slate-400 italic border-b border-slate-50">대기 중인 신청 내역이 없습니다.</td>
+                            <td colspan="7" class="py-12 text-center text-slate-400 italic border-b border-slate-50">대기 중인 신청 내역이 없습니다.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             <div class="p-4 bg-slate-50 text-center border-t border-slate-100">
-                <p class="text-[11px] text-slate-400 italic">※ 대출 승인 시 해당 조합원의 캘린더에 일정이 동기화되며, 도서 상태가 '대출중'으로 자동 변경됩니다.</p>
+                <p class="text-[11px] text-slate-400 italic">※ 신청→승인→대출 처리(행낭 발송 시점)→반납 처리 순서로 진행됩니다. 대출 처리 시점부터 14일 후가 반납기한이며, +3일 경과 시 자동으로 연체 처리됩니다.</p>
             </div>
         </section>
 
@@ -92,19 +119,43 @@
                 </h3>
             </div>
             <div class="overflow-x-auto p-6 space-y-4">
-                <!-- 파이썬에서 purchase_requests 리스트를 받아와 렌더링 -->
-                {% for pur in purchase_requests %}
+                {% for pur in purchase_list %}
                 <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 relative">
-                    <span class="absolute top-4 right-4 text-[10px] font-bold text-slate-400">{{ pur.req_dt }} 신청</span>
+                    <div class="absolute top-4 right-4 flex items-center gap-2">
+                        {% if pur.status == 'WAIT' %}
+                        <span class="text-amber-600 bg-amber-50 px-2 py-1 rounded font-bold text-[10px]">대기</span>
+                        {% elif pur.status == 'APPROVE' %}
+                        <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded font-bold text-[10px]">승인</span>
+                        {% elif pur.status == 'REJECT' %}
+                        <span class="text-slate-500 bg-slate-100 px-2 py-1 rounded font-bold text-[10px]">반려</span>
+                        {% endif %}
+                        <span class="text-[10px] font-bold text-slate-400">{{ pur.reg_dt }}</span>
+                    </div>
                     <h4 class="text-lg font-black text-slate-800 mb-1">{{ pur.title }}</h4>
-                    <p class="text-xs text-slate-500 font-medium mb-4">{{ pur.author|default('-') }} | {{ pur.publisher|default('-') }} <span class="mx-2">|</span> 신청자: {{ pur.emp_nm }}</p>
+                    <p class="text-xs text-slate-500 font-medium mb-4">
+                        {{ pur.author or '-' }} | {{ pur.publisher or '-' }}
+                        <span class="mx-2">|</span> 신청자: {{ pur.emp_nm }}
+                        {% if pur.req_year %}<span class="mx-2">|</span> {{ pur.req_year }}년 신청{% endif %}
+                    </p>
+                    {% if pur.reason %}
                     <div class="bg-white p-4 rounded-xl border border-slate-200 text-sm text-slate-600 mb-4">
                         "{{ pur.reason }}"
                     </div>
+                    {% endif %}
+                    {% if pur.status == 'WAIT' %}
                     <div class="flex justify-end space-x-2">
-                        <button onclick="processPurchase('{{ pur.req_seq }}', '승인')" class="px-5 py-2 bg-yuanta text-white rounded-xl text-[11px] font-bold hover:bg-blue-800 transition-colors">구매 승인</button>
-                        <button onclick="processPurchase('{{ pur.req_seq }}', '반려')" class="px-5 py-2 bg-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                        <form method="POST" action="/admin/book/request/process" style="display:inline;">
+                            <input type="hidden" name="request_seq" value="{{ pur.request_seq }}">
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" onclick="return confirm('매입 신청을 승인하시겠습니까? (신청자의 연간 5권 카운트에 포함됩니다)')" class="px-5 py-2 bg-yuanta text-white rounded-xl text-[11px] font-bold hover:bg-blue-800 transition-colors">구매 승인</button>
+                        </form>
+                        <form method="POST" action="/admin/book/request/process" style="display:inline;">
+                            <input type="hidden" name="request_seq" value="{{ pur.request_seq }}">
+                            <input type="hidden" name="action" value="reject">
+                            <button type="submit" onclick="return confirm('매입 신청을 반려하시겠습니까?')" class="px-5 py-2 bg-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-300 transition-colors">반려</button>
+                        </form>
                     </div>
+                    {% endif %}
                 </div>
                 {% else %}
                 <div class="py-12 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100">
@@ -304,22 +355,6 @@
                     tab.className = "px-6 py-2.5 text-slate-500 rounded-xl text-xs font-bold hover:text-slate-800 transition-all";
                 }
             });
-        }
-
-        // [프론트엔드 액션 시뮬레이션용 업데이트]
-        function processRequest(btnElement, action, reqId) {
-            if(confirm(`해당 신청을 [${action}] 처리하시겠습니까?`)) {
-                // 향후 백엔드 API 연동 위치: fetch(`/api/book/request/${reqId}`, { method: 'POST', body: JSON.stringify({ action: action }) })
-                btnElement.parentElement.innerHTML = `<span class="text-xs font-bold text-slate-400">처리완료 (${action})</span>`;
-            }
-        }
-
-        function processPurchase(reqId, action) {
-            if(confirm(`이 구매 신청을 [${action}] 처리하시겠습니까?`)) {
-                // 향후 백엔드 연동 위치
-                alert(`처리되었습니다.`);
-                // UI 상에서 해당 박스 숨기기 등 처리 가능
-            }
         }
 
         function openBookModal() {
