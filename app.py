@@ -2193,6 +2193,62 @@ def add_test_users(batch=1):
         db.session.rollback()
         return f'오류: {str(e)}'
 
+@app.route('/admin/book/recalc-avail')
+@level_required(0)
+def admin_book_recalc_avail():
+    """
+    [일회용 진단/복구 라우트]
+    Book.avail_cnt 를 BookRental의 실제 활성 LOAN/OVERDUE 카운트 기준으로 재계산.
+    이전 작업 잔재로 avail_cnt와 실제 대출 상태가 어긋난 경우 정리.
+    폐쇄망 이전 시 삭제 대상.
+    """
+    from collections import Counter
+    try:
+        # 활성 대출(LOAN/OVERDUE) book_seq별 카운트
+        active = BookRental.query.filter(
+            BookRental.status.in_(['LOAN', 'OVERDUE'])
+        ).all()
+        active_count = Counter(r.book_seq for r in active)
+
+        books = Book.query.filter_by(use_yn='Y').all()
+        fixed = []
+        for b in books:
+            total = b.total_cnt or 1
+            in_use = active_count.get(b.book_seq, 0)
+            correct_avail = max(0, total - in_use)
+            if b.avail_cnt != correct_avail:
+                fixed.append({
+                    'book_seq': b.book_seq,
+                    'title':    b.title,
+                    'before':   b.avail_cnt,
+                    'after':    correct_avail,
+                    'in_use':   in_use,
+                })
+                b.avail_cnt = correct_avail
+
+        db.session.commit()
+
+        # 결과 리포트 (HTML 간단 출력)
+        html = ['<h2>도서 avail_cnt 재계산 완료</h2>',
+                f'<p>전체 도서: {len(books)}권 / 보정된 도서: {len(fixed)}권</p>']
+        if fixed:
+            html.append('<table border="1" cellpadding="6" style="border-collapse:collapse;font-family:monospace;font-size:12px;">')
+            html.append('<tr><th>seq</th><th>도서명</th><th>변경 전</th><th>변경 후</th><th>활성대출수</th></tr>')
+            for f in fixed:
+                html.append(f'<tr><td>{f["book_seq"]}</td><td>{f["title"]}</td>'
+                            f'<td style="color:#dc2626">{f["before"]}</td>'
+                            f'<td style="color:#16a34a">{f["after"]}</td>'
+                            f'<td>{f["in_use"]}</td></tr>')
+            html.append('</table>')
+        else:
+            html.append('<p>모든 도서 정합성 OK — 보정 불필요.</p>')
+        html.append('<p><a href="/admin/book">← 도서 관리로 돌아가기</a></p>')
+        return '\n'.join(html)
+    except Exception as e:
+        db.session.rollback()
+        return f'오류: {str(e)}'
+
+
 @app.route('/admin/migrate')
 @level_required(0)
 def migrate():

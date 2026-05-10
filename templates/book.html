@@ -109,9 +109,9 @@
                             {% if my_status == 'APPLY' %}
                                 <span class="badge badge-yellow">신청중</span>
                             {% elif my_status == 'LOAN' %}
-                                <span class="badge badge-blue">대출중 (내 도서)</span>
+                                <span class="badge badge-blue">대출중</span>
                             {% elif my_status == 'OVERDUE' %}
-                                <span class="badge badge-red">연체 (내 도서)</span>
+                                <span class="badge badge-red">연체</span>
                             {% elif book.avail_cnt and book.avail_cnt > 0 %}
                                 <span class="badge badge-green">대출가능</span>
                             {% else %}
