@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비조합원 콘도 신청 - UNION BBS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #dbeafe 100%);
+            min-height: 100vh;
+            padding: 40px 16px;
+        }
+        .wrap {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 900;
+            color: #00479d;
+            font-style: italic;
+            letter-spacing: -.5px;
+            margin: 0 0 8px;
+        }
+        .header p {
+            font-size: 13px;
+            color: #64748b;
+            margin: 0;
+        }
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.06);
+            border: 1px solid #e8eef5;
+        }
+        .step-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            padding: 0 8px;
+        }
+        .step-dot {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+        .step-dot:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            right: -50%;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 0;
+        }
+        .step-dot.active:not(:last-child)::after { background: #00479d; }
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            margin: 0 auto 6px;
+            position: relative;
+            z-index: 1;
+        }
+        .step-dot.active .step-circle { background: #00479d; color: #fff; }
+        .step-dot.done .step-circle { background: #16a34a; color: #fff; }
+        .step-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        .step-dot.active .step-label { color: #00479d; }
+
+        .step-content { display: none; }
+        .step-content.active { display: block; }
+
+        .step-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+        .step-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        .form-row { margin-bottom: 14px; }
+        .form-row label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .form-row label .required { color: #dc2626; margin-left: 2px; }
+        .form-input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            background: #f8fafc;
+            font-family: 'Pretendard', sans-serif;
+            outline: none;
+            transition: all .15s;
+        }
+        .form-input:focus { border-color: #00479d; background: #fff; }
+
+        .facility-list {
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 8px;
+            background: #f8fafc;
+        }
+        .facility-item {
+            padding: 12px 14px;
+            background: #fff;
+            border: 1.5px solid transparent;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .facility-item:hover { border-color: #cbd5e1; }
+        .facility-item.selected { border-color: #00479d; background: #eff6ff; }
+        .facility-item .name { font-weight: 800; color: #0f172a; font-size: 14px; }
+        .facility-item .info { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+        .room-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
+        .room-item {
+            padding: 12px;
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            transition: all .15s;
+        }
+        .room-item:hover { border-color: #cbd5e1; }
+        .room-item.selected { border-color: #00479d; background: #eff6ff; color: #00479d; }
+
+        .summary-box {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+        .summary-row .label { color: #64748b; font-weight: 600; }
+        .summary-row .value { color: #0f172a; font-weight: 800; }
+
+        .agree-box {
+            background: #fef3c7;
+            border: 1.5px solid #fde68a;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: #92400e;
+        }
+        .agree-box label {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .agree-box input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 24px;
+        }
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            border: none;
+            font-family: 'Pretendard', sans-serif;
+            transition: all .15s;
+        }
+        .btn-prev { background: #f1f5f9; color: #64748b; }
+        .btn-prev:hover { background: #e2e8f0; }
+        .btn-next { background: #00479d; color: #fff; }
+        .btn-next:hover { background: #003580; }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .back-link:hover { color: #00479d; }
+
+        .flash {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="header">
+        <h1>비조합원 콘도 신청</h1>
+        <p>유안타증권 노동조합 — 회사 임직원 외 신청</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="flash">{{ msg }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="card">
+        <!-- 단계 표시 -->
+        <div class="step-bar">
+            <div class="step-dot active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">본인 정보</div>
+            </div>
+            <div class="step-dot" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">시설 선택</div>
+            </div>
+            <div class="step-dot" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">객실/일정</div>
+            </div>
+            <div class="step-dot" data-step="4">
+                <div class="step-circle">4</div>
+                <div class="step-label">확인/제출</div>
+            </div>
+        </div>
+
+        <form id="guest-form" method="POST" action="/condo/guest/apply">
+
+            <!-- ── Step 1: 본인 정보 ── -->
+            <div class="step-content active" data-step="1">
+                <div class="step-title">본인 정보 입력</div>
+                <div class="step-desc">정확한 신청 처리와 결과 안내를 위해 모든 항목을 정확하게 입력해주세요.</div>
+
+                <div class="form-row">
+                    <label>성명 <span class="required">*</span></label>
+                    <input type="text" name="guest_name" id="guest_name" class="form-input" required maxlength="50" placeholder="홍길동">
+                </div>
+                <div class="form-row">
+                    <label>회사 사번 <span class="required">*</span></label>
+                    <input type="text" name="guest_emp_no" id="guest_emp_no" class="form-input" required maxlength="30" placeholder="회사에서 부여된 사번">
+                </div>
+                <div class="form-row">
+                    <label>연락처 <span class="required">*</span></label>
+                    <input type="tel" name="guest_phone" id="guest_phone" class="form-input" required maxlength="20" placeholder="010-0000-0000">
+                </div>
+                <div class="form-row">
+                    <label>이메일 <span class="required">*</span></label>
+                    <input type="email" name="guest_email" id="guest_email" class="form-input" required maxlength="100" placeholder="example@yuanta.com">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-next" onclick="nextStep(1)">다음 →</button>
+                </div>
+            </div>
+
+            <!-- ── Step 2: 시설 선택 ── -->
+            <div class="step-content" data-step="2">
+                <div class="step-title">콘도 시설 선택</div>
+                <div class="step-desc">아래 목록에서 신청하실 시설을 클릭해주세요.</div>
+
+                <div class="facility-list" id="facility-list">
+                    {% for f in facility_list %}
+                    <div class="facility-item" data-id="{{ f.facility_id }}" data-name="{{ f.facility_name }}" onclick="selectFacility(this)">
+                        <div class="name">{{ f.facility_name }}</div>
+                        <div class="info">
+                            {{ f.brand_name }} · {{ f.resort_name }}
+                            {% if f.region_name %}<span style="margin-left:6px;color:#94a3b8;">({{ f.region_name }})</span>{% endif %}
+                            {% if f.location %}<br>{{ f.location }}{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="facility_id" id="facility_id" required>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-prev" onclick="prevStep(2)">← 이전</button>
+                    <button type="button" class="btn btn-next" onclick="nextStep(2)">다음 →</button>
+                </div>
+            </div>
+
+            <!-- ── Step 3: 객실 / 일정 ── -->
+            <div class="step-content" data-step="3">
+                <div class="step-title">객실 및 일정 선택</div>
+                <div class="step-desc">신청하실 객실 유형과 체크인/체크아웃 일자를 선택해주세요. (체크인 3주 이전 신청 불가)</div>
+
+                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">객실 유형</label>
+                <div class="room-list" id="room-list"></div>
+                <input type="hidden" name="room_id" id="room_id">
+
+                <div class="form-row">
+                    <label>체크인 <span class="required">*</span></label>
+                    <input type="date" name="check_in" id="check_in" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <label>체크아웃 <span class="required">*</span></label>
+                    <input type="date" name="check_out" id="check_out" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <label>비고 (선택)</label>
+                    <textarea name="memo" class="form-input" rows="3" maxlength="300" placeholder="요청사항이 있다면 작성해주세요"></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-prev" onclick="prevStep(3)">← 이전</button>
+                    <button type="button" class="btn btn-next" onclick="nextStep(3)">다음 →</button>
+                </div>
+            </div>
+
+            <!-- ── Step 4: 확인/제출 ── -->
+            <div class="step-content" data-step="4">
+                <div class="step-title">신청 내용 확인</div>
+                <div class="step-desc">아래 내용으로 신청하시겠습니까? 제출 후에는 변경 및 취소가 어려우니 정확히 확인해주세요.</div>
+
+                <div class="summary-box" id="summary-box"></div>
+
+                <div class="agree-box">
+                    <label>
+                        <input type="checkbox" name="agree" value="Y" id="agree" required>
+                        <span>입력한 정보가 정확하며, 신청 후 변경 및 취소는 노동조합에 직접 연락하여 처리해야 함을 동의합니다.</span>
+                    </label>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-prev" onclick="prevStep(4)">← 이전</button>
+                    <button type="submit" class="btn btn-next">신청 제출</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div style="text-align:center;">
+        <a href="/login" class="back-link">← 로그인 페이지로 돌아가기</a>
+    </div>
+</div>
+
+<script>
+const ROOMS_BY_FACILITY = {{ rooms_by_facility|tojson }};
+let currentStep = 1;
+
+function showStep(step) {
+    currentStep = step;
+    document.querySelectorAll('.step-content').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.step) === step);
+    });
+    document.querySelectorAll('.step-bar .step-dot').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.toggle('active', s === step);
+        el.classList.toggle('done', s < step);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep(from) {
+    // 단계별 검증
+    if (from === 1) {
+        const fields = ['guest_name','guest_emp_no','guest_phone','guest_email'];
+        for (const f of fields) {
+            const el = document.getElementById(f);
+            if (!el.value.trim()) {
+                alert('모든 항목을 입력해주세요.');
+                el.focus();
+                return;
+            }
+        }
+        // 이메일 간단 검증
+        const email = document.getElementById('guest_email').value;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            alert('올바른 이메일 형식이 아닙니다.');
+            return;
+        }
+    } else if (from === 2) {
+        if (!document.getElementById('facility_id').value) {
+            alert('시설을 선택해주세요.');
+            return;
+        }
+        // 객실 목록 갱신
+        renderRooms();
+    } else if (from === 3) {
+        if (!document.getElementById('check_in').value || !document.getElementById('check_out').value) {
+            alert('체크인/체크아웃 일자를 선택해주세요.');
+            return;
+        }
+        const ci = new Date(document.getElementById('check_in').value);
+        const co = new Date(document.getElementById('check_out').value);
+        if (co <= ci) { alert('체크아웃은 체크인보다 늦어야 합니다.'); return; }
+        const today = new Date(); today.setHours(0,0,0,0);
+        const diffDays = Math.floor((ci - today) / (1000*60*60*24));
+        if (diffDays < 21) { alert('체크인 3주 이전에는 신청이 불가합니다.'); return; }
+        // 요약 갱신
+        renderSummary();
+    }
+    showStep(from + 1);
+}
+
+function prevStep(from) { showStep(from - 1); }
+
+function selectFacility(el) {
+    document.querySelectorAll('.facility-item').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('facility_id').value = el.dataset.id;
+}
+
+function renderRooms() {
+    const fid = document.getElementById('facility_id').value;
+    const rooms = ROOMS_BY_FACILITY[fid] || [];
+    const list = document.getElementById('room-list');
+    if (!rooms.length) {
+        list.innerHTML = '<div style="grid-column:1/-1;padding:14px;text-align:center;color:#94a3b8;font-size:12px;">등록된 객실 유형이 없습니다. 객실 선택 없이 진행 가능합니다.</div>';
+        return;
+    }
+    list.innerHTML = rooms.map(r =>
+        `<div class="room-item" data-id="${r.room_id}" onclick="selectRoom(this)">${r.room_type}</div>`
+    ).join('');
+}
+
+function selectRoom(el) {
+    document.querySelectorAll('.room-item').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('room_id').value = el.dataset.id;
+}
+
+function renderSummary() {
+    const facName = document.querySelector('.facility-item.selected')?.dataset.name || '-';
+    const roomName = document.querySelector('.room-item.selected')?.textContent || '미선택';
+    const ci = document.getElementById('check_in').value;
+    const co = document.getElementById('check_out').value;
+    const summary = `
+        <div class="summary-row"><span class="label">신청자</span><span class="value">${document.getElementById('guest_name').value}</span></div>
+        <div class="summary-row"><span class="label">사번</span><span class="value">${document.getElementById('guest_emp_no').value}</span></div>
+        <div class="summary-row"><span class="label">연락처</span><span class="value">${document.getElementById('guest_phone').value}</span></div>
+        <div class="summary-row"><span class="label">이메일</span><span class="value">${document.getElementById('guest_email').value}</span></div>
+        <div class="summary-row"><span class="label">시설</span><span class="value">${facName}</span></div>
+        <div class="summary-row"><span class="label">객실</span><span class="value">${roomName}</span></div>
+        <div class="summary-row"><span class="label">체크인</span><span class="value">${ci}</span></div>
+        <div class="summary-row"><span class="label">체크아웃</span><span class="value">${co}</span></div>
+    `;
+    document.getElementById('summary-box').innerHTML = summary;
+}
+
+// 체크인 최소 날짜 = 오늘+21일
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    today.setDate(today.getDate() + 21);
+    const minDate = today.toISOString().slice(0,10);
+    document.getElementById('check_in').min = minDate;
+    document.getElementById('check_out').min = minDate;
+});
+</script>
+
+</body>
+</html>

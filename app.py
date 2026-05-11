@@ -265,6 +265,11 @@ class CondoReserve(db.Model):
     status      = db.Column(db.String(10), default='APPLY')
     memo        = db.Column(db.Text)
     cancel_dt   = db.Column(db.DateTime)
+    is_guest      = db.Column(db.String(1), default='N')   # 비조합원 신청 여부
+    guest_name    = db.Column(db.String(100))
+    guest_emp_no  = db.Column(db.String(50))
+    guest_phone   = db.Column(db.String(30))
+    guest_email   = db.Column(db.String(200))
     use_yn      = db.Column(db.String(1), default='Y')
     reg_dt      = db.Column(db.DateTime, default=datetime.now)
 
@@ -1151,6 +1156,104 @@ def condo_apply():
     flash('콘도 신청이 완료되었습니다.')
     return redirect(url_for('condo'))
 
+
+# ── 비조합원 콘도 신청 (비로그인) ──────────────────────────
+
+@app.route('/condo/guest', methods=['GET'])
+def condo_guest():
+    """비조합원 콘도 신청 페이지 (비로그인 접근 허용)"""
+    facilities = CondoFacility.query.options(
+        joinedload(CondoFacility.resort).joinedload(CondoResort.brand)
+    ).filter_by(use_yn='Y').order_by(CondoFacility.sort_order).all()
+    facility_list = [{
+        'facility_id':   f.facility_id,
+        'facility_name': f.facility_name,
+        'brand_name':    f.resort.brand.brand_name if f.resort and f.resort.brand else '',
+        'resort_name':   f.resort.resort_name if f.resort else '',
+        'location':      f.location or '',
+        'region_name':   f.region_name or '',
+    } for f in facilities]
+
+    rooms_by_facility = {}
+    rooms = CondoRoom.query.filter_by(use_yn='Y').order_by(CondoRoom.sort_order).all()
+    for r in rooms:
+        rooms_by_facility.setdefault(r.facility_id, []).append({
+            'room_id':   r.room_id,
+            'room_type': r.room_type,
+        })
+
+    return render_template('condo_guest.html',
+        facility_list=facility_list,
+        rooms_by_facility=rooms_by_facility,
+    )
+
+
+@app.route('/condo/guest/apply', methods=['POST'])
+def condo_guest_apply():
+    """비조합원 신청 처리"""
+    try:
+        guest_name   = (request.form.get('guest_name') or '').strip()
+        guest_emp_no = (request.form.get('guest_emp_no') or '').strip()
+        guest_phone  = (request.form.get('guest_phone') or '').strip()
+        guest_email  = (request.form.get('guest_email') or '').strip()
+        facility_id  = request.form.get('facility_id')
+        room_id      = request.form.get('room_id') or None
+        check_in_str = request.form.get('check_in')
+        check_out_str= request.form.get('check_out')
+        memo         = (request.form.get('memo') or '').strip() or None
+        agree        = request.form.get('agree')
+
+        # 필수값 검증
+        if not all([guest_name, guest_emp_no, guest_phone, guest_email,
+                    facility_id, check_in_str, check_out_str]):
+            flash('모든 필수 항목을 입력해주세요.', 'error')
+            return redirect(url_for('condo_guest'))
+
+        if agree != 'Y':
+            flash('약관에 동의하셔야 신청이 가능합니다.', 'error')
+            return redirect(url_for('condo_guest'))
+
+        check_in  = datetime.strptime(check_in_str, '%Y-%m-%d').date()
+        check_out = datetime.strptime(check_out_str, '%Y-%m-%d').date()
+
+        if check_out <= check_in:
+            flash('퇴실일은 입실일보다 늦어야 합니다.', 'error')
+            return redirect(url_for('condo_guest'))
+
+        # 3주 이내 신청 차단 (조합원 정책과 동일)
+        if (check_in - date.today()).days < 21:
+            flash('체크인 3주 이전에는 신청이 불가합니다.', 'error')
+            return redirect(url_for('condo_guest'))
+
+        reserve = CondoReserve(
+            facility_id  = facility_id,
+            room_id      = room_id,
+            emp_no       = None,
+            check_in     = check_in,
+            check_out    = check_out,
+            memo         = memo,
+            status       = 'APPLY',
+            is_guest     = 'Y',
+            guest_name   = guest_name,
+            guest_emp_no = guest_emp_no,
+            guest_phone  = guest_phone,
+            guest_email  = guest_email,
+        )
+        db.session.add(reserve)
+        db.session.commit()
+
+        # 신청완료 페이지로 신청번호 전달
+        return render_template('condo_guest_done.html',
+            reserve_seq = reserve.reserve_seq,
+            guest_name  = guest_name,
+            guest_email = guest_email,
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash(f'신청 중 오류가 발생했습니다: {str(e)}', 'error')
+        return redirect(url_for('condo_guest'))
+
+
 @app.route('/admin/condo')
 @level_required(1)
 def admin_condo():
@@ -1169,10 +1272,14 @@ def admin_condo():
 
     rows = []
     for r, f, u in reserve_list:
+        is_guest = (r.is_guest == 'Y')
         rows.append({
             'reserve_seq':   r.reserve_seq,
-            'emp_nm':        u.emp_nm if u else '-',
-            'phone_no':      u.phone_no if u else '',
+            'is_guest':      is_guest,
+            'emp_nm':        (r.guest_name if is_guest else (u.emp_nm if u else '-')),
+            'emp_no':        (r.guest_emp_no if is_guest else r.emp_no),
+            'phone_no':      (r.guest_phone if is_guest else (u.phone_no if u else '')),
+            'email':         (r.guest_email if is_guest else (u.email if u else '')),
             'facility_name': f.facility_name,
             'check_in':      r.check_in,
             'check_out':     r.check_out,
@@ -1215,10 +1322,12 @@ def admin_condo():
         approved_query = approved_query.filter(User.emp_nm.ilike(f'%{emp_nm_q}%'))
     approved_rows = []
     for r, f, u in approved_query.order_by(CondoReserve.check_in.desc()).all():
+        is_guest = (r.is_guest == 'Y')
         approved_rows.append({
             'reserve_seq':   r.reserve_seq,
-            'emp_nm':        u.emp_nm if u else '-',
-            'emp_no':        r.emp_no,
+            'is_guest':      is_guest,
+            'emp_nm':        (r.guest_name if is_guest else (u.emp_nm if u else '-')),
+            'emp_no':        (r.guest_emp_no if is_guest else r.emp_no),
             'facility_name': f.facility_name,
             'check_in':      r.check_in,
             'check_out':     r.check_out,
@@ -2336,6 +2445,12 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_CONDO_ROOM" ADD COLUMN IF NOT EXISTS price_extra INTEGER DEFAULT 0'))
             # TB_CONDO_RESERVE 비고 컬럼 추가
             conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS memo TEXT'))
+            # 비조합원 신청용 컬럼
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS is_guest VARCHAR(1) DEFAULT \'N\''))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS guest_name VARCHAR(100)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS guest_emp_no VARCHAR(50)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS guest_phone VARCHAR(30)'))
+            conn.execute(db.text('ALTER TABLE "TB_CONDO_RESERVE" ADD COLUMN IF NOT EXISTS guest_email VARCHAR(200)'))
             # TB_CONDO_SEASON 시즌 관리 테이블
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_CONDO_SEASON" (
                 season_seq   SERIAL PRIMARY KEY,

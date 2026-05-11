@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신청 완료 - UNION BBS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #dbeafe 100%);
+            min-height: 100vh;
+            padding: 60px 16px;
+        }
+        .wrap {
+            max-width: 520px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .card {
+            background: #fff;
+            border-radius: 24px;
+            padding: 48px 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.08);
+            border: 1px solid #e8eef5;
+        }
+        .check-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #dcfce7;
+            color: #16a34a;
+            font-size: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        h1 {
+            font-size: 22px;
+            font-weight: 900;
+            color: #0f172a;
+            margin: 0 0 8px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin: 0 0 28px;
+        }
+        .reserve-no {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .reserve-no .label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            margin-bottom: 8px;
+        }
+        .reserve-no .number {
+            font-size: 36px;
+            font-weight: 900;
+            color: #00479d;
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+        .info-text {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            text-align: left;
+            font-size: 12px;
+            color: #92400e;
+            line-height: 1.7;
+        }
+        .info-text strong { font-weight: 800; }
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background: #00479d;
+            color: #fff;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            text-decoration: none;
+            transition: all .15s;
+        }
+        .btn:hover { background: #003580; }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="card">
+        <div class="check-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <h1>신청이 접수되었습니다</h1>
+        <p class="subtitle">{{ guest_name }} 님, 콘도 신청이 정상 접수되었습니다.</p>
+
+        <div class="reserve-no">
+            <div class="label">신청 번호</div>
+            <div class="number">#{{ '%05d' % reserve_seq }}</div>
+        </div>
+
+        <div class="info-text">
+            <strong>📌 안내사항</strong><br>
+            • 위 <strong>신청번호</strong>는 추후 문의 시 필요하니 반드시 캡처/메모해 주세요.<br>
+            • 입력하신 이메일(<strong>{{ guest_email }}</strong>)로 신청번호 안내가 발송될 예정입니다.<br>
+            • 신청 결과(승인/반려)는 노동조합 담당자가 직접 연락드립니다.<br>
+            • 신청 변경/취소는 노동조합으로 직접 연락 부탁드립니다.
+        </div>
+
+        <a href="/login" class="btn">메인으로</a>
+    </div>
+</div>
+
+</body>
+</html>
