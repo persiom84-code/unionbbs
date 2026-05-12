@@ -551,7 +551,7 @@ def notice_delete(notice_seq):
     return redirect(url_for('notice'))
 
 @app.route('/notice/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def notice_save():
     current_user = get_current_user()
     file_url  = None
@@ -851,7 +851,7 @@ def vote_submit():
     return redirect(url_for('vote'))
 
 @app.route('/admin/vote')
-@level_required(1)
+@level_required(0)
 def admin_vote():
     current_user = get_current_user()
     votes = Vote.query.order_by(Vote.reg_dt.desc()).all()
@@ -882,7 +882,7 @@ def admin_vote():
     )
 
 @app.route('/admin/book')
-@level_required(1)
+@level_required(0)
 def admin_book():
     current_user = get_current_user()
     keyword = request.args.get('q', '').strip()
@@ -957,7 +957,7 @@ def admin_book():
 
 
 @app.route('/admin/book/rental/process', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def admin_book_rental_process():
     """대출 신청 처리 - approve/reject/loan/return"""
     rental_seq = request.form.get('rental_seq')
@@ -1254,8 +1254,73 @@ def condo_guest_apply():
         return redirect(url_for('condo_guest'))
 
 
+@app.route('/condo/guest/lookup', methods=['GET', 'POST'])
+def condo_guest_lookup():
+    """비조합원 신청 조회 (로그인 불필요)"""
+    result   = None
+    searched = False
+    error    = None
+
+    if request.method == 'POST':
+        reserve_no_input = (request.form.get('reserve_no') or '').strip().upper()
+        phone_last4      = (request.form.get('phone_last4') or '').strip()
+        searched = True
+
+        # 신청번호 파싱: CONDO-YYYY-NNNNN → reserve_seq 추출
+        import re as _re
+        m = _re.match(r'^CONDO-\d{4}-(\d+)$', reserve_no_input)
+        if not m:
+            error = '신청번호 형식이 올바르지 않습니다. (예: CONDO-2026-00042)'
+        elif not phone_last4.isdigit() or len(phone_last4) != 4:
+            error = '전화번호 끝 4자리는 숫자 4자리로 입력해주세요.'
+        else:
+            seq = int(m.group(1))
+            reserve = CondoReserve.query.filter_by(
+                reserve_seq=seq,
+                is_guest='Y',
+                use_yn='Y'
+            ).first()
+
+            if not reserve:
+                error = '신청 내역을 찾을 수 없습니다.'
+            elif not reserve.guest_phone or not reserve.guest_phone.endswith(phone_last4):
+                error = '전화번호 끝 4자리가 일치하지 않습니다.'
+            else:
+                facility = CondoFacility.query.get(reserve.facility_id)
+                room     = CondoRoom.query.get(reserve.room_id) if reserve.room_id else None
+
+                status_map = {
+                    'APPLY':   ('대기중',  '#92400e', '#fef3c7'),
+                    'CONFIRM': ('승인',    '#166534', '#dcfce7'),
+                    'CANCEL':  ('취소',    '#991b1b', '#fee2e2'),
+                    'REJECT':  ('반려',    '#6b7280', '#f3f4f6'),
+                }
+                st = status_map.get(reserve.status, (reserve.status, '#374151', '#f8fafc'))
+
+                result = {
+                    'reserve_no':    f'CONDO-{reserve.reg_dt.year}-{reserve.reserve_seq:05d}',
+                    'guest_name':    reserve.guest_name,
+                    'facility_name': facility.facility_name if facility else '-',
+                    'region_name':   facility.region_name   if facility else '-',
+                    'room_type':     room.room_type          if room     else '-',
+                    'check_in':      reserve.check_in.strftime('%Y년 %m월 %d일'),
+                    'check_out':     reserve.check_out.strftime('%Y년 %m월 %d일'),
+                    'memo':          reserve.memo or '',
+                    'reg_dt':        reserve.reg_dt.strftime('%Y년 %m월 %d일'),
+                    'status_nm':     st[0],
+                    'status_color':  st[1],
+                    'status_bg':     st[2],
+                }
+
+    return render_template('guest_lookup.html',
+        result=result,
+        searched=searched,
+        error=error,
+    )
+
+
 @app.route('/admin/condo')
-@level_required(1)
+@level_required(0)
 def admin_condo():
     current_user = get_current_user()
     brands    = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
@@ -1351,7 +1416,7 @@ def admin_condo():
     )
 
 @app.route('/admin/condo/reserve/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_reserve_save():
     reserve = CondoReserve.query.get_or_404(request.form.get('reserve_seq'))
     action  = request.form.get('action')
@@ -1365,7 +1430,7 @@ def condo_reserve_save():
     return redirect(url_for('admin_condo'))
 
 @app.route('/admin/condo/brand/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_brand_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1387,7 +1452,7 @@ def condo_brand_save():
     return redirect(url_for('admin_condo'))
 
 @app.route('/admin/condo/resort/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_resort_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1411,7 +1476,7 @@ def condo_resort_save():
     return redirect(url_for('admin_condo'))
 
 @app.route('/admin/condo/facility/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_facility_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1448,7 +1513,7 @@ def condo_facility_save():
     return redirect(url_for('admin_condo'))
 
 @app.route('/admin/condo/room/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_room_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1483,7 +1548,7 @@ def condo_room_save():
     db.session.commit()
     return redirect(url_for('admin_condo'))
 @app.route('/admin/condo/import', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_facility_import():
     import csv, io
     f = request.files.get('csv_file')
@@ -1567,7 +1632,7 @@ def condo_facility_import():
     return redirect(url_for('admin_condo'))
 # ══════════════════════════════════════════════════════════
 @app.route('/admin/condo/reserve/export')
-@level_required(1)
+@level_required(0)
 def condo_reserve_export():
     import csv, io
     date_from = request.args.get('date_from', '')
@@ -1607,7 +1672,7 @@ def condo_reserve_export():
     )
 
 @app.route('/admin/condo/season/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def condo_season_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1828,7 +1893,7 @@ def book_request():
     return redirect(url_for('book'))
 
 @app.route('/admin/book/save', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def book_admin_save():
     action = request.form.get('action')
     if action == 'add':
@@ -1858,7 +1923,7 @@ def book_admin_save():
 
 
 @app.route('/admin/book/import', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def admin_book_import():
     import csv, io
     f = request.files.get('csv_file')
@@ -1909,7 +1974,7 @@ def admin_book_import():
 
 
 @app.route('/admin/book/export')
-@level_required(1)
+@level_required(0)
 def admin_book_export():
     import csv, io
     books = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
@@ -1939,7 +2004,7 @@ def admin_book_export():
     )
 
 @app.route('/admin/book/request/process', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def book_request_process():
     req = BookRequest.query.get_or_404(request.form.get('request_seq'))
     action = request.form.get('action')
@@ -2055,35 +2120,77 @@ def admin_about_save():
 # Routes - 프로필
 # ══════════════════════════════════════════════════════════
 
-@app.route('/profile/edit', methods=['GET', 'POST'])
+@app.route('/profile', methods=['GET', 'POST'])
+@app.route('/profile/edit', methods=['GET', 'POST'])   # 구 URL 호환
 @login_required
 def profile_edit():
     current_user = get_current_user()
+
     if request.method == 'POST':
-        new_pwd = request.form.get('new_password', '')
-        cur_pwd = request.form.get('current_password', '')
+        action = request.form.get('action', 'pwd')
 
-        try:
-            pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
-        except Exception:
-            pw_match = (cur_pwd == current_user.emp_no)
+        if action == 'pwd':
+            cur_pwd = request.form.get('current_password', '')
+            new_pwd = request.form.get('new_password', '')
+            new_pwd_cfm = request.form.get('new_password_confirm', '')
 
-        if not pw_match:
-            flash('현재 비밀번호가 올바르지 않습니다.')
-        elif len(new_pwd) < 8:
-            flash('새 비밀번호는 8자리 이상이어야 합니다.')
-        else:
-            hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
-            current_user.pwd_hash   = hashed
-            current_user.pwd_chg_dt = date.today()
-            current_user.mod_dt     = datetime.now()
-            db.session.commit()
-            flash('비밀번호가 변경되었습니다.')
-            return redirect(url_for('main'))
+            try:
+                pw_match = bcrypt.checkpw(cur_pwd.encode(), current_user.pwd_hash.encode())
+            except Exception:
+                pw_match = (cur_pwd == current_user.emp_no)
 
-    return render_template('main.html',
+            if not pw_match:
+                flash('현재 비밀번호가 올바르지 않습니다.', 'error')
+            elif len(new_pwd) < 8:
+                flash('새 비밀번호는 8자리 이상이어야 합니다.', 'error')
+            elif new_pwd != new_pwd_cfm:
+                flash('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error')
+            elif new_pwd == current_user.emp_no:
+                flash('사번과 동일한 비밀번호는 사용할 수 없습니다.', 'error')
+            else:
+                hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
+                current_user.pwd_hash   = hashed
+                current_user.pwd_chg_dt = date.today()
+                current_user.pwd_init_yn = 'N'
+                current_user.mod_dt     = datetime.now()
+                db.session.commit()
+                flash('비밀번호가 변경되었습니다.', 'success')
+                return redirect(url_for('profile_edit'))
+
+    # 코드 이름 조회
+    rank_nm     = Code.query.filter_by(code_cd=current_user.rank_cd).first()
+    position_nm = Code.query.filter_by(code_cd=current_user.position_cd).first()
+    dept_nm     = CompDept.query.filter_by(dept_cd=current_user.dept_cd).first()
+
+    level_map = {0:'관리자', 1:'집행위원', 2:'대의원', 3:'분회장', 4:'일반조합원', 5:'명예조합원', 99:'비조합원'}
+    level_nm  = level_map.get(current_user.user_level, '-')
+
+    # 콘도 신청 이력 (최근 10건)
+    condo_history = (
+        db.session.query(CondoReserve, CondoFacility)
+        .join(CondoFacility, CondoReserve.facility_id == CondoFacility.facility_id)
+        .filter(CondoReserve.emp_no == current_user.emp_no, CondoReserve.use_yn == 'Y')
+        .order_by(CondoReserve.reg_dt.desc())
+        .limit(10).all()
+    )
+
+    # 도서 대출 이력 (최근 10건)
+    book_history = (
+        db.session.query(BookRental, Book)
+        .join(Book, BookRental.book_seq == Book.book_seq)
+        .filter(BookRental.emp_no == current_user.emp_no)
+        .order_by(BookRental.reg_dt.desc())
+        .limit(10).all()
+    )
+
+    return render_template('profile.html',
         current_user=current_user,
-        show_profile=True,
+        rank_nm     = rank_nm.code_nm     if rank_nm     else '-',
+        position_nm = position_nm.code_nm if position_nm else '-',
+        dept_nm     = dept_nm.dept_nm      if dept_nm     else '-',
+        level_nm    = level_nm,
+        condo_history = condo_history,
+        book_history  = book_history,
         active_menu='profile'
     )
 
@@ -2122,7 +2229,7 @@ def force_pwd_change():
 
 
 @app.route('/admin/user/reset-pwd', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def admin_reset_pwd():
     target_emp_no = request.form.get('emp_no', '').strip()
     target_user   = User.query.filter_by(emp_no=target_emp_no, use_yn='Y').first()
@@ -2164,7 +2271,7 @@ def admin_user_update():
         return jsonify({'ok': False, 'msg': f'오류: {str(e)}'})
 
 @app.route('/admin/user/list')
-@level_required(1)
+@level_required(0)
 def admin_user_list():
     current_user = get_current_user()
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
@@ -2472,7 +2579,7 @@ def migrate():
 # ══════════════════════════════════════════════════════════
 
 @app.route('/admin/user/export')
-@level_required(1)
+@level_required(0)
 def admin_user_export():
     import csv, io
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
@@ -2509,7 +2616,7 @@ def admin_user_export():
 
 
 @app.route('/admin/user/import', methods=['POST'])
-@level_required(1)
+@level_required(0)
 def admin_user_import():
     import csv, io
     f = request.files.get('csv_file')
