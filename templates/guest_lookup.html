@@ -200,11 +200,12 @@
 
       <form method="POST" action="/condo/guest/lookup">
         <div class="form-group">
-          <label>신청번호 <span style="color:#e85d04;">*</span></label>
-          <input type="text" name="reserve_no" placeholder="CONDO-2026-00042"
-                 value="{{ request.form.get('reserve_no', '') }}"
-                 style="text-transform:uppercase;" required>
-          <div class="form-hint">신청 완료 시 발급된 번호를 입력하세요.</div>
+          <label>신청번호 끝 4자리 <span style="color:#e85d04;">*</span></label>
+          <input type="text" name="seq_last4" placeholder="0042"
+                 maxlength="4" pattern="\d{4}"
+                 value="{{ request.form.get('seq_last4', '') }}"
+                 required>
+          <div class="form-hint">신청 완료 페이지에서 확인한 번호의 끝 4자리 (예: CONDO-2026-<b>0042</b>)</div>
         </div>
         <div class="form-group">
           <label>전화번호 끝 4자리 <span style="color:#e85d04;">*</span></label>

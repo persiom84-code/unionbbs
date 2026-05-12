@@ -1262,29 +1262,30 @@ def condo_guest_lookup():
     error    = None
 
     if request.method == 'POST':
-        reserve_no_input = (request.form.get('reserve_no') or '').strip().upper()
-        phone_last4      = (request.form.get('phone_last4') or '').strip()
+        seq_last4   = (request.form.get('seq_last4') or '').strip()
+        phone_last4 = (request.form.get('phone_last4') or '').strip()
         searched = True
 
-        # 신청번호 파싱: CONDO-YYYY-NNNNN → reserve_seq 추출
-        import re as _re
-        m = _re.match(r'^CONDO-\d{4}-(\d+)$', reserve_no_input)
-        if not m:
-            error = '신청번호 형식이 올바르지 않습니다. (예: CONDO-2026-00042)'
+        # 신청번호 끝 4자리 + 전화번호 끝 4자리로 조회
+        if not seq_last4.isdigit() or len(seq_last4) != 4:
+            error = '신청번호 끝 4자리는 숫자 4자리로 입력해주세요.'
         elif not phone_last4.isdigit() or len(phone_last4) != 4:
             error = '전화번호 끝 4자리는 숫자 4자리로 입력해주세요.'
         else:
-            seq = int(m.group(1))
-            reserve = CondoReserve.query.filter_by(
-                reserve_seq=seq,
-                is_guest='Y',
-                use_yn='Y'
-            ).first()
+            # reserve_seq 끝 4자리가 일치하는 비조합원 신청 검색
+            candidates = CondoReserve.query.filter_by(
+                is_guest='Y', use_yn='Y'
+            ).all()
+            reserve = next(
+                (r for r in candidates
+                 if str(r.reserve_seq).endswith(seq_last4)
+                 and r.guest_phone
+                 and r.guest_phone.endswith(phone_last4)),
+                None
+            )
 
             if not reserve:
-                error = '신청 내역을 찾을 수 없습니다.'
-            elif not reserve.guest_phone or not reserve.guest_phone.endswith(phone_last4):
-                error = '전화번호 끝 4자리가 일치하지 않습니다.'
+                error = '신청 내역을 찾을 수 없습니다. 입력 정보를 다시 확인해주세요.'
             else:
                 facility = CondoFacility.query.get(reserve.facility_id)
                 room     = CondoRoom.query.get(reserve.room_id) if reserve.room_id else None
