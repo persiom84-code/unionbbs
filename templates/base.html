@@ -219,8 +219,10 @@
 
     <!-- 로고 -->
     <div class="sidebar-logo">
-        <p style="font-size:17px;font-weight:900;font-style:italic;letter-spacing:-.5px;color:#fbbf24;">UNION BBS</p>
-        <p style="font-size:8px;opacity:.45;color:#bfdbfe;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-top:2px;">Yuanta Securities Union</p>
+        <a href="/" style="text-decoration:none;display:block;">
+            <p style="font-size:17px;font-weight:900;font-style:italic;letter-spacing:-.5px;color:#fbbf24;">UNION BBS</p>
+            <p style="font-size:8px;opacity:.45;color:#bfdbfe;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-top:2px;">Yuanta Securities Union</p>
+        </a>
     </div>
 
     <!-- 네비게이션 -->
@@ -261,7 +263,7 @@
             <span style="font-size:8px;background:#ef4444;color:#fff;padding:2px 6px;border-radius:20px;font-weight:900;letter-spacing:.02em;">VOTE</span>
         </a>
 
-        {% if lv <= 1 %}
+        {% if lv == 0 %}
         <p class="nav-section">Admin</p>
         <a href="/admin/vote" class="nav-item {% if am=='admin_vote' %}active{% endif %}">
             <i class="fas fa-poll"></i>투표 관리
@@ -301,7 +303,7 @@
             </div>
         </div>
         <div style="display:flex;gap:6px;">
-            <a href="/profile/edit" style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:700;padding:7px;border-radius:8px;text-decoration:none;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
+            <a href="/profile" style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:700;padding:7px;border-radius:8px;text-decoration:none;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">
                 <i class="fas fa-cog" style="margin-right:4px;"></i>설정
             </a>
             <a href="/logout" style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:700;padding:7px;border-radius:8px;text-decoration:none;transition:background .15s;" onmouseover="this.style.background='rgba(220,38,38,.5)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">

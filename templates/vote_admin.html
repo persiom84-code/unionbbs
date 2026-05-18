@@ -16,7 +16,7 @@
         .custom-checkbox:checked { background-color: #00479d; border-color: #00479d; }</style>
 {% endblock %}
 
-{% set active_menu = 'vote_admin' %}
+{% set active_menu = 'admin_vote' %}
 
 {% block content %}
 <!-- 헤더 영역 -->
@@ -54,7 +54,8 @@
                     </thead>
                     <tbody class="text-sm divide-y divide-slate-50">
                         {% for vote in admin_votes %}
-                        <tr class="hover:bg-slate-50/50 transition-colors">
+                        <!-- 메인 행 -->
+                        <tr class="hover:bg-slate-50/50 transition-colors cursor-pointer" onclick="toggleResult('result-{{ vote.vote_seq }}')">
                             <td class="px-6 py-4 text-center text-slate-400 font-mono">{{ vote.vote_seq }}</td>
                             <td class="px-6 py-4">
                                 <p class="font-black text-slate-700 text-base mb-1">{{ vote.title }}</p>
@@ -68,8 +69,41 @@
                             <td class="px-6 py-4 text-center">
                                 {% if vote.status == '진행중' %}
                                 <span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold">진행중</span>
+                                {% elif vote.status == '예정' %}
+                                <span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">예정</span>
                                 {% else %}
                                 <span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold">종료</span>
+                                {% endif %}
+                                <i class="fas fa-chevron-down text-slate-300 text-[10px] block mt-1 result-chevron-{{ vote.vote_seq }}"></i>
+                            </td>
+                        </tr>
+                        <!-- 결과 펼침 행 -->
+                        <tr id="result-{{ vote.vote_seq }}" style="display:none;">
+                            <td colspan="5" class="px-8 py-6 bg-slate-50 border-t border-slate-100">
+                                {% if vote.results %}
+                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">
+                                    <i class="fas fa-chart-bar mr-1"></i>항목별 결과
+                                </p>
+                                <div style="display:flex;flex-direction:column;gap:10px;max-width:600px;">
+                                    {% for r in vote.results %}
+                                    <div>
+                                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                            <span style="font-size:13px;font-weight:{% if r.is_max %}800{% else %}600{% endif %};color:{% if r.is_max %}#00479d{% else %}#475569{% endif %};">
+                                                {{ r.name }}
+                                                {% if r.is_max %}<i class="fas fa-crown" style="color:#f59e0b;margin-left:6px;font-size:10px;"></i>{% endif %}
+                                            </span>
+                                            <span style="font-size:13px;font-weight:800;color:{% if r.is_max %}#00479d{% else %}#94a3b8{% endif %};">
+                                                {{ r.pct }}% <span style="font-size:10px;font-weight:600;">({{ r.cnt }}표)</span>
+                                            </span>
+                                        </div>
+                                        <div style="background:#e8eef5;border-radius:20px;height:8px;overflow:hidden;">
+                                            <div style="background:#00479d;height:100%;border-radius:20px;width:{{ r.pct }}%;{% if not r.is_max %}opacity:.35;{% endif %}transition:width .6s ease;"></div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <p class="text-sm text-slate-400 italic">선택지 데이터가 없습니다.</p>
                                 {% endif %}
                             </td>
                         </tr>
@@ -189,11 +223,20 @@
 
                     <!-- 분회 선택 -->
                     <div id="branch-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-                        <p class="text-xs text-slate-500 font-bold"><i class="fas fa-sitemap mr-1"></i>체크한 분회 소속 조합원만 투표 가능합니다.</p>
-                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <!-- 전체 선택 헤더 -->
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-slate-500 font-bold"><i class="fas fa-sitemap mr-1"></i>체크한 분회 소속 조합원만 투표 가능합니다.</p>
+                            <label class="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-4 py-2 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" id="check-all-depts" class="w-4 h-4" onchange="toggleAllDepts(this)">
+                                <span class="text-sm font-bold text-slate-700">전체 선택</span>
+                                <span id="dept-count" class="text-xs font-bold text-yuanta ml-1">(0/{{ union_dept_list|length }})</span>
+                            </label>
+                        </div>
+                        <!-- 분회 목록 -->
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="dept-checkbox-grid">
                             {% for d in union_dept_list %}
                             <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
-                                <input type="checkbox" name="target_dept[]" value="{{ d.cd }}" class="w-4 h-4 text-yuanta">
+                                <input type="checkbox" name="target_dept[]" value="{{ d.cd }}" class="dept-checkbox w-4 h-4 text-yuanta" onchange="updateDeptCount()">
                                 <span class="text-sm font-bold text-slate-700">{{ d.nm }}</span>
                                 <span class="text-[10px] font-mono text-slate-400 ml-auto">{{ d.cd }}</span>
                             </label>
@@ -283,6 +326,28 @@
             items.forEach(item => item.checked = checkbox.checked);
         }
 
+        function toggleAllDepts(master) {
+            document.querySelectorAll('.dept-checkbox').forEach(cb => cb.checked = master.checked);
+            updateDeptCount();
+        }
+
+        function updateDeptCount() {
+            const all   = document.querySelectorAll('.dept-checkbox');
+            const checked = document.querySelectorAll('.dept-checkbox:checked');
+            document.getElementById('dept-count').textContent = `(${checked.length}/${all.length})`;
+            // 전체선택 체크박스 indeterminate 처리
+            const master = document.getElementById('check-all-depts');
+            if (checked.length === 0) {
+                master.indeterminate = false;
+                master.checked = false;
+            } else if (checked.length === all.length) {
+                master.indeterminate = false;
+                master.checked = true;
+            } else {
+                master.indeterminate = true;
+            }
+        }
+
         let itemCount = 2;
         function addVoteItem() {
             itemCount++;
@@ -307,6 +372,15 @@
                 itemCount++;
                 num.textContent = itemCount;
             });
+        }
+
+        function toggleResult(id) {
+            const row = document.getElementById(id);
+            const seq = id.replace('result-', '');
+            const chevron = document.querySelector('.result-chevron-' + seq);
+            const isOpen = row.style.display !== 'none';
+            row.style.display = isOpen ? 'none' : 'table-row';
+            if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
         }
     </script>
 {% endblock %}

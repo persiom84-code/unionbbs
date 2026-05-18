@@ -856,21 +856,46 @@ def admin_vote():
     current_user = get_current_user()
     votes = Vote.query.order_by(Vote.reg_dt.desc()).all()
     vote_data = []
+    now = datetime.utcnow() + KST
     for v in votes:
-        total = v.total_cnt or 1
-        cnt   = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
-        now   = datetime.utcnow() + KST
+        total  = v.total_cnt or 1
+        cnt    = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
         status = '진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료')
+
+        # 항목별 결과
+        items    = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
+        i_total  = sum(i.item_cnt for i in items) or 1
+        max_cnt  = max((i.item_cnt for i in items), default=0)
+        results  = [{
+            'name':   i.item_nm,
+            'cnt':    i.item_cnt,
+            'pct':    round(i.item_cnt / i_total * 100, 1),
+            'is_max': i.item_cnt == max_cnt and max_cnt > 0,
+        } for i in items]
+
+        # 대상 분회
+        targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
+        if targets:
+            dept_nms = []
+            for t in targets:
+                d = UnionDept.query.filter_by(union_dept_cd=t.union_dept_cd).first()
+                dept_nms.append(d.union_dept_nm if d else t.union_dept_cd)
+            target_group = ', '.join(dept_nms)
+        else:
+            target_group = '전 조합원'
+
         vote_data.append({
-            'vote_seq': v.vote_seq,
-            'title': v.title,
-            'target_group': '전 조합원',
-            'start_dt': v.start_dt.strftime('%Y.%m.%d') if v.start_dt else '-',
-            'end_dt':   v.end_dt.strftime('%Y.%m.%d')   if v.end_dt   else '-',
+            'vote_seq':           v.vote_seq,
+            'title':              v.title,
+            'content':            v.content or '',
+            'target_group':       target_group,
+            'start_dt':           v.start_dt.strftime('%Y.%m.%d') if v.start_dt else '-',
+            'end_dt':             v.end_dt.strftime('%Y.%m.%d')   if v.end_dt   else '-',
             'participation_rate': round(cnt / total * 100, 1),
-            'participant_cnt': cnt,
-            'total_voters': total,
-            'status': status,
+            'participant_cnt':    cnt,
+            'total_voters':       total,
+            'status':             status,
+            'results':            results,
         })
     union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
     union_dept_list = [{'cd': d.union_dept_cd, 'nm': d.union_dept_nm} for d in union_depts]
