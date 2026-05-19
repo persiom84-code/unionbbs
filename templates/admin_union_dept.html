@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %} - 분회 관리{% endblock %}
+{% block title %} - 분회/부서 관리{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -10,74 +10,174 @@
             <h2 class="text-2xl font-black italic tracking-tighter text-slate-800 flex items-center">
                 <i class="fas fa-sitemap text-yuanta mr-3"></i>UNION DEPT
             </h2>
-            <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">분회 생성 · 수정 · 삭제 및 소속 부서 관리</p>
+            <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">분회 · 부서 생성 · 수정 · 삭제 및 소속 관리</p>
         </div>
-        <button onclick="openAddModal()"
-            class="px-5 py-2 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition-all">
-            <i class="fas fa-plus mr-2"></i>분회 추가
+        <div id="header-btn-group" class="flex gap-2">
+            <button id="btn-add-union" onclick="openAddModal()"
+                class="px-5 py-2 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800 transition-all">
+                <i class="fas fa-plus mr-2"></i>분회 추가
+            </button>
+            <button id="btn-add-comp" onclick="openCompAddModal()" style="display:none;"
+                class="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all">
+                <i class="fas fa-plus mr-2"></i>부서 추가
+            </button>
+        </div>
+    </div>
+
+    <!-- 탭 -->
+    <div class="flex gap-2 mb-2">
+        <button id="tab-union" onclick="switchTab('union')"
+            class="px-6 py-2.5 bg-white border-2 border-yuanta text-yuanta rounded-xl text-sm font-bold transition-all">
+            <i class="fas fa-sitemap mr-2"></i>분회 관리
+        </button>
+        <button id="tab-comp" onclick="switchTab('comp')"
+            class="px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all">
+            <i class="fas fa-building mr-2"></i>부서 관리
         </button>
     </div>
 
-    <!-- 분회 목록 -->
-    <div class="content-card overflow-hidden">
-        <div class="p-5 border-b border-slate-100 bg-slate-50/50">
-            <h3 class="font-bold text-slate-700 text-sm"><i class="fas fa-list text-yuanta mr-2"></i>분회 목록</h3>
+    <!-- ══ 분회 탭 ══ -->
+    <div id="view-union">
+        <div class="content-card overflow-hidden">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 text-sm"><i class="fas fa-list text-yuanta mr-2"></i>분회 목록</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-5 py-4 w-28">분회 코드</th>
+                            <th class="px-5 py-4">분회명</th>
+                            <th class="px-5 py-4 w-20 text-center">순서</th>
+                            <th class="px-5 py-4 w-24 text-center">인원</th>
+                            <th class="px-5 py-4">소속 회사 부서</th>
+                            <th class="px-5 py-4 w-40 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for d in dept_list %}
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.cd }}</td>
+                            <td class="px-5 py-4 font-bold text-slate-800">{{ d.nm }}</td>
+                            <td class="px-5 py-4 text-center text-slate-400 text-xs">{{ d.sort_order }}</td>
+                            <td class="px-5 py-4 text-center">
+                                <span class="badge bg-blue-50 text-blue-600">{{ d.member_cnt }}명</span>
+                            </td>
+                            <td class="px-5 py-4">
+                                {% if d.comp_depts %}
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                    {% for dept in d.comp_depts %}
+                                        <span style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;font-size:11px;">
+                                            {{ dept.nm }}
+                                            <button type="button"
+                                                onclick="confirmUnassign('{{ d.cd }}','{{ d.nm }}','{{ dept.cd }}')"
+                                                style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:10px;padding:0;line-height:1;"
+                                                title="{{ dept.cd }} 해제">✕</button>
+                                        </span>
+                                    {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-slate-300 text-xs">미배정</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button onclick="openEditModal('{{ d.cd }}','{{ d.nm }}','{{ d.sort_order }}')"
+                                        class="px-3 py-1.5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-pen mr-1"></i>수정
+                                    </button>
+                                    <button onclick="openAssignModal('{{ d.cd }}','{{ d.nm }}')"
+                                        class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-users mr-1"></i>배정
+                                    </button>
+                                    <button onclick="confirmDelete('{{ d.cd }}','{{ d.nm }}')"
+                                        class="px-3 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-trash mr-1"></i>삭제
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="py-16 text-center text-slate-300 text-sm italic">등록된 분회가 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                    <tr>
-                        <th class="px-5 py-4 w-28">분회 코드</th>
-                        <th class="px-5 py-4">분회명</th>
-                        <th class="px-5 py-4 w-20 text-center">순서</th>
-                        <th class="px-5 py-4 w-24 text-center">인원</th>
-                        <th class="px-5 py-4 w-48 text-center">소속 회사 부서</th>
-                        <th class="px-5 py-4 w-36 text-center">관리</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                    {% for d in dept_list %}
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.cd }}</td>
-                        <td class="px-5 py-4 font-bold text-slate-800">{{ d.nm }}</td>
-                        <td class="px-5 py-4 text-center text-slate-400 text-xs">{{ d.sort_order }}</td>
-                        <td class="px-5 py-4 text-center">
-                            <span class="badge bg-blue-50 text-blue-600">{{ d.member_cnt }}명</span>
-                        </td>
-                        <td class="px-5 py-4 text-center text-xs text-slate-500">
-                            {% if d.comp_depts %}
-                                {{ d.comp_depts | join(', ') }}
-                            {% else %}
-                                <span class="text-slate-300">미배정</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-5 py-4 text-center flex items-center justify-center gap-2">
-                            <button onclick="openEditModal('{{ d.cd }}','{{ d.nm }}','{{ d.sort_order }}')"
-                                class="px-3 py-1.5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-500 rounded-lg text-[10px] font-black transition-all">
-                                <i class="fas fa-pen mr-1"></i>수정
-                            </button>
-                            <button onclick="openAssignModal('{{ d.cd }}','{{ d.nm }}')"
-                                class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-600 rounded-lg text-[10px] font-black transition-all">
-                                <i class="fas fa-users mr-1"></i>부서배정
-                            </button>
-                            <button onclick="confirmDelete('{{ d.cd }}','{{ d.nm }}')"
-                                class="px-3 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-500 rounded-lg text-[10px] font-black transition-all">
-                                <i class="fas fa-trash mr-1"></i>삭제
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="py-16 text-center text-slate-300 text-sm italic">등록된 분회가 없습니다.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    </div>
+
+    <!-- ══ 부서 탭 ══ -->
+    <div id="view-comp" style="display:none;">
+        <div class="content-card overflow-hidden">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h3 class="font-bold text-slate-700 text-sm"><i class="fas fa-building text-emerald-600 mr-2"></i>회사 부서 목록</h3>
+                <!-- CSV 업로드 -->
+                <form action="/admin/comp-dept/import" method="POST" enctype="multipart/form-data"
+                      style="display:flex;gap:8px;align-items:center;">
+                    <label style="font-size:11px;font-weight:700;color:#64748b;">
+                        <i class="fas fa-file-csv text-emerald-500 mr-1"></i>CSV 업로드
+                    </label>
+                    <input type="file" name="file" accept=".csv"
+                           style="font-size:11px;color:#475569;"
+                           onchange="this.form.submit()">
+                </form>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-5 py-4 w-32">부서 코드</th>
+                            <th class="px-5 py-4">부서명</th>
+                            <th class="px-5 py-4 w-28 text-center">상위 부서</th>
+                            <th class="px-5 py-4 w-20 text-center">순서</th>
+                            <th class="px-5 py-4 w-24 text-center">상태</th>
+                            <th class="px-5 py-4 w-36 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for d in all_comp_depts_full %}
+                        <tr class="hover:bg-slate-50/50 transition-colors {% if d.use_yn == 'N' %}opacity-40{% endif %}">
+                            <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.dept_cd }}</td>
+                            <td class="px-5 py-4 font-bold text-slate-800">{{ d.dept_nm }}</td>
+                            <td class="px-5 py-4 text-center text-xs text-slate-400">{{ d.parent_dept_cd or '-' }}</td>
+                            <td class="px-5 py-4 text-center text-xs text-slate-400">{{ d.sort_order }}</td>
+                            <td class="px-5 py-4 text-center">
+                                {% if d.use_yn == 'Y' %}
+                                <span class="badge bg-green-50 text-green-600">활성</span>
+                                {% else %}
+                                <span class="badge bg-slate-100 text-slate-400">비활성</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button onclick="openCompEditModal('{{ d.dept_cd }}','{{ d.dept_nm }}')"
+                                        class="px-3 py-1.5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-pen mr-1"></i>수정
+                                    </button>
+                                    {% if d.use_yn == 'Y' %}
+                                    <button onclick="confirmCompDeactivate('{{ d.dept_cd }}','{{ d.dept_nm }}')"
+                                        class="px-3 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-ban mr-1"></i>비활성
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="py-16 text-center text-slate-300 text-sm italic">등록된 부서가 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- 분회 추가 모달 -->
+<!-- ══ 분회 추가 모달 ══ -->
 <div id="add-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
         <div class="bg-slate-50 border-b border-slate-100 px-6 py-5 flex justify-between items-center">
@@ -92,7 +192,7 @@
             </div>
             <div>
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">분회명</label>
-                <input type="text" name="union_dept_nm" required placeholder="예: 서울지부" class="form-input">
+                <input type="text" name="union_dept_nm" required placeholder="예: 강남분회" class="form-input">
             </div>
             <div>
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">정렬 순서</label>
@@ -106,7 +206,7 @@
     </div>
 </div>
 
-<!-- 분회 수정 모달 -->
+<!-- ══ 분회 수정 모달 ══ -->
 <div id="edit-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
         <div class="bg-slate-50 border-b border-slate-100 px-6 py-5 flex justify-between items-center">
@@ -136,35 +236,52 @@
     </div>
 </div>
 
-<!-- 부서 배정 모달 -->
+<!-- ══ 부서 배정 모달 (멀티선택) ══ -->
 <div id="assign-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         <div class="bg-emerald-50 border-b border-emerald-100 px-6 py-5 flex justify-between items-center">
-            <h3 class="font-black text-emerald-700 flex items-center gap-2"><i class="fas fa-users"></i>회사 부서 배정</h3>
+            <h3 class="font-black text-emerald-700 flex items-center gap-2">
+                <i class="fas fa-users"></i>회사 부서 배정
+                <span id="assign-count" class="text-xs font-bold text-emerald-500 ml-2">(0/{{ all_comp_depts|length }})</span>
+            </h3>
             <button onclick="closeModal('assign-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
         </div>
         <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
             <input type="hidden" name="action" value="assign">
             <input type="hidden" name="target_union_dept_cd" id="assign-union-cd">
             <p id="assign-dept-nm" class="text-sm font-black text-slate-700"></p>
-            <p class="text-xs text-slate-400">선택한 회사 부서의 모든 직원이 이 분회로 배정됩니다.</p>
-            <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">회사 부서 선택</label>
-                <select name="dept_cd" class="form-input">
-                    {% for d in all_comp_depts %}
-                    <option value="{{ d.dept_cd }}">{{ d.dept_nm }} ({{ d.dept_cd }})</option>
-                    {% endfor %}
-                </select>
+            <p class="text-xs text-slate-400">선택한 부서의 모든 조합원이 이 분회로 배정됩니다. 복수 선택 가능합니다.</p>
+            <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2 border border-slate-200">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="assign-check-all" class="w-4 h-4" onchange="toggleAssignAll(this)">
+                    <span class="text-sm font-bold text-slate-600">전체 선택</span>
+                </label>
+                <input type="text" id="assign-search" placeholder="부서명 검색..."
+                    oninput="filterAssignDepts(this.value)"
+                    style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;width:160px;">
+            </div>
+            <div id="assign-dept-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;border:1px solid #e2e8f0;border-radius:12px;padding:8px;">
+                {% for d in all_comp_depts %}
+                <label class="assign-dept-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-all"
+                       data-nm="{{ d.dept_nm }}">
+                    <input type="checkbox" name="dept_cd[]" value="{{ d.dept_cd }}"
+                           class="assign-dept-cb w-4 h-4 text-emerald-500" onchange="updateAssignCount()">
+                    <span class="text-sm font-bold text-slate-700">{{ d.dept_nm }}</span>
+                    <span class="text-[10px] font-mono text-slate-400 ml-auto">{{ d.dept_cd }}</span>
+                </label>
+                {% endfor %}
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal('assign-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
-                <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600">배정</button>
+                <button type="submit" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600">
+                    <i class="fas fa-check mr-1"></i>배정
+                </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- 삭제 확인 모달 -->
+<!-- ══ 분회 삭제 확인 모달 ══ -->
 <div id="delete-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
         <div class="bg-red-50 border-b border-red-100 px-6 py-5">
@@ -174,7 +291,7 @@
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="union_dept_cd" id="delete-cd">
             <p id="delete-msg" class="text-sm text-slate-600 leading-relaxed"></p>
-            <p class="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">삭제 시 소속 인원의 분회 배정이 해제됩니다.</p>
+            <p class="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">삭제 시 소속 인원의 분회 배정이 해제되고 매핑 정보도 삭제됩니다.</p>
             <div class="flex gap-3">
                 <button type="button" onclick="closeModal('delete-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
                 <button type="submit" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">삭제</button>
@@ -183,33 +300,151 @@
     </div>
 </div>
 
-<!-- 토스트 -->
-<div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 hidden">
-    <div class="bg-slate-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-2xl flex items-center gap-2">
-        <i class="fas fa-check-circle text-green-400"></i>
-        <span id="toast-msg"></span>
+<!-- ══ 부서 배정 해제 모달 ══ -->
+<div id="unassign-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-orange-50 border-b border-orange-100 px-6 py-5">
+            <h3 class="font-black text-orange-700 flex items-center gap-2"><i class="fas fa-unlink"></i>부서 배정 해제</h3>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="unassign">
+            <input type="hidden" name="target_union_dept_cd" id="unassign-union-cd">
+            <input type="hidden" name="dept_cd" id="unassign-dept-cd">
+            <p id="unassign-msg" class="text-sm text-slate-600 leading-relaxed"></p>
+            <p class="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">해당 부서 조합원의 분회 배정만 해제됩니다. 계정은 유지됩니다.</p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeModal('unassign-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-orange-500 text-white rounded-xl text-sm font-bold hover:bg-orange-600">해제</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 부서 추가 모달 ══ -->
+<div id="comp-add-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-emerald-50 border-b border-emerald-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-emerald-700 flex items-center gap-2"><i class="fas fa-plus"></i>부서 추가</h3>
+            <button onclick="closeModal('comp-add-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="comp_add">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">부서 코드 <span class="text-red-400">*불변</span></label>
+                <input type="text" name="dept_cd" required placeholder="예: D001" class="form-input">
+                <p class="text-[10px] text-slate-400 mt-1">한번 설정된 코드는 변경 불가합니다.</p>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">부서명</label>
+                <input type="text" name="dept_nm" required placeholder="예: 강남지점" class="form-input">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">정렬 순서</label>
+                <input type="number" name="sort_order" value="0" class="form-input">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('comp-add-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 부서 수정 모달 ══ -->
+<div id="comp-edit-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-slate-50 border-b border-slate-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-slate-700 flex items-center gap-2"><i class="fas fa-pen text-emerald-600"></i>부서명 수정</h3>
+            <button onclick="closeModal('comp-edit-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="comp_edit">
+            <input type="hidden" name="dept_cd" id="comp-edit-cd">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">부서 코드 (불변)</label>
+                <input type="text" id="comp-edit-cd-display" class="form-input" disabled>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">부서명</label>
+                <input type="text" name="dept_nm" id="comp-edit-nm" required class="form-input">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('comp-edit-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 부서 비활성화 확인 모달 ══ -->
+<div id="comp-deactivate-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-red-50 border-b border-red-100 px-6 py-5">
+            <h3 class="font-black text-red-700 flex items-center gap-2"><i class="fas fa-ban"></i>부서 비활성화 확인</h3>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="comp_deactivate">
+            <input type="hidden" name="dept_cd" id="comp-deactivate-cd">
+            <p id="comp-deactivate-msg" class="text-sm text-slate-600 leading-relaxed"></p>
+            <p class="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">비활성화 시 해당 부서의 분회 매핑이 해제됩니다. 부서 코드는 보존됩니다.</p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeModal('comp-deactivate-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">비활성화</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
 
 {% block page_script %}
 <script>
+    let currentTab = 'union';
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById('view-union').style.display = tab === 'union' ? 'block' : 'none';
+        document.getElementById('view-comp').style.display  = tab === 'comp'  ? 'block' : 'none';
+        document.getElementById('tab-union').className = tab === 'union'
+            ? 'px-6 py-2.5 bg-white border-2 border-yuanta text-yuanta rounded-xl text-sm font-bold transition-all'
+            : 'px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all';
+        document.getElementById('tab-comp').className = tab === 'comp'
+            ? 'px-6 py-2.5 bg-white border-2 border-emerald-500 text-emerald-600 rounded-xl text-sm font-bold transition-all'
+            : 'px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all';
+        document.getElementById('btn-add-union').style.display = tab === 'union' ? 'block' : 'none';
+        document.getElementById('btn-add-comp').style.display  = tab === 'comp'  ? 'block' : 'none';
+    }
+
+    // ── 분회 모달 ──────────────────────────────────
     function openAddModal() {
         const m = document.getElementById('add-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }
     function openEditModal(cd, nm, sort) {
-        document.getElementById('edit-cd').value       = cd;
-        document.getElementById('edit-cd-display').value = cd;
-        document.getElementById('edit-nm').value       = nm;
-        document.getElementById('edit-sort').value     = sort;
+        document.getElementById('edit-cd').value          = cd;
+        document.getElementById('edit-cd-display').value  = cd;
+        document.getElementById('edit-nm').value          = nm;
+        document.getElementById('edit-sort').value        = sort;
         const m = document.getElementById('edit-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }
     function openAssignModal(cd, nm) {
-        document.getElementById('assign-union-cd').value = cd;
-        document.getElementById('assign-dept-nm').textContent = nm + ' 분회에 배정할 회사 부서를 선택하세요.';
+        document.getElementById('assign-union-cd').value  = cd;
+        document.getElementById('assign-dept-nm').textContent = nm + ' 분회에 배정할 부서를 선택하세요.';
+        document.querySelectorAll('.assign-dept-cb').forEach(cb => cb.checked = false);
+        document.getElementById('assign-check-all').checked = false;
+        document.getElementById('assign-check-all').indeterminate = false;
+        document.getElementById('assign-search').value = '';
+        document.querySelectorAll('.assign-dept-item').forEach(el => el.style.display = 'flex');
+        updateAssignCount();
         const m = document.getElementById('assign-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function confirmUnassign(unionCd, unionNm, deptCd) {
+        document.getElementById('unassign-union-cd').value = unionCd;
+        document.getElementById('unassign-dept-cd').value  = deptCd;
+        document.getElementById('unassign-msg').innerHTML  =
+            `<strong>${unionNm}</strong> 분회에서 <strong>${deptCd}</strong> 부서를 해제하시겠습니까?`;
+        const m = document.getElementById('unassign-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }
     function confirmDelete(cd, nm) {
@@ -219,6 +454,52 @@
         const m = document.getElementById('delete-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }
+
+    // ── 전체선택/검색 ──────────────────────────────
+    function toggleAssignAll(master) {
+        document.querySelectorAll('.assign-dept-cb').forEach(cb => {
+            const item = cb.closest('.assign-dept-item');
+            if (item.style.display !== 'none') cb.checked = master.checked;
+        });
+        updateAssignCount();
+    }
+    function updateAssignCount() {
+        const all     = document.querySelectorAll('.assign-dept-cb');
+        const checked = document.querySelectorAll('.assign-dept-cb:checked');
+        document.getElementById('assign-count').textContent = `(${checked.length}/${all.length})`;
+        const master = document.getElementById('assign-check-all');
+        if (checked.length === 0) { master.indeterminate = false; master.checked = false; }
+        else if (checked.length === all.length) { master.indeterminate = false; master.checked = true; }
+        else { master.indeterminate = true; }
+    }
+    function filterAssignDepts(q) {
+        const kw = q.trim().toLowerCase();
+        document.querySelectorAll('.assign-dept-item').forEach(el => {
+            el.style.display = (!kw || el.dataset.nm.toLowerCase().includes(kw)) ? 'flex' : 'none';
+        });
+    }
+
+    // ── 부서 모달 ──────────────────────────────────
+    function openCompAddModal() {
+        const m = document.getElementById('comp-add-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function openCompEditModal(cd, nm) {
+        document.getElementById('comp-edit-cd').value         = cd;
+        document.getElementById('comp-edit-cd-display').value = cd;
+        document.getElementById('comp-edit-nm').value         = nm;
+        const m = document.getElementById('comp-edit-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function confirmCompDeactivate(cd, nm) {
+        document.getElementById('comp-deactivate-cd').value = cd;
+        document.getElementById('comp-deactivate-msg').innerHTML =
+            `<strong class="text-slate-800">${nm} (${cd})</strong> 부서를 비활성화하시겠습니까?`;
+        const m = document.getElementById('comp-deactivate-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+
+    // ── 공통 닫기 ──────────────────────────────────
     function closeModal(id) {
         const m = document.getElementById(id);
         m.classList.add('hidden'); m.classList.remove('flex');

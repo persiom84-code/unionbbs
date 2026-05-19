@@ -263,6 +263,17 @@
                     {% endfor %}
                 </select>
             </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    소속 부서 <span style="font-size:9px;color:#94a3b8;font-weight:400;">(발령 시 변경 — 분회 자동 재배정)</span>
+                </label>
+                <select id="edit-dept-cd" class="form-input">
+                    <option value="">변경 없음</option>
+                    {% for d in comp_depts %}
+                    <option value="{{ d.dept_cd }}">{{ d.dept_nm }} ({{ d.dept_cd }})</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
         <div class="px-6 pb-6 flex gap-3">
             <button onclick="closeEditModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">취소</button>
@@ -336,12 +347,13 @@
         setTimeout(() => toast.classList.add('hidden'), 3500);
     }
 
-    function openEditModal(empNo, empNm, level, position, unionDept) {
+    function openEditModal(empNo, empNm, level, position, unionDept, deptCd) {
         document.getElementById('edit-emp-no').value = empNo;
         document.getElementById('edit-modal-name').textContent = empNm + ' (' + empNo + ')';
         document.getElementById('edit-level').value = level;
         document.getElementById('edit-position').value = position || '';
         document.getElementById('edit-union-dept').value = unionDept || '';
+        document.getElementById('edit-dept-cd').value = '';  // 발령은 항상 초기화
         const modal = document.getElementById('edit-modal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -360,11 +372,13 @@
 
         // 한 번에 level + position 전송
         const unionDept = document.getElementById('edit-union-dept').value;
+        const deptCd = document.getElementById('edit-dept-cd').value;
         const fd = new FormData();
         fd.append('emp_no',         empNo);
         fd.append('user_level',     level);
         fd.append('position_cd',    position);
         fd.append('union_dept_cd',  unionDept);
+        fd.append('dept_cd',        deptCd);
         const res  = await fetch('/admin/user/update', { method: 'POST', body: fd });
         const data = await res.json();
 

@@ -86,6 +86,13 @@ class UnionDept(db.Model):
     sort_order     = db.Column(db.Integer, default=0)
     use_yn         = db.Column(db.String(1), default='Y')
 
+class UnionDeptMap(db.Model):
+    """분회 ↔ 회사부서 매핑 (TB_UNION_DEPT_MAP)"""
+    __tablename__ = 'TB_UNION_DEPT_MAP'
+    map_seq       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    union_dept_cd = db.Column(db.String(20), nullable=False)
+    dept_cd       = db.Column(db.String(20), nullable=False)
+
 class Code(db.Model):
     __tablename__ = 'TB_CODE'
     code_seq   = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -2290,6 +2297,14 @@ def admin_user_update():
         user.position_cd   = position_cd if position_cd else None
         union_dept_cd = request.form.get('union_dept_cd', '').strip()
         user.union_dept_cd = union_dept_cd if union_dept_cd else None
+        # 부서 변경(발령)
+        dept_cd = request.form.get('dept_cd', '').strip()
+        if dept_cd:
+            user.dept_cd = dept_cd
+            # UnionDeptMap 기반 분회 자동 재배정
+            new_map = UnionDeptMap.query.filter_by(dept_cd=dept_cd).first()
+            if new_map:
+                user.union_dept_cd = new_map.union_dept_cd
         db.session.commit()
         return jsonify({'ok': True, 'msg': f'{user.emp_nm} 정보가 변경되었습니다.'})
     except Exception as e:
@@ -2318,10 +2333,12 @@ def admin_user_list():
             'pwd_warn':       days is not None and days >= 80,
         })
     union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
+    comp_depts  = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order, CompDept.dept_cd).all()
     return render_template('admin_user.html',
         current_user=current_user,
         user_rows=user_rows,
         union_depts=union_depts,
+        comp_depts=comp_depts,
         active_menu='admin_user'
     )
 
@@ -2733,26 +2750,34 @@ def admin_user_import():
 @app.route('/admin/union-dept')
 @level_required(0)
 def admin_union_dept():
-    current_user = get_current_user()
-    union_depts  = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
-    dept_list    = []
+    current_user   = get_current_user()
+    union_depts    = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
+    all_comp_depts = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order).all()
+    comp_map       = {d.dept_cd: d.dept_nm for d in all_comp_depts}
+
+    dept_list = []
     for d in union_depts:
-        members = User.query.filter_by(union_dept_cd=d.union_dept_cd, use_yn='Y').all()
-        # 소속 회사 부서 목록 (중복 제거)
-        comp_depts = list({u.dept_cd for u in members if u.dept_cd})
+        # TB_UNION_DEPT_MAP 기반 매핑 부서 목록
+        maps       = UnionDeptMap.query.filter_by(union_dept_cd=d.union_dept_cd).all()
+        mapped_cds = [m.dept_cd for m in maps]
+        mapped_nms = [{'cd': cd, 'nm': comp_map.get(cd, cd)} for cd in mapped_cds]
+        member_cnt = User.query.filter_by(union_dept_cd=d.union_dept_cd, use_yn='Y').count()
         dept_list.append({
             'cd':         d.union_dept_cd,
             'nm':         d.union_dept_nm,
             'sort_order': d.sort_order,
-            'member_cnt': len(members),
-            'comp_depts': comp_depts,
+            'member_cnt': member_cnt,
+            'comp_depts': mapped_nms,   # [{'cd':..,'nm':..}]
         })
-    # 미배정 회사 부서
-    all_comp_depts = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order).all()
+
+    # 부서 탭용: 전체 부서 (비활성 포함)
+    all_comp_depts_full = CompDept.query.order_by(CompDept.sort_order, CompDept.dept_cd).all()
+
     return render_template('admin_union_dept.html',
         current_user=current_user,
         dept_list=dept_list,
         all_comp_depts=all_comp_depts,
+        all_comp_depts_full=all_comp_depts_full,
         active_menu='admin_union_dept'
     )
 
@@ -2763,46 +2788,108 @@ def admin_union_dept_save():
     union_dept_cd = request.form.get('union_dept_cd', '').strip()
     union_dept_nm = request.form.get('union_dept_nm', '').strip()
 
+    # ── 분회 추가 ──────────────────────────────────────────
     if action == 'add':
-        # 삭제된 것 포함 전체 조회
         existing = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
         if existing and existing.use_yn == 'Y':
-            flash('이미 존재하는 분회 코드입니다.')
+            flash('이미 존재하는 분회 코드입니다.', 'error')
         elif existing and existing.use_yn == 'N':
-            # 삭제됐던 분회 재활성화
             existing.union_dept_nm = union_dept_nm
             existing.sort_order    = int(request.form.get('sort_order', 0))
             existing.use_yn        = 'Y'
-            flash(f'{union_dept_nm} 분회가 등록되었습니다.')
+            flash(f'{union_dept_nm} 분회가 등록되었습니다.', 'success')
         else:
             db.session.add(UnionDept(
                 union_dept_cd=union_dept_cd,
                 union_dept_nm=union_dept_nm,
                 sort_order=int(request.form.get('sort_order', 0))
             ))
-            flash(f'{union_dept_nm} 분회가 등록되었습니다.')
+            flash(f'{union_dept_nm} 분회가 등록되었습니다.', 'success')
 
+    # ── 분회 수정 ──────────────────────────────────────────
     elif action == 'edit':
         dept = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
         if dept:
             dept.union_dept_nm = union_dept_nm
             dept.sort_order    = int(request.form.get('sort_order', dept.sort_order))
-            flash(f'{union_dept_nm} 분회 정보가 수정되었습니다.')
+            flash(f'{union_dept_nm} 분회 정보가 수정되었습니다.', 'success')
 
+    # ── 분회 삭제 ──────────────────────────────────────────
     elif action == 'delete':
         dept = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
         if dept:
-            # 소속 인원 분회 해제
             User.query.filter_by(union_dept_cd=union_dept_cd).update({'union_dept_cd': None})
+            UnionDeptMap.query.filter_by(union_dept_cd=union_dept_cd).delete()
             dept.use_yn = 'N'
-            flash(f'{dept.union_dept_nm} 분회가 삭제되었습니다.')
+            flash(f'{dept.union_dept_nm} 분회가 삭제되었습니다.', 'success')
 
+    # ── 부서 배정 (멀티선택 → UnionDeptMap 저장 + User 일괄 배정) ──
     elif action == 'assign':
-        # 회사 부서 → 분회 일괄 배정
-        dept_cd       = request.form.get('dept_cd', '').strip()
-        target_dept_cd = request.form.get('target_union_dept_cd', '').strip()
-        cnt = User.query.filter_by(dept_cd=dept_cd, use_yn='Y').update({'union_dept_cd': target_dept_cd})
-        flash(f'{dept_cd} 부서 {cnt}명을 {target_dept_cd} 분회에 배정했습니다.')
+        target_union_cd = request.form.get('target_union_dept_cd', '').strip()
+        dept_cds        = request.form.getlist('dept_cd[]')
+        total_cnt = 0
+        for dept_cd in dept_cds:
+            dept_cd = dept_cd.strip()
+            # 이미 매핑된 경우 스킵
+            exists = UnionDeptMap.query.filter_by(
+                union_dept_cd=target_union_cd, dept_cd=dept_cd).first()
+            if not exists:
+                db.session.add(UnionDeptMap(
+                    union_dept_cd=target_union_cd, dept_cd=dept_cd))
+            cnt = User.query.filter_by(dept_cd=dept_cd, use_yn='Y').update(
+                {'union_dept_cd': target_union_cd})
+            total_cnt += cnt
+        flash(f'{len(dept_cds)}개 부서 {total_cnt}명을 분회에 배정했습니다.', 'success')
+
+    # ── 부서 배정 해제 (UnionDeptMap 삭제 + User 해제) ────
+    elif action == 'unassign':
+        target_union_cd = request.form.get('target_union_dept_cd', '').strip()
+        dept_cd         = request.form.get('dept_cd', '').strip()
+        UnionDeptMap.query.filter_by(
+            union_dept_cd=target_union_cd, dept_cd=dept_cd).delete()
+        cnt = User.query.filter_by(
+            dept_cd=dept_cd, union_dept_cd=target_union_cd, use_yn='Y').update(
+            {'union_dept_cd': None})
+        flash(f'{dept_cd} 부서 {cnt}명의 분회 배정이 해제되었습니다.', 'success')
+
+    # ── 회사 부서 추가 ────────────────────────────────────
+    elif action == 'comp_add':
+        dept_cd = request.form.get('dept_cd', '').strip()
+        dept_nm = request.form.get('dept_nm', '').strip()
+        existing = CompDept.query.filter_by(dept_cd=dept_cd).first()
+        if existing:
+            if existing.use_yn == 'N':
+                existing.dept_nm = dept_nm
+                existing.use_yn  = 'Y'
+                flash(f'{dept_nm} 부서가 재활성화되었습니다.', 'success')
+            else:
+                flash('이미 존재하는 부서 코드입니다.', 'error')
+        else:
+            db.session.add(CompDept(
+                dept_cd=dept_cd,
+                dept_nm=dept_nm,
+                sort_order=int(request.form.get('sort_order', 0))
+            ))
+            flash(f'{dept_nm} 부서가 등록되었습니다.', 'success')
+
+    # ── 회사 부서 이름 수정 ───────────────────────────────
+    elif action == 'comp_edit':
+        dept_cd = request.form.get('dept_cd', '').strip()
+        dept_nm = request.form.get('dept_nm', '').strip()
+        dept = CompDept.query.filter_by(dept_cd=dept_cd).first()
+        if dept:
+            dept.dept_nm = dept_nm
+            flash(f'{dept_nm} 부서명이 수정되었습니다.', 'success')
+
+    # ── 회사 부서 비활성화 ────────────────────────────────
+    elif action == 'comp_deactivate':
+        dept_cd = request.form.get('dept_cd', '').strip()
+        dept = CompDept.query.filter_by(dept_cd=dept_cd).first()
+        if dept:
+            dept.use_yn = 'N'
+            # 해당 부서 UnionDeptMap 해제
+            UnionDeptMap.query.filter_by(dept_cd=dept_cd).delete()
+            flash(f'{dept.dept_nm} 부서가 비활성화되었습니다.', 'success')
 
     db.session.commit()
     return redirect(url_for('admin_union_dept'))
