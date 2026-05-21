@@ -2316,7 +2316,8 @@ def admin_user_update():
 def admin_user_list():
     current_user = get_current_user()
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
-    today = date.today()
+    today    = date.today()
+    dept_map = {d.dept_cd: d.dept_nm for d in CompDept.query.filter_by(use_yn='Y').all()}
     user_rows = []
     for u in users:
         days = (today - u.pwd_chg_dt).days if u.pwd_chg_dt else None
@@ -2325,6 +2326,8 @@ def admin_user_list():
             'emp_nm':         u.emp_nm,
             'user_level':     u.user_level,
             'position_cd':    u.position_cd or '',
+            'dept_cd':        u.dept_cd or '',
+            'dept_nm':        dept_map.get(u.dept_cd, u.dept_cd or '-'),
             'union_dept_cd':  u.union_dept_cd or '',
             'acct_lock_yn':   u.acct_lock_yn,
             'pwd_init_yn':    u.pwd_init_yn,
@@ -2332,7 +2335,7 @@ def admin_user_list():
             'pwd_days':       days,
             'pwd_warn':       days is not None and days >= 80,
         })
-    union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
+    union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.union_dept_seq).all()
     comp_depts  = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order, CompDept.dept_cd).all()
     return render_template('admin_user.html',
         current_user=current_user,

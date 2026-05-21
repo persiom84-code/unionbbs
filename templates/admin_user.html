@@ -89,24 +89,49 @@
             </p>
         </div>
 
+        <!-- 검색바 -->
+        <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+            <div class="relative flex-1 max-w-sm">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                <input type="text" id="user-search" placeholder="사번 또는 이름 검색..."
+                       oninput="filterTable()"
+                       class="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-yuanta bg-white">
+            </div>
+            <span id="search-count" class="text-xs text-slate-400 font-bold"></span>
+        </div>
+
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
+            <table class="w-full text-left text-sm" id="user-table">
                 <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                     <tr>
-                        <th class="px-5 py-4 w-28">사번</th>
-                        <th class="px-5 py-4 w-28">이름</th>
-                        <th class="px-5 py-4 w-24 text-center">권한레벨</th>
+                        <th class="px-5 py-4 w-28 cursor-pointer select-none" onclick="sortTable(0)">
+                            사번 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-0"></i>
+                        </th>
+                        <th class="px-5 py-4 w-28 cursor-pointer select-none" onclick="sortTable(1)">
+                            이름 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-1"></i>
+                        </th>
+                        <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortTable(2)">
+                            권한레벨 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-2"></i>
+                        </th>
                         <th class="px-5 py-4 w-28 text-center">직책</th>
-                        <th class="px-5 py-4 w-28 text-center">분회</th>
+                        <th class="px-5 py-4 w-32 text-center cursor-pointer select-none" onclick="sortTable(4)">
+                            부서 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-4"></i>
+                        </th>
+                        <th class="px-5 py-4 w-28 text-center cursor-pointer select-none" onclick="sortTable(5)">
+                            분회 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-5"></i>
+                        </th>
                         <th class="px-5 py-4 w-24 text-center">계정상태</th>
                         <th class="px-5 py-4 w-24 text-center">비번상태</th>
-                        <th class="px-5 py-4 w-36 text-center">마지막 변경일</th>
+                        <th class="px-5 py-4 w-36 text-center cursor-pointer select-none" onclick="sortTable(8)">
+                            마지막 변경일 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-8"></i>
+                        </th>
                         <th class="px-5 py-4 w-32 text-center">비번 초기화</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     {% for u in user_rows %}
-                    <tr class="hover:bg-slate-50/50 transition-colors" id="row-{{ u.emp_no }}">
+                    <tr class="hover:bg-slate-50/50 transition-colors user-row" id="row-{{ u.emp_no }}"
+                        data-empno="{{ u.emp_no }}" data-empnm="{{ u.emp_nm }}">
                         <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ u.emp_no }}</td>
                         <td class="px-5 py-4 font-bold text-slate-800">{{ u.emp_nm }}</td>
                         <td class="px-5 py-4 text-center">
@@ -123,7 +148,7 @@
                                     {% elif u.user_level == 3 %}분회장
                                     {% else %}조합원{% endif %}
                                 </span>
-                                <button onclick="openEditModal('{{ u.emp_no }}','{{ u.emp_nm }}','{{ u.user_level }}','{{ u.position_cd }}')"
+                                <button onclick="openEditModal('{{ u.emp_no }}','{{ u.emp_nm }}','{{ u.user_level }}','{{ u.position_cd }}','{{ u.union_dept_cd or "" }}','{{ u.dept_cd or "" }}')"
                                     class="w-5 h-5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-400 rounded flex items-center justify-center transition-all">
                                     <i class="fas fa-pen text-[9px]"></i>
                                 </button>
@@ -142,6 +167,9 @@
                                 {% elif u.position_cd == 'AUDITOR' %}회계감사
                                 {% else %}-{% endif %}
                             </span>
+                        </td>
+                        <td class="px-5 py-4 text-center text-xs text-slate-600 dept-cell">
+                            {{ u.dept_nm if u.dept_nm else (u.dept_cd if u.dept_cd else '-') }}
                         </td>
                         <td class="px-5 py-4 text-center">
                             <span class="badge bg-slate-50 text-slate-500 text-[10px]">
@@ -346,6 +374,53 @@
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 3500);
     }
+
+    // ── 검색 ──────────────────────────────────────────
+    function filterTable() {
+        const kw   = document.getElementById('user-search').value.trim().toLowerCase();
+        const rows = document.querySelectorAll('.user-row');
+        let visible = 0;
+        rows.forEach(row => {
+            const empno = (row.dataset.empno || '').toLowerCase();
+            const empnm = (row.dataset.empnm || '').toLowerCase();
+            const show  = !kw || empno.includes(kw) || empnm.includes(kw);
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const total = rows.length;
+        document.getElementById('search-count').textContent =
+            kw ? `${visible} / ${total}명` : `총 ${total}명`;
+    }
+
+    // ── 정렬 ──────────────────────────────────────────
+    let sortCol = -1, sortAsc = true;
+    function sortTable(col) {
+        const tbody = document.querySelector('#user-table tbody');
+        const rows  = Array.from(tbody.querySelectorAll('.user-row'));
+        if (sortCol === col) sortAsc = !sortAsc;
+        else { sortCol = col; sortAsc = true; }
+
+        rows.sort((a, b) => {
+            const tds = a => Array.from(a.querySelectorAll('td'));
+            const av  = (tds(a)[col] || { textContent: '' }).textContent.trim();
+            const bv  = (tds(b)[col] || { textContent: '' }).textContent.trim();
+            return sortAsc ? av.localeCompare(bv, 'ko') : bv.localeCompare(av, 'ko');
+        });
+        rows.forEach(r => tbody.appendChild(r));
+
+        // 아이콘 업데이트
+        document.querySelectorAll('[id^="sort-icon-"]').forEach(el => {
+            el.className = 'fas fa-sort text-slate-300 text-[9px] ml-1';
+        });
+        const icon = document.getElementById('sort-icon-' + col);
+        if (icon) icon.className = `fas fa-sort-${sortAsc ? 'up' : 'down'} text-yuanta text-[9px] ml-1`;
+    }
+
+    // 초기 카운트 표시
+    document.addEventListener('DOMContentLoaded', () => {
+        const total = document.querySelectorAll('.user-row').length;
+        document.getElementById('search-count').textContent = `총 ${total}명`;
+    });
 
     function openEditModal(empNo, empNm, level, position, unionDept, deptCd) {
         document.getElementById('edit-emp-no').value = empNo;
