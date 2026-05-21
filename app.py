@@ -2781,6 +2781,47 @@ def admin_union_dept():
         active_menu='admin_union_dept'
     )
 
+@app.route('/admin/comp-dept/import', methods=['POST'])
+@level_required(0)
+def admin_comp_dept_import():
+    import csv, io
+    f = request.files.get('file')
+    if not f or not f.filename.endswith('.csv'):
+        flash('CSV 파일을 선택해주세요.', 'error')
+        return redirect(url_for('admin_union_dept'))
+    try:
+        stream  = io.StringIO(f.stream.read().decode('utf-8-sig'))
+        reader  = csv.DictReader(stream)
+        added   = updated = 0
+        for row in reader:
+            dept_cd = (row.get('dept_cd') or '').strip()
+            dept_nm = (row.get('dept_nm') or '').strip()
+            if not dept_cd or not dept_nm:
+                continue
+            existing = CompDept.query.filter_by(dept_cd=dept_cd).first()
+            if existing:
+                existing.dept_nm        = dept_nm
+                existing.parent_dept_cd = (row.get('parent_dept_cd') or '').strip() or None
+                existing.sort_order     = int(row.get('sort_order') or 0)
+                existing.use_yn         = 'Y'
+                updated += 1
+            else:
+                db.session.add(CompDept(
+                    dept_cd        = dept_cd,
+                    dept_nm        = dept_nm,
+                    parent_dept_cd = (row.get('parent_dept_cd') or '').strip() or None,
+                    sort_order     = int(row.get('sort_order') or 0),
+                    use_yn         = 'Y'
+                ))
+                added += 1
+        db.session.commit()
+        flash(f'부서 CSV 업로드 완료 — 신규 {added}건, 수정 {updated}건', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'업로드 오류: {str(e)}', 'error')
+    return redirect(url_for('admin_union_dept'))
+
+
 @app.route('/admin/union-dept/save', methods=['POST'])
 @level_required(0)
 def admin_union_dept_save():
