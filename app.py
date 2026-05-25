@@ -635,13 +635,57 @@ def notice_comment_delete(comment_seq):
 @login_required
 def schedule():
     current_user = get_current_user()
-    schedules    = Schedule.query.filter_by(use_yn='Y').order_by(Schedule.start_dt).all()
-    events = [{
-        'title': s.title,
-        'start': s.start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
-        'end':   s.end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
-        'className': 'event-notice'
-    } for s in schedules]
+    events = []
+
+    # ① 공지/조합 일정
+    schedules = Schedule.query.filter_by(use_yn='Y').order_by(Schedule.start_dt).all()
+    for s in schedules:
+        events.append({
+            'title':     s.title,
+            'start':     s.start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+            'end':       s.end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+            'className': 'event-notice'
+        })
+
+    # ② 진행 중/예정 투표
+    now = datetime.now()
+    votes = Vote.query.filter(Vote.use_yn=='Y', Vote.end_dt >= now).all()
+    for v in votes:
+        if v.start_dt and v.end_dt:
+            events.append({
+                'title':     f'\U0001f5f3 {v.title}',
+                'start':     v.start_dt.strftime('%Y-%m-%d'),
+                'end':       (v.end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'color':     '#f59e0b',
+            })
+
+    # ③ 본인 콘도 승인 건
+    condo_list = CondoReserve.query.filter_by(
+        emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').all()
+    for c in condo_list:
+        facility = CondoFacility.query.get(c.facility_id)
+        nm = facility.facility_name if facility else '콘도'
+        events.append({
+            'title':     f'\U0001f3e8 {nm}',
+            'start':     c.check_in.strftime('%Y-%m-%d'),
+            'end':       (c.check_out + timedelta(days=1)).strftime('%Y-%m-%d'),
+            'className': 'event-condo',
+        })
+
+    # ④ 본인 도서 대출 중 반납기한
+    book_list = BookRental.query.filter_by(
+        emp_no=current_user.emp_no, status='RENTAL').all()
+    for b in book_list:
+        book = Book.query.get(b.book_seq)
+        nm = book.title if book else '도서'
+        if b.due_dt:
+            events.append({
+                'title':     f'\U0001f4da {nm[:10]}',
+                'start':     b.due_dt.strftime('%Y-%m-%d'),
+                'allDay':    True,
+                'className': 'event-book',
+            })
+
     return render_template('schedule.html',
         current_user=current_user,
         events=events,
@@ -2783,6 +2827,43 @@ def admin_union_dept():
         all_comp_depts_full=all_comp_depts_full,
         active_menu='admin_union_dept'
     )
+
+@app.route('/admin/user/transfer', methods=['POST'])
+@level_required(0)
+def admin_user_transfer():
+    """발령 CSV 업로드 — emp_no, dept_cd 두 컬럼"""
+    import csv, io
+    f = request.files.get('file')
+    if not f or not f.filename.endswith('.csv'):
+        flash('CSV 파일을 선택해주세요.', 'error')
+        return redirect(url_for('admin_user_list'))
+    try:
+        stream   = io.StringIO(f.stream.read().decode('utf-8-sig'))
+        reader   = csv.DictReader(stream)
+        dept_map = {d.dept_cd: d for d in CompDept.query.filter_by(use_yn='Y').all()}
+        union_map = {}
+        for m in UnionDeptMap.query.all():
+            union_map[m.dept_cd] = m.union_dept_cd
+        ok = skip = err = 0
+        for row in reader:
+            emp_no  = (row.get('emp_no') or '').strip()
+            dept_cd = (row.get('dept_cd') or '').strip()
+            if not emp_no or not dept_cd:
+                skip += 1; continue
+            user = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+            if not user:
+                err += 1; continue
+            user.dept_cd = dept_cd
+            if dept_cd in union_map:
+                user.union_dept_cd = union_map[dept_cd]
+            ok += 1
+        db.session.commit()
+        flash(f'발령 처리 완료 — 성공 {ok}건, 미처리 {skip}건, 오류 {err}건', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'업로드 오류: {str(e)}', 'error')
+    return redirect(url_for('admin_user_list'))
+
 
 @app.route('/admin/comp-dept/import', methods=['POST'])
 @level_required(0)

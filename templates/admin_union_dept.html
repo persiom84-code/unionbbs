@@ -48,7 +48,6 @@
                         <tr>
                             <th class="px-5 py-4 w-28">분회 코드</th>
                             <th class="px-5 py-4">분회명</th>
-                            <th class="px-5 py-4 w-20 text-center">순서</th>
                             <th class="px-5 py-4 w-24 text-center">인원</th>
                             <th class="px-5 py-4">소속 회사 부서</th>
                             <th class="px-5 py-4 w-40 text-center">관리</th>
@@ -59,7 +58,6 @@
                         <tr class="hover:bg-slate-50/50 transition-colors">
                             <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.cd }}</td>
                             <td class="px-5 py-4 font-bold text-slate-800">{{ d.nm }}</td>
-                            <td class="px-5 py-4 text-center text-slate-400 text-xs">{{ d.sort_order }}</td>
                             <td class="px-5 py-4 text-center">
                                 <span class="badge bg-blue-50 text-blue-600">{{ d.member_cnt }}명</span>
                             </td>
@@ -82,7 +80,7 @@
                             </td>
                             <td class="px-5 py-4 text-center">
                                 <div class="flex items-center justify-center gap-1">
-                                    <button onclick="openEditModal('{{ d.cd }}','{{ d.nm }}','{{ d.sort_order }}')"
+                                    <button onclick="openEditModal('{{ d.cd }}','{{ d.nm }}')"
                                         class="px-3 py-1.5 bg-slate-100 hover:bg-yuanta hover:text-white text-slate-500 rounded-lg text-[10px] font-black transition-all">
                                         <i class="fas fa-pen mr-1"></i>수정
                                     </button>
@@ -131,7 +129,6 @@
                             <th class="px-5 py-4 w-32">부서 코드</th>
                             <th class="px-5 py-4">부서명</th>
                             <th class="px-5 py-4 w-28 text-center">상위 부서</th>
-                            <th class="px-5 py-4 w-20 text-center">순서</th>
                             <th class="px-5 py-4 w-24 text-center">상태</th>
                             <th class="px-5 py-4 w-36 text-center">관리</th>
                         </tr>
@@ -142,7 +139,6 @@
                             <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.dept_cd }}</td>
                             <td class="px-5 py-4 font-bold text-slate-800">{{ d.dept_nm }}</td>
                             <td class="px-5 py-4 text-center text-xs text-slate-400">{{ d.parent_dept_cd or '-' }}</td>
-                            <td class="px-5 py-4 text-center text-xs text-slate-400">{{ d.sort_order }}</td>
                             <td class="px-5 py-4 text-center">
                                 {% if d.use_yn == 'Y' %}
                                 <span class="badge bg-green-50 text-green-600">활성</span>
@@ -194,10 +190,6 @@
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">분회명</label>
                 <input type="text" name="union_dept_nm" required placeholder="예: 강남분회" class="form-input">
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">정렬 순서</label>
-                <input type="number" name="sort_order" value="0" class="form-input">
-            </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal('add-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
                 <button type="submit" class="flex-1 py-3 bg-yuanta text-white rounded-xl text-sm font-bold hover:bg-blue-800">저장</button>
@@ -223,10 +215,6 @@
             <div>
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">분회명</label>
                 <input type="text" name="union_dept_nm" id="edit-nm" required class="form-input">
-            </div>
-            <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">정렬 순서</label>
-                <input type="number" name="sort_order" id="edit-sort" class="form-input">
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal('edit-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
@@ -339,8 +327,6 @@
                 <input type="text" name="dept_nm" required placeholder="예: 강남지점" class="form-input">
             </div>
             <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">정렬 순서</label>
-                <input type="number" name="sort_order" value="0" class="form-input">
             </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal('comp-add-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
@@ -419,11 +405,10 @@
         const m = document.getElementById('add-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }
-    function openEditModal(cd, nm, sort) {
+    function openEditModal(cd, nm) {
         document.getElementById('edit-cd').value          = cd;
         document.getElementById('edit-cd-display').value  = cd;
         document.getElementById('edit-nm').value          = nm;
-        document.getElementById('edit-sort').value        = sort;
         const m = document.getElementById('edit-modal');
         m.classList.remove('hidden'); m.classList.add('flex');
     }

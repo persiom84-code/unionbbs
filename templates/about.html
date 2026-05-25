@@ -29,9 +29,6 @@
         <button class="btn-primary" onclick="openModal('modal-chairman-img')" style="background:#475569;">
             <i class="fas fa-camera"></i>위원장 사진
         </button>
-        <button class="btn-primary" onclick="openModal('modal-auditor')" style="background:#059669;">
-            <i class="fas fa-user-check"></i>회계감사 관리
-        </button>
     </div>
     {% endif %}
 </div>
@@ -160,7 +157,14 @@
 
     <!-- 회계감사 -->
     <div style="border-top:1px dashed #e2e8f0;padding-top:24px;">
-        <h4 style="font-size:14px;font-weight:900;color:#334155;margin-bottom:16px;"><i class="fas fa-search-dollar" style="color:#00479d;margin-right:8px;"></i>회계감사</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h4 style="font-size:14px;font-weight:900;color:#334155;"><i class="fas fa-search-dollar" style="color:#00479d;margin-right:8px;"></i>회계감사</h4>
+            {% if current_user and current_user.user_level == 0 %}
+            <button onclick="openModal('modal-auditor')" class="btn-primary" style="font-size:10px;padding:6px 14px;background:#059669;">
+                <i class="fas fa-cog"></i>회계감사 관리
+            </button>
+            {% endif %}
+        </div>
         <div style="display:flex;justify-content:center;gap:16px;">
             {% if auditors %}
                 {% for a in auditors %}

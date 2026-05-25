@@ -45,6 +45,16 @@
             <div class="text-[10px] text-slate-400 font-mono bg-slate-50 rounded-lg p-3 mb-4">
                 필수 컬럼: emp_no, emp_nm, gender(M/F), birth_dt, phone_no, email, dept_cd, union_dept_cd, emp_type_cd, rank_cd, user_level
             </div>
+            <!-- 발령 CSV -->
+            <form method="POST" action="/admin/user/transfer" enctype="multipart/form-data"
+                  style="display:inline-flex;align-items:center;gap:8px;margin-right:8px;">
+                <label style="font-size:11px;font-weight:700;color:#059669;cursor:pointer;display:flex;align-items:center;gap:4px;
+                              background:#f0fdf4;border:1px solid #86efac;padding:6px 12px;border-radius:8px;"
+                       title="emp_no, dept_cd 컬럼 CSV">
+                    <i class="fas fa-exchange-alt"></i>발령 CSV
+                    <input type="file" name="file" accept=".csv" style="display:none;" onchange="this.form.submit()">
+                </label>
+            </form>
             <form method="POST" action="/admin/user/import" enctype="multipart/form-data"
                   class="flex items-center gap-3 flex-wrap">
                 <input type="file" name="csv_file" accept=".csv" required
