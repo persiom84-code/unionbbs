@@ -167,51 +167,22 @@
 
 </div>
 
-<!-- 캘린더 -->
+<!-- 일정 바로가기 -->
 <div class="dash-card" style="margin-top:16px;">
     <div class="dash-card-head">
         <span class="dash-card-title"><i class="fas fa-calendar-alt" style="margin-right:8px;"></i>일정 캘린더</span>
-        <a href="/schedule" style="font-size:10px;font-weight:700;color:#94a3b8;text-decoration:none;letter-spacing:.1em;text-transform:uppercase;" onmouseover="this.style.color='#00479d'" onmouseout="this.style.color='#94a3b8'">More →</a>
     </div>
-    <div class="dash-card-body">
-        <div id="dashboard-calendar"></div>
+    <div class="dash-card-body" style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px;">
+        <p style="font-size:13px;color:#64748b;font-weight:600;">
+            투표 일정 · 콘도 승인 · 도서 반납기한 등 전체 일정을 확인하세요.
+        </p>
+        <a href="/schedule" class="btn-primary" style="text-decoration:none;white-space:nowrap;margin-left:16px;">
+            <i class="fas fa-calendar-check"></i>일정 보기
+        </a>
     </div>
 </div>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var calendarEl = document.getElementById('dashboard-calendar');
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        locale: 'ko',
-        height: 420,
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: ''
-        },
-        buttonText: { today: '오늘' },
-        events: {{ events | tojson }},
-        eventColor: '#00479d',
-        eventDisplay: 'block',
-        dayMaxEvents: 3,
-        eventClick: function(info) {
-            window.location.href = '/schedule';
-        }
-    });
-    calendar.render();
-});
-</script>
-
 <style>
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
-.fc .fc-toolbar-title { font-size: 15px !important; font-weight: 800 !important; color: #1e293b !important; }
-.fc .fc-button { background: #00479d !important; border-color: #00479d !important; font-size: 11px !important; padding: 4px 10px !important; }
-.fc .fc-button-active { background: #003580 !important; }
-.fc .fc-daygrid-day-number { font-size: 11px !important; font-weight: 700 !important; color: #64748b !important; }
-.fc .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 800 !important; color: #94a3b8 !important; }
-.fc-event { border-radius: 4px !important; font-size: 10px !important; padding: 1px 4px !important; }
 </style>
 {% endblock %}
