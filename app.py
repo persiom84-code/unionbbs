@@ -647,16 +647,16 @@ def schedule():
             'className': 'event-notice'
         })
 
-    # ② 진행 중/예정 투표
-    now = datetime.now()
-    votes = Vote.query.filter(Vote.use_yn=='Y', Vote.end_dt >= now).all()
+    # ② 전체 투표 이력
+    votes = Vote.query.filter_by(use_yn='Y').all()
     for v in votes:
         if v.start_dt and v.end_dt:
             events.append({
-                'title':     f'\U0001f5f3 {v.title}',
+                'title':     f'🗳 {v.title}',
                 'start':     v.start_dt.strftime('%Y-%m-%d'),
                 'end':       (v.end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                 'color':     '#f59e0b',
+                'textColor': '#fff',
             })
 
     # ③ 본인 콘도 승인 건
