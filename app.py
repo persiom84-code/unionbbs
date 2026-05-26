@@ -2573,6 +2573,9 @@ def migrate():
                 vote_seq INTEGER NOT NULL,
                 union_dept_cd VARCHAR(20) NOT NULL
             )'''))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
+            conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
