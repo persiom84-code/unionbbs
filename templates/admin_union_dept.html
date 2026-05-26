@@ -560,7 +560,7 @@
             // 전체 숨기고
             getRows().forEach(r => r.style.display = 'none');
             // 현재 페이지만 표시
-            filtered.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
+            filtered.forEach((r, i) => r.style.display = (i >= start && i < end) ? 'table-row' : 'none');
 
             // 카운트
             const countEl = document.getElementById(config.countId);

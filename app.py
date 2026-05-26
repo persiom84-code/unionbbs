@@ -2971,7 +2971,7 @@ def admin_union_dept_save():
 
     # ── 회사 부서 추가 ────────────────────────────────────
     elif action == 'comp_add':
-        dept_cd = request.form.get('dept_cd', '').strip()
+        dept_cd = request.form.get('dept_cd', '').strip().upper()
         dept_nm = request.form.get('dept_nm', '').strip()
         existing = CompDept.query.filter_by(dept_cd=dept_cd).first()
         if existing:
