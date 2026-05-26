@@ -42,20 +42,37 @@
             <div class="p-5 border-b border-slate-100 bg-slate-50/50">
                 <h3 class="font-bold text-slate-700 text-sm"><i class="fas fa-list text-yuanta mr-2"></i>분회 목록</h3>
             </div>
+            <!-- 분회 검색 + 페이지설정 -->
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+                <div class="relative flex-1 max-w-sm">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    <input type="text" id="union-search" placeholder="분회코드 또는 분회명 검색..."
+                           oninput="filterUnionTable()"
+                           class="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-yuanta bg-white">
+                </div>
+                <select id="union-page-size" onchange="changeUnionPageSize()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 outline-none focus:border-yuanta">
+                    <option value="10">10개</option>
+                    <option value="25">25개</option>
+                    <option value="50">50개</option>
+                    <option value="999">전체</option>
+                </select>
+                <span id="union-count" class="text-xs text-slate-400 font-bold whitespace-nowrap"></span>
+            </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+                <table class="w-full text-left text-sm" id="union-table">
                     <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th class="px-5 py-4 w-28">분회 코드</th>
-                            <th class="px-5 py-4">분회명</th>
-                            <th class="px-5 py-4 w-24 text-center">인원</th>
+                            <th class="px-5 py-4 w-28 cursor-pointer select-none" onclick="sortUnionTable(0)">분회 코드 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-0"></i></th>
+                            <th class="px-5 py-4 cursor-pointer select-none" onclick="sortUnionTable(1)">분회명 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-1"></i></th>
+                            <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortUnionTable(2)">인원 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-2"></i></th>
                             <th class="px-5 py-4">소속 회사 부서</th>
                             <th class="px-5 py-4 w-40 text-center">관리</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
                         {% for d in dept_list %}
-                        <tr class="hover:bg-slate-50/50 transition-colors">
+                        <tr class="union-row hover:bg-slate-50/50 transition-colors"
+                            data-cd="{{ d.cd }}" data-nm="{{ d.nm }}">
                             <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.cd }}</td>
                             <td class="px-5 py-4 font-bold text-slate-800">{{ d.nm }}</td>
                             <td class="px-5 py-4 text-center">
@@ -103,6 +120,11 @@
                     </tbody>
                 </table>
             </div>
+            <!-- 분회 페이지네이션 -->
+            <div class="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+                <span id="union-page-info" class="text-xs text-slate-400 font-bold"></span>
+                <div id="union-pagination" class="flex gap-1"></div>
+            </div>
         </div>
     </div>
 
@@ -122,20 +144,38 @@
                            onchange="this.form.submit()">
                 </form>
             </div>
+            <!-- 부서 검색 + 페이지설정 -->
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+                <div class="relative flex-1 max-w-sm">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                    <input type="text" id="dept-search" placeholder="부서코드 또는 부서명 검색..."
+                           oninput="filterDeptTable()"
+                           class="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-yuanta bg-white">
+                </div>
+                <select id="dept-page-size" onchange="changeDeptPageSize()" class="border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 outline-none focus:border-yuanta">
+                    <option value="10">10개</option>
+                    <option value="25">25개</option>
+                    <option value="50">50개</option>
+                    <option value="999">전체</option>
+                </select>
+                <span id="dept-count" class="text-xs text-slate-400 font-bold whitespace-nowrap"></span>
+            </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm" id="dept-table">
                     <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                         <tr>
-                            <th class="px-5 py-4 w-32">부서 코드</th>
-                            <th class="px-5 py-4">부서명</th>
+                            <th class="px-5 py-4 w-32 cursor-pointer select-none" onclick="sortDeptTable(0)">부서 코드 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="dsort-0"></i></th>
+                            <th class="px-5 py-4 cursor-pointer select-none" onclick="sortDeptTable(1)">부서명 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="dsort-1"></i></th>
                             <th class="px-5 py-4 w-28 text-center">상위 부서</th>
                             <th class="px-5 py-4 w-24 text-center">상태</th>
-                            <th class="px-5 py-4 w-36 text-center">관리</th>
+                            <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortDeptTable(3)">상태 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="dsort-3"></i></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
                         {% for d in all_comp_depts_full %}
-                        <tr class="hover:bg-slate-50/50 transition-colors {% if d.use_yn == 'N' %}opacity-40{% endif %}">
+                        <tr class="dept-row hover:bg-slate-50/50 transition-colors {% if d.use_yn == 'N' %}opacity-40{% endif %}"
+                            data-cd="{{ d.dept_cd }}" data-nm="{{ d.dept_nm }}">
                             <td class="px-5 py-4 font-mono font-bold text-slate-600">{{ d.dept_cd }}</td>
                             <td class="px-5 py-4 font-bold text-slate-800">{{ d.dept_nm }}</td>
                             <td class="px-5 py-4 text-center text-xs text-slate-400">{{ d.parent_dept_cd or '-' }}</td>
@@ -168,6 +208,11 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            <!-- 부서 페이지네이션 -->
+            <div class="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+                <span id="dept-page-info" class="text-xs text-slate-400 font-bold"></span>
+                <div id="dept-pagination" class="flex gap-1"></div>
             </div>
         </div>
     </div>
@@ -319,7 +364,7 @@
             <input type="hidden" name="action" value="comp_add">
             <div>
                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">부서 코드 <span class="text-red-400">*불변</span></label>
-                <input type="text" name="dept_cd" required placeholder="예: D001" class="form-input">
+                <input type="text" name="dept_cd" required placeholder="예: D001" class="form-input" style="text-transform:uppercase;">
                 <p class="text-[10px] text-slate-400 mt-1">한번 설정된 코드는 변경 불가합니다.</p>
             </div>
             <div>
@@ -490,7 +535,155 @@
         m.classList.add('hidden'); m.classList.remove('flex');
     }
 
+    // ══ 공통 페이지네이션 엔진 ══════════════════════════
+    function buildPager(config) {
+        // config: { rowSel, searchId, pageSizeId, countId, pageInfoId, paginationId, sortIconPrefix }
+        const state = { page: 1, pageSize: 10, keyword: '', sortCol: -1, sortAsc: true };
+
+        function getRows()    { return Array.from(document.querySelectorAll(config.rowSel)); }
+        function getFiltered() {
+            const kw = state.keyword.toLowerCase();
+            return getRows().filter(r =>
+                !kw || (r.dataset.cd||'').toLowerCase().includes(kw) ||
+                       (r.dataset.nm||'').toLowerCase().includes(kw)
+            );
+        }
+        function render() {
+            const filtered = getFiltered();
+            const total    = filtered.length;
+            const ps       = state.pageSize;
+            const maxPage  = Math.max(1, Math.ceil(total / ps));
+            if (state.page > maxPage) state.page = maxPage;
+            const start = (state.page - 1) * ps;
+            const end   = Math.min(start + ps, total);
+
+            // 전체 숨기고
+            getRows().forEach(r => r.style.display = 'none');
+            // 현재 페이지만 표시
+            filtered.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
+
+            // 카운트
+            const countEl = document.getElementById(config.countId);
+            if (countEl) countEl.textContent = state.keyword ? `${total} / ${getRows().length}개` : `총 ${total}개`;
+
+            // 페이지 정보
+            const infoEl = document.getElementById(config.pageInfoId);
+            if (infoEl) infoEl.textContent = total > 0 ? `${start+1}-${end} / 총 ${total}개` : '데이터 없음';
+
+            // 페이지 버튼
+            const pgEl = document.getElementById(config.paginationId);
+            if (!pgEl) return;
+            pgEl.innerHTML = '';
+            if (maxPage <= 1) return;
+
+            const btnStyle = (active) =>
+                `padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid;transition:all .15s;` +
+                (active ? `background:#00479d;color:#fff;border-color:#00479d;`
+                        : `background:#fff;color:#475569;border-color:#e2e8f0;`);
+
+            // 이전
+            const prev = document.createElement('button');
+            prev.innerHTML = '‹'; prev.style.cssText = btnStyle(false);
+            prev.disabled = state.page === 1;
+            prev.onclick = () => { state.page--; render(); };
+            pgEl.appendChild(prev);
+
+            // 페이지 번호
+            let s = Math.max(1, state.page - 2), e = Math.min(maxPage, s + 4);
+            if (e - s < 4) s = Math.max(1, e - 4);
+            for (let p = s; p <= e; p++) {
+                const btn = document.createElement('button');
+                btn.textContent = p; btn.style.cssText = btnStyle(p === state.page);
+                btn.onclick = ((pg) => () => { state.page = pg; render(); })(p);
+                pgEl.appendChild(btn);
+            }
+
+            // 다음
+            const next = document.createElement('button');
+            next.innerHTML = '›'; next.style.cssText = btnStyle(false);
+            next.disabled = state.page === maxPage;
+            next.onclick = () => { state.page++; render(); };
+            pgEl.appendChild(next);
+        }
+
+        // 검색
+        const searchEl = document.getElementById(config.searchId);
+        if (searchEl) searchEl.addEventListener('input', () => {
+            state.keyword = searchEl.value.trim();
+            state.page = 1;
+            render();
+        });
+
+        // 페이지사이즈
+        const psEl = document.getElementById(config.pageSizeId);
+        if (psEl) psEl.addEventListener('change', () => {
+            state.pageSize = parseInt(psEl.value);
+            state.page = 1;
+            render();
+        });
+
+        // 정렬
+        config.sortFn = function(col) {
+            const tbody = document.querySelector(config.tableId + ' tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll(config.rowSel));
+            if (state.sortCol === col) state.sortAsc = !state.sortAsc;
+            else { state.sortCol = col; state.sortAsc = true; }
+            rows.sort((a, b) => {
+                const av = (a.querySelectorAll('td')[col]||{textContent:''}).textContent.trim();
+                const bv = (b.querySelectorAll('td')[col]||{textContent:''}).textContent.trim();
+                return state.sortAsc ? av.localeCompare(bv,'ko') : bv.localeCompare(av,'ko');
+            });
+            rows.forEach(r => tbody.appendChild(r));
+            document.querySelectorAll(`[id^="${config.sortIconPrefix}"]`).forEach(el =>
+                el.className = 'fas fa-sort text-slate-300 text-[9px] ml-1');
+            const icon = document.getElementById(config.sortIconPrefix + col);
+            if (icon) icon.className = `fas fa-sort-${state.sortAsc?'up':'down'} text-yuanta text-[9px] ml-1`;
+            state.page = 1;
+            render();
+        };
+
+        render();
+        return config;
+    }
+
+    // ══ 분회 페이저 ══════════════════════════════════════
+    let unionPager;
+    function filterUnionTable()  { if(unionPager) { document.getElementById('union-search').dispatchEvent(new Event('input')); } }
+    function changeUnionPageSize(){ if(unionPager) { document.getElementById('union-page-size').dispatchEvent(new Event('change')); } }
+    function sortUnionTable(col) { if(unionPager) unionPager.sortFn(col); }
+
+    // ══ 부서 페이저 ══════════════════════════════════════
+    let deptPager;
+    function filterDeptTable()   { if(deptPager) { document.getElementById('dept-search').dispatchEvent(new Event('input')); } }
+    function changeDeptPageSize(){ if(deptPager) { document.getElementById('dept-page-size').dispatchEvent(new Event('change')); } }
+    function sortDeptTable(col)  { if(deptPager) deptPager.sortFn(col); }
+
     // 초기 탭 설정
-    document.addEventListener('DOMContentLoaded', () => switchTab(currentTab));
+    document.addEventListener('DOMContentLoaded', () => {
+        switchTab(currentTab);
+
+        unionPager = buildPager({
+            rowSel:         '.union-row',
+            searchId:       'union-search',
+            pageSizeId:     'union-page-size',
+            countId:        'union-count',
+            pageInfoId:     'union-page-info',
+            paginationId:   'union-pagination',
+            tableId:        '#union-table',
+            sortIconPrefix: 'usort-',
+        });
+
+        deptPager = buildPager({
+            rowSel:         '.dept-row',
+            searchId:       'dept-search',
+            pageSizeId:     'dept-page-size',
+            countId:        'dept-count',
+            pageInfoId:     'dept-page-info',
+            paginationId:   'dept-pagination',
+            tableId:        '#dept-table',
+            sortIconPrefix: 'dsort-',
+        });
+    });
 </script>
 {% endblock %}
