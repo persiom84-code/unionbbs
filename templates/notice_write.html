@@ -3,6 +3,7 @@
 
 {% block head_extra %}
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill-better-table@1.2.10/dist/quill-better-table.css" rel="stylesheet">
 <style>
 /* Quill 에디터 스타일 커스터마이징 */
 .ql-toolbar.ql-snow {
@@ -21,11 +22,24 @@
 }
 .ql-editor { min-height: 300px; line-height: 1.8; color: #334155; }
 .ql-editor.ql-blank::before { color: #94a3b8; font-style: normal; }
+/* 폰트 사이즈 */
+.ql-snow .ql-picker.ql-size .ql-picker-label::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item::before { content: attr(data-value) !important; }
+.ql-size-10px { font-size: 10px; }
+.ql-size-11px { font-size: 11px; }
+.ql-size-12px { font-size: 12px; }
+.ql-size-14px { font-size: 14px; }
+.ql-size-16px { font-size: 16px; }
+.ql-size-18px { font-size: 18px; }
+.ql-size-20px { font-size: 20px; }
+.ql-size-28px { font-size: 28px; }
 /* 표 스타일 */
 .ql-editor table { border-collapse: collapse; width: 100%; margin: 8px 0; }
 .ql-editor table td, .ql-editor table th {
     border: 1px solid #cbd5e1; padding: 8px 12px; min-width: 60px;
 }
+/* better-table 버튼 */
+.ql-better-table { padding: 3px 5px !important; }
 </style>
 {% endblock %}
 
@@ -175,23 +189,55 @@
 
 {% block page_script %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill-better-table@1.2.10/dist/quill-better-table.min.js"></script>
 <script>
     // ── Quill 에디터 초기화 ─────────────────────────────
     document.addEventListener('DOMContentLoaded', function() {
+
+        // 폰트 사이즈 등록
+        const Size = Quill.import('attributors/style/size');
+        Size.whitelist = ['10px','11px','12px','14px','16px','18px','20px','28px'];
+        Quill.register(Size, true);
+
+        // better-table 등록
+        Quill.register({ 'modules/better-table': quillBetterTable }, true);
+
         const quill = new Quill('#quill-editor', {
             theme: 'snow',
             placeholder: '공지 내용을 입력하세요. 엑셀/워드 내용을 붙여넣기 하면 서식이 유지됩니다.',
             modules: {
-                toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'indent': '-1' }, { 'indent': '+1' }],
-                    [{ 'align': [] }],
-                    ['link', 'image'],
-                    ['clean']
-                ],
+                toolbar: {
+                    container: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        [{ 'size': ['10px','11px','12px','14px','16px','18px','20px','28px'] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        [{ 'indent': '-1' }, { 'indent': '+1' }],
+                        [{ 'align': [] }],
+                        ['link', 'image'],
+                        [{ 'table': 'TD' }],
+                        ['clean']
+                    ],
+                    handlers: {
+                        'table': function() {
+                            const tableModule = quill.getModule('better-table');
+                            tableModule.insertTable(3, 3);
+                        }
+                    }
+                },
+                'better-table': { operationMenu: { items: {
+                    insertColumnRight: { text: '오른쪽에 열 추가' },
+                    insertColumnLeft:  { text: '왼쪽에 열 추가' },
+                    insertRowUp:       { text: '위에 행 추가' },
+                    insertRowDown:     { text: '아래에 행 추가' },
+                    mergeCells:        { text: '셀 병합' },
+                    unmergeCells:      { text: '셀 병합 해제' },
+                    deleteColumn:      { text: '열 삭제' },
+                    deleteRow:         { text: '행 삭제' },
+                    deleteTable:       { text: '표 삭제' },
+                }}},
+                keyboard: { bindings: quillBetterTable.keyboardBindings },
                 clipboard: { matchVisual: false }
             }
         });
