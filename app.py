@@ -480,15 +480,6 @@ def main():
     condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
     book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
 
-    # 캘린더용 전체 일정
-    all_schedules = Schedule.query.filter_by(use_yn='Y').order_by(Schedule.start_dt).all()
-    events = [{
-        'title': s.title,
-        'start': s.start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
-        'end':   s.end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
-        'className': 'event-notice'
-    } for s in all_schedules]
-
     return render_template('main.html',
         current_user=current_user,
         notice_list=notices,
@@ -497,7 +488,6 @@ def main():
         condo_count=condo_count,
         book_count=book_count,
         current_date_str=date.today().strftime('%Y년 %m월 %d일'),
-        events=events,
         active_menu='dashboard'
     )
 
@@ -652,7 +642,7 @@ def schedule():
     for v in votes:
         if v.start_dt and v.end_dt:
             events.append({
-                'title':     f'🗳 {v.title}',
+                'title':     f'[투표] {v.title}',
                 'start':     v.start_dt.strftime('%Y-%m-%d'),
                 'end':       (v.end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                 'color':     '#f59e0b',
@@ -680,7 +670,7 @@ def schedule():
         nm = book.title if book else '도서'
         if b.due_dt:
             events.append({
-                'title':     f'\U0001f4da {nm[:10]}',
+                'title':     f'[도서] {nm[:10]}',
                 'start':     b.due_dt.strftime('%Y-%m-%d'),
                 'allDay':    True,
                 'className': 'event-book',
@@ -2797,6 +2787,7 @@ def admin_user_import():
 @app.route('/admin/union-dept')
 @level_required(0)
 def admin_union_dept():
+    active_tab = request.args.get('tab', 'union')
     current_user   = get_current_user()
     union_depts    = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
     all_comp_depts = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order).all()
@@ -2825,6 +2816,7 @@ def admin_union_dept():
         dept_list=dept_list,
         all_comp_depts=all_comp_depts,
         all_comp_depts_full=all_comp_depts_full,
+        active_tab=active_tab,
         active_menu='admin_union_dept'
     )
 
@@ -3017,7 +3009,10 @@ def admin_union_dept_save():
             flash(f'{dept.dept_nm} 부서가 비활성화되었습니다.', 'success')
 
     db.session.commit()
-    return redirect(url_for('admin_union_dept'))
+    # comp 관련 action은 부서 탭으로 리다이렉트
+    comp_actions = {'comp_add', 'comp_edit', 'comp_deactivate'}
+    tab = 'comp' if action in comp_actions else 'union'
+    return redirect(url_for('admin_union_dept', tab=tab))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

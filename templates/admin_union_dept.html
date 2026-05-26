@@ -384,7 +384,7 @@
 
 {% block page_script %}
 <script>
-    let currentTab = 'union';
+    let currentTab = '{{ active_tab | default("union") }}';
 
     function switchTab(tab) {
         currentTab = tab;
@@ -489,5 +489,8 @@
         const m = document.getElementById(id);
         m.classList.add('hidden'); m.classList.remove('flex');
     }
+
+    // 초기 탭 설정
+    document.addEventListener('DOMContentLoaded', () => switchTab(currentTab));
 </script>
 {% endblock %}
