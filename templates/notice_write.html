@@ -2,7 +2,31 @@
 {% block title %}공지 작성{% endblock %}
 
 {% block extra_head %}
-
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+/* Quill 에디터 스타일 커스터마이징 */
+.ql-toolbar.ql-snow {
+    border: 1px solid #e2e8f0;
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    background: #fff;
+    padding: 8px 12px;
+}
+.ql-container.ql-snow {
+    border: 1px solid #e2e8f0;
+    border-radius: 0 0 12px 12px;
+    background: #f8fafc;
+    font-size: 14px;
+    min-height: 300px;
+}
+.ql-editor { min-height: 300px; line-height: 1.8; color: #334155; }
+.ql-editor.ql-blank::before { color: #94a3b8; font-style: normal; }
+/* 표 스타일 */
+.ql-editor table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.ql-editor table td, .ql-editor table th {
+    border: 1px solid #cbd5e1; padding: 8px 12px; min-width: 60px;
+}
+</style>
 {% endblock %}
 
 {% set active_menu = 'notice' %}
@@ -117,10 +141,13 @@
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-yuanta/20">
         </div>
 
-        <!-- 본문 (CKEditor) -->
+        <!-- 본문 (Quill.js 에디터) -->
         <div class="space-y-2">
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">본문 내용</label>
-            <textarea name="content" id="editor" rows="16" placeholder="공지 내용을 입력하세요." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20 resize-y leading-relaxed"></textarea>
+            <!-- Quill 에디터 컨테이너 -->
+            <div id="quill-editor" style="min-height:320px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-size:14px;"></div>
+            <!-- 폼 제출용 hidden textarea -->
+            <textarea name="content" id="content-hidden" style="display:none;"></textarea>
         </div>
 
         <!-- 첨부파일 -->
@@ -147,8 +174,31 @@
 {% endblock %}
 
 {% block page_script %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
+    // ── Quill 에디터 초기화 ─────────────────────────────
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        placeholder: '공지 내용을 입력하세요. 엑셀/워드 내용을 붙여넣기 하면 서식이 유지됩니다.',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'indent': '-1' }, { 'indent': '+1' }],
+                [{ 'align': [] }],
+                ['link', 'image'],
+                ['clean']
+            ],
+            clipboard: { matchVisual: false }
+        }
+    });
 
+    // 폼 제출 시 Quill 내용을 hidden textarea에 복사
+    document.querySelector('form').addEventListener('submit', function() {
+        document.getElementById('content-hidden').value = quill.root.innerHTML;
+    });
 
     function toggleScheduleFields() {
         const type = document.getElementById('notice-type-select').value;

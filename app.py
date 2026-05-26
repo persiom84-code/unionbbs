@@ -350,7 +350,8 @@ class VoteTarget(db.Model):
     __tablename__ = 'TB_VOTE_TARGET'
     target_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
     vote_seq      = db.Column(db.Integer, db.ForeignKey('TB_VOTE.vote_seq'), nullable=False)
-    union_dept_cd = db.Column(db.String(20), nullable=False)
+    union_dept_cd = db.Column(db.String(20))
+    target_level  = db.Column(db.Integer)
 
 # ══════════════════════════════════════════════════════════
 # Auth Helpers
@@ -1090,13 +1091,24 @@ def vote_create():
         if item_nm.strip():
             db.session.add(VoteItem(vote_seq=vote.vote_seq, item_nm=item_nm, sort_order=idx))
 
-    # 투표 대상 분회 저장
+    # 투표 대상 저장
     target_type = request.form.get('target_type', 'ALL')
     if target_type == 'SPECIFIC':
         target_depts = request.form.getlist('target_dept[]')
+        total = 0
         for dept_cd in target_depts:
             if dept_cd.strip():
                 db.session.add(VoteTarget(vote_seq=vote.vote_seq, union_dept_cd=dept_cd.strip()))
+                total += User.query.filter_by(union_dept_cd=dept_cd.strip(), use_yn='Y').count()
+        vote.total_cnt = total or vote.total_cnt
+    elif target_type == 'LEVEL':
+        target_levels = request.form.getlist('target_level[]')
+        total = 0
+        for lv in target_levels:
+            if lv.strip():
+                db.session.add(VoteTarget(vote_seq=vote.vote_seq, target_level=int(lv)))
+                total += User.query.filter_by(user_level=int(lv), use_yn='Y').count()
+        vote.total_cnt = total or vote.total_cnt
 
     db.session.commit()
     flash('투표가 생성되었습니다.')

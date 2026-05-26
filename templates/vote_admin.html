@@ -210,14 +210,18 @@
                         <span class="w-8 h-8 rounded-full bg-yuanta text-white flex items-center justify-center text-sm mr-3">2</span> 투표권 부여 (대상 지정)
                     </h3>
                     
-                    <div class="flex gap-6 mb-6">
-                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50 w-40">
-                            <input type="radio" name="target_type" value="ALL" checked onclick="toggleBranchBox(false)" class="custom-radio w-5 h-5 text-yuanta">
-                            <span class="font-bold text-slate-700">전 조합원</span>
+                    <div class="flex flex-wrap gap-3 mb-6">
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50">
+                            <input type="radio" name="target_type" value="ALL" checked onclick="toggleTargetBox('none')" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700"><i class="fas fa-users text-yuanta mr-1"></i>전 조합원</span>
                         </label>
-                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50 w-48">
-                            <input type="radio" name="target_type" value="SPECIFIC" onclick="toggleBranchBox(true)" class="custom-radio w-5 h-5 text-yuanta">
-                            <span class="font-bold text-slate-700">특정 분회 지정</span>
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50">
+                            <input type="radio" name="target_type" value="SPECIFIC" onclick="toggleTargetBox('branch')" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700"><i class="fas fa-sitemap text-yuanta mr-1"></i>특정 분회 지정</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50">
+                            <input type="radio" name="target_type" value="LEVEL" onclick="toggleTargetBox('level')" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700"><i class="fas fa-layer-group text-yuanta mr-1"></i>레벨 지정</span>
                         </label>
                     </div>
 
@@ -246,6 +250,33 @@
                                 <a href="/admin/union-dept" class="text-yuanta font-bold ml-2">분회 관리 →</a>
                             </div>
                             {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 레벨 선택 -->
+                    <div id="level-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                        <p class="text-xs text-slate-500 font-bold"><i class="fas fa-layer-group mr-1"></i>선택한 레벨의 조합원만 투표 가능합니다. 복수 선택 가능합니다.</p>
+                        <div class="flex flex-wrap gap-3">
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_level[]" value="1" class="level-checkbox w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">LV1 집행위원</span>
+                            </label>
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_level[]" value="2" class="level-checkbox w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">LV2 대의원</span>
+                            </label>
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_level[]" value="3" class="level-checkbox w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">LV3 분회장</span>
+                            </label>
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_level[]" value="4" class="level-checkbox w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">LV4 일반조합원</span>
+                            </label>
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-yuanta transition-all">
+                                <input type="checkbox" name="target_level[]" value="5" class="level-checkbox w-4 h-4 text-yuanta">
+                                <span class="text-sm font-bold text-slate-700">LV5 명예조합원</span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -309,16 +340,15 @@
             }
         }
 
-        function toggleBranchBox(show) {
-            const box = document.getElementById('branch-selection-box');
-            if (show) {
-                box.classList.remove('hidden');
-                box.classList.add('fade-in');
-            } else {
-                box.classList.add('hidden');
-                // 숨길 때 모든 체크박스 해제
-                box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-            }
+        function toggleTargetBox(type) {
+            const branchBox = document.getElementById('branch-selection-box');
+            const levelBox  = document.getElementById('level-selection-box');
+            branchBox.classList.add('hidden');
+            levelBox.classList.add('hidden');
+            branchBox.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            levelBox.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            if (type === 'branch') { branchBox.classList.remove('hidden'); branchBox.classList.add('fade-in'); }
+            if (type === 'level')  { levelBox.classList.remove('hidden');  levelBox.classList.add('fade-in'); }
         }
 
         function toggleGroup(checkbox, groupClass) {
