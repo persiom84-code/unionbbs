@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %} - 서비스 초기화{% endblock %}
+
+{% block content %}
+<div style="max-width:600px; margin:0 auto; padding:24px 16px;">
+
+  <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+    <div style="background:#fef2f2; border-bottom:1px solid #fecaca; padding:20px 24px;">
+      <h2 style="font-size:1.1rem; font-weight:800; color:#991b1b; margin:0 0 4px;">
+        <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>서비스 데이터 초기화
+      </h2>
+      <p style="font-size:.82rem; color:#b91c1c; margin:0;">이 작업은 되돌릴 수 없습니다.</p>
+    </div>
+
+    <div style="padding:24px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div style="padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:.875rem;
+                        background:{% if category=='error' %}#fee2e2{% else %}#dcfce7{% endif %};
+                        color:{% if category=='error' %}#991b1b{% else %}#166534{% endif %};">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- 삭제 대상 안내 -->
+      <div style="background:#fafafa; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px;">
+        <p style="font-size:.82rem; font-weight:700; color:#374151; margin:0 0 10px;">
+          <i class="fas fa-trash" style="color:#ef4444; margin-right:6px;"></i>삭제되는 데이터
+        </p>
+        <ul style="font-size:.8rem; color:#6b7280; margin:0; padding-left:16px; line-height:2;">
+          <li>일반 사용자 계정 (LV1~LV5, LV99)</li>
+          <li>공지사항 전체</li>
+          <li>전자투표 전체 (투표/이력/항목)</li>
+          <li>자유게시판 전체 (게시글/댓글)</li>
+          <li>도서 목록 및 대출/신청 이력</li>
+          <li>일정 데이터</li>
+          <li>분회/부서 매핑 데이터</li>
+        </ul>
+      </div>
+
+      <!-- 유지 대상 안내 -->
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:16px; margin-bottom:24px;">
+        <p style="font-size:.82rem; font-weight:700; color:#166534; margin:0 0 10px;">
+          <i class="fas fa-shield-alt" style="color:#16a34a; margin-right:6px;"></i>유지되는 데이터
+        </p>
+        <ul style="font-size:.8rem; color:#166534; margin:0; padding-left:16px; line-height:2;">
+          <li>관리자(LV0) 계정</li>
+          <li>콘도 시설/객실/예약 데이터 전체</li>
+          <li>분회/부서/권역 마스터 데이터</li>
+          <li>조합 소개(About) 데이터</li>
+        </ul>
+      </div>
+
+      <!-- 확인 폼 -->
+      <form method="POST" action="/admin/reset-data">
+        <div style="margin-bottom:16px;">
+          <label style="font-size:.82rem; font-weight:700; color:#374151; display:block; margin-bottom:8px;">
+            초기화를 진행하려면 아래에 <strong>RESET</strong> 을 입력하세요.
+          </label>
+          <input type="text" name="confirm" placeholder="RESET"
+                 style="width:100%; padding:10px 12px; border:2px solid #fca5a5; border-radius:8px;
+                        font-size:1rem; font-weight:700; text-align:center; outline:none; box-sizing:border-box;"
+                 autocomplete="off">
+        </div>
+        <div style="display:flex; gap:12px;">
+          <a href="/"
+             style="flex:1; display:flex; align-items:center; justify-content:center;
+                    background:#f1f5f9; color:#475569; border-radius:8px; padding:11px;
+                    font-size:.875rem; font-weight:700; text-decoration:none;">
+            취소
+          </a>
+          <button type="submit"
+                  style="flex:1; background:#ef4444; color:#fff; border:none; border-radius:8px;
+                         padding:11px; font-size:.875rem; font-weight:700; cursor:pointer;">
+            <i class="fas fa-trash" style="margin-right:6px;"></i>초기화 실행
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

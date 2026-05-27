@@ -10,8 +10,9 @@ KST = timedelta(hours=9)
 from functools import wraps
 import bcrypt
 import os
-import cloudinary
-import cloudinary.uploader
+# cloudinary → 로컬 저장으로 전환
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
@@ -32,12 +33,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 
 db = SQLAlchemy(app, session_options={'expire_on_commit': False})
 
-# Cloudinary 초기화
-cloudinary.config(
-    cloud_name  = os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key     = os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret  = os.environ.get('CLOUDINARY_API_SECRET')
-)
+
 
 # ══════════════════════════════════════════════════════════
 # Models
@@ -568,8 +564,12 @@ def notice_save():
     if 'attach_file' in request.files:
         f = request.files['attach_file']
         if f and f.filename:
-            result   = cloudinary.uploader.upload(f, folder='unionbbs/notice', resource_type='auto')
-            file_url  = result.get('secure_url')
+            import uuid, werkzeug.utils
+            safe_nm  = werkzeug.utils.secure_filename(f.filename)
+            unique   = f'{uuid.uuid4().hex}_{safe_nm}'
+            save_path = os.path.join(UPLOAD_FOLDER, unique)
+            f.save(save_path)
+            file_url  = f'/static/uploads/{unique}'
             file_name = f.filename
     notice = Notice(
         notice_type   = request.form.get('notice_type'),
@@ -2169,8 +2169,12 @@ def admin_about_save():
     elif section == 'chairman_img':
         f = request.files.get('chairman_img')
         if f and f.filename:
-            result = cloudinary.uploader.upload(f, folder='unionbbs/about', resource_type='image')
-            about_data.chairman_img = result.get('secure_url')
+            import uuid, werkzeug.utils
+            safe_nm  = werkzeug.utils.secure_filename(f.filename)
+            unique   = f'{uuid.uuid4().hex}_{safe_nm}'
+            save_path = os.path.join(UPLOAD_FOLDER, unique)
+            f.save(save_path)
+            about_data.chairman_img = f'/static/uploads/{unique}' 
             flash('위원장 사진이 등록되었습니다.')
 
     elif section == 'auditor':
@@ -2490,6 +2494,63 @@ def init_db():
 # ── 모든 실행 환경에서 DB 초기화 ──────────────────────────
 with app.app_context():
     init_db()
+
+
+@app.route('/admin/reset-data', methods=['GET', 'POST'])
+@level_required(0)
+def admin_reset_data():
+    """서비스 데이터 초기화 (관리자 계정 + 콘도 데이터 유지)"""
+    if request.method == 'GET':
+        return render_template('admin_reset.html',
+            current_user=get_current_user(),
+            active_menu='dashboard')
+
+    confirm = request.form.get('confirm', '').strip()
+    if confirm != 'RESET':
+        flash('확인 문구가 올바르지 않습니다.', 'error')
+        return redirect(url_for('admin_reset_data'))
+
+    try:
+        admin = get_current_user()
+
+        # 1. 일반 사용자 삭제 (LV0 제외)
+        User.query.filter(User.user_level != 0).delete()
+
+        # 2. 공지사항 전체 삭제
+        Notice.query.delete()
+
+        # 3. 투표 전체 삭제
+        VoteHistory.query.delete()
+        VoteItem.query.delete()
+        VoteTarget.query.delete()
+        Vote.query.delete()
+
+        # 4. 게시판 전체 삭제
+        BoardComment.query.delete()
+        Board.query.delete()
+
+        # 5. 도서 대출/신청 이력 삭제
+        BookRental.query.delete()
+        BookRequest.query.delete()
+        Book.query.delete()
+
+        # 6. 일정 삭제
+        Schedule.query.delete()
+
+        # 7. 분회/부서/권역 매핑 초기화 (마스터 데이터는 유지)
+        UnionDeptMap.query.delete()
+        User.query.filter_by(user_level=0).update({'union_dept_cd': None, 'region_cd': None})
+
+        # ※ 콘도 데이터 (CondoReserve, CondoFacility, CondoRoom 등)는 유지
+
+        db.session.commit()
+        flash('서비스 데이터가 초기화되었습니다. 콘도 데이터는 유지되었습니다.', 'success')
+        return redirect(url_for('main'))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'초기화 중 오류가 발생했습니다: {str(e)}', 'error')
+        return redirect(url_for('admin_reset_data'))
 
 
 @app.route('/admin/add-test-users')
