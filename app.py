@@ -54,6 +54,7 @@ class User(db.Model):
     email         = db.Column(db.String(100), unique=True)
     dept_cd       = db.Column(db.String(20))
     union_dept_cd = db.Column(db.String(20))
+    region_cd     = db.Column(db.String(20))
     emp_type_cd   = db.Column(db.String(10))
     rank_cd       = db.Column(db.String(10))
     position_cd   = db.Column(db.String(20))
@@ -78,11 +79,21 @@ class CompDept(db.Model):
     sort_order     = db.Column(db.Integer, default=0)
     use_yn         = db.Column(db.String(1), default='Y')
 
+class Region(db.Model):
+    """권역 마스터 (TB_REGION)"""
+    __tablename__ = 'TB_REGION'
+    region_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    region_cd  = db.Column(db.String(20), nullable=False, unique=True)
+    region_nm  = db.Column(db.String(100), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+    use_yn     = db.Column(db.String(1), default='Y')
+
 class UnionDept(db.Model):
     __tablename__ = 'TB_UNION_DEPT'
     union_dept_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     union_dept_cd  = db.Column(db.String(20), nullable=False, unique=True)
     union_dept_nm  = db.Column(db.String(100), nullable=False)
+    region_cd      = db.Column(db.String(20))
     sort_order     = db.Column(db.Integer, default=0)
     use_yn         = db.Column(db.String(1), default='Y')
 
@@ -941,14 +952,14 @@ def admin_vote():
         })
     union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.sort_order).all()
     union_dept_list = [{'cd': d.union_dept_cd, 'nm': d.union_dept_nm} for d in union_depts]
+    regions = Region.query.filter_by(use_yn='Y').order_by(Region.sort_order, Region.region_seq).all()
     return render_template('vote_admin.html',
         current_user=current_user,
         admin_votes=vote_data,
         union_dept_list=union_dept_list,
+        regions=regions,
         active_menu='admin_vote'
     )
-
-@app.route('/admin/book')
 @level_required(0)
 def admin_book():
     current_user = get_current_user()
@@ -1108,6 +1119,14 @@ def vote_create():
             if lv.strip():
                 db.session.add(VoteTarget(vote_seq=vote.vote_seq, target_level=int(lv)))
                 total += User.query.filter_by(user_level=int(lv), use_yn='Y').count()
+        vote.total_cnt = total or vote.total_cnt
+    elif target_type == 'REGION':
+        target_regions = request.form.getlist('target_region[]')
+        total = 0
+        for region_cd in target_regions:
+            if region_cd.strip():
+                db.session.add(VoteTarget(vote_seq=vote.vote_seq, union_dept_cd=region_cd.strip()))
+                total += User.query.filter_by(region_cd=region_cd.strip(), use_yn='Y').count()
         vote.total_cnt = total or vote.total_cnt
 
     db.session.commit()
@@ -2106,7 +2125,12 @@ def book_request_process():
 def about():
     current_user  = get_current_user()
     executives    = User.query.filter_by(user_level=1, use_yn='Y').all()
-    delegates     = User.query.filter_by(user_level=2, use_yn='Y').all()
+    region_map    = {r.region_cd: r.region_nm for r in Region.query.filter_by(use_yn='Y').all()}
+    raw_delegates = User.query.filter_by(user_level=2, use_yn='Y').all()
+    # 대의원에 region_nm 동적 추가
+    for d in raw_delegates:
+        d.region_nm = region_map.get(d.region_cd, '') if d.region_cd else ''
+    delegates = raw_delegates
     chairman      = User.query.filter_by(position_cd='CHAIRMAN', use_yn='Y').first()
     auditors      = User.query.filter_by(position_cd='AUDITOR', use_yn='Y').all()
     senior_vice   = User.query.filter_by(position_cd='SENIOR_VICE', use_yn='Y').first()
@@ -2243,6 +2267,10 @@ def profile_edit():
 
     level_map = {0:'관리자', 1:'집행위원', 2:'대의원', 3:'분회장', 4:'일반조합원', 5:'명예조합원', 99:'비조합원'}
     level_nm  = level_map.get(current_user.user_level, '-')
+    region_nm_val = '-'
+    if current_user.region_cd:
+        r = Region.query.filter_by(region_cd=current_user.region_cd).first()
+        region_nm_val = r.region_nm if r else '-' 
 
     # 콘도 신청 이력 (최근 10건)
     condo_history = (
@@ -2268,6 +2296,7 @@ def profile_edit():
         position_nm = position_nm.code_nm if position_nm else '-',
         dept_nm     = dept_nm.dept_nm      if dept_nm     else '-',
         level_nm    = level_nm,
+        region_nm   = region_nm_val,
         condo_history = condo_history,
         book_history  = book_history,
         active_menu='profile'
@@ -2363,7 +2392,8 @@ def admin_user_list():
     current_user = get_current_user()
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
     today    = date.today()
-    dept_map = {d.dept_cd: d.dept_nm for d in CompDept.query.filter_by(use_yn='Y').all()}
+    dept_map   = {d.dept_cd:   d.dept_nm   for d in CompDept.query.filter_by(use_yn='Y').all()}
+    region_map = {r.region_cd: r.region_nm for r in Region.query.filter_by(use_yn='Y').all()}
     user_rows = []
     for u in users:
         days = (today - u.pwd_chg_dt).days if u.pwd_chg_dt else None
@@ -2374,6 +2404,7 @@ def admin_user_list():
             'position_cd':    u.position_cd or '',
             'dept_cd':        u.dept_cd or '',
             'dept_nm':        dept_map.get(u.dept_cd, u.dept_cd or '-'),
+            'region_nm':      region_map.get(u.region_cd, '-') if u.region_cd else '-',
             'union_dept_cd':  u.union_dept_cd or '',
             'acct_lock_yn':   u.acct_lock_yn,
             'pwd_init_yn':    u.pwd_init_yn,
@@ -2383,11 +2414,13 @@ def admin_user_list():
         })
     union_depts = UnionDept.query.filter_by(use_yn='Y').order_by(UnionDept.union_dept_seq).all()
     comp_depts  = CompDept.query.filter_by(use_yn='Y').order_by(CompDept.sort_order, CompDept.dept_cd).all()
+    regions     = Region.query.filter_by(use_yn='Y').order_by(Region.sort_order, Region.region_seq).all()
     return render_template('admin_user.html',
         current_user=current_user,
         user_rows=user_rows,
         union_depts=union_depts,
         comp_depts=comp_depts,
+        regions=regions,
         active_menu='admin_user'
     )
 
@@ -2576,6 +2609,15 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
+            conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
+                region_seq SERIAL PRIMARY KEY,
+                region_cd  VARCHAR(20) NOT NULL UNIQUE,
+                region_nm  VARCHAR(100) NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                use_yn     VARCHAR(1) DEFAULT 'Y'
+            )'''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS allow_comment VARCHAR(1) DEFAULT \'N\''))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_NOTICE" ADD COLUMN IF NOT EXISTS file_name VARCHAR(200)'))
@@ -2825,12 +2867,22 @@ def admin_union_dept():
 
     # 부서 탭용: 전체 부서 (비활성 포함)
     all_comp_depts_full = CompDept.query.order_by(CompDept.sort_order, CompDept.dept_cd).all()
+    # 권역 목록
+    regions = Region.query.filter_by(use_yn='Y').order_by(Region.sort_order, Region.region_seq).all()
+    region_map = {r.region_cd: r.region_nm for r in regions}
+
+    # dept_list에 region_nm 추가
+    for d in dept_list:
+        d['region_nm'] = region_map.get(
+            UnionDept.query.filter_by(union_dept_cd=d['cd']).first().region_cd or '', '-'
+        ) if UnionDept.query.filter_by(union_dept_cd=d['cd']).first() else '-'
 
     return render_template('admin_union_dept.html',
         current_user=current_user,
         dept_list=dept_list,
         all_comp_depts=all_comp_depts,
         all_comp_depts_full=all_comp_depts_full,
+        regions=regions,
         active_tab=active_tab,
         active_menu='admin_union_dept'
     )
@@ -3012,6 +3064,53 @@ def admin_union_dept_save():
         if dept:
             dept.dept_nm = dept_nm
             flash(f'{dept_nm} 부서명이 수정되었습니다.', 'success')
+
+    # ── 권역 추가 ────────────────────────────────────────
+    elif action == 'region_add':
+        region_cd = request.form.get('region_cd', '').strip().upper()
+        region_nm = request.form.get('region_nm', '').strip()
+        existing  = Region.query.filter_by(region_cd=region_cd).first()
+        if existing and existing.use_yn == 'Y':
+            flash('이미 존재하는 권역 코드입니다.', 'error')
+        elif existing:
+            existing.region_nm = region_nm; existing.use_yn = 'Y'
+            flash(f'{region_nm} 권역이 등록되었습니다.', 'success')
+        else:
+            db.session.add(Region(region_cd=region_cd, region_nm=region_nm,
+                                  sort_order=int(request.form.get('sort_order', 0))))
+            flash(f'{region_nm} 권역이 등록되었습니다.', 'success')
+
+    # ── 권역 수정 ────────────────────────────────────────
+    elif action == 'region_edit':
+        region_cd = request.form.get('region_cd', '').strip()
+        region_nm = request.form.get('region_nm', '').strip()
+        region = Region.query.filter_by(region_cd=region_cd).first()
+        if region:
+            region.region_nm = region_nm
+            flash(f'{region_nm} 권역명이 수정되었습니다.', 'success')
+
+    # ── 권역 삭제 ────────────────────────────────────────
+    elif action == 'region_delete':
+        region_cd = request.form.get('region_cd', '').strip()
+        region = Region.query.filter_by(region_cd=region_cd).first()
+        if region:
+            # 소속 분회 권역 해제
+            UnionDept.query.filter_by(region_cd=region_cd).update({'region_cd': None})
+            # 소속 사용자 권역 해제
+            User.query.filter_by(region_cd=region_cd).update({'region_cd': None})
+            region.use_yn = 'N'
+            flash(f'{region.region_nm} 권역이 삭제되었습니다.', 'success')
+
+    # ── 분회에 권역 배정 ─────────────────────────────────
+    elif action == 'assign_region':
+        union_dept_cd = request.form.get('union_dept_cd', '').strip()
+        region_cd     = request.form.get('region_cd', '').strip()
+        dept = UnionDept.query.filter_by(union_dept_cd=union_dept_cd).first()
+        if dept:
+            dept.region_cd = region_cd or None
+            # 해당 분회 소속 사용자 region_cd 자동 업데이트
+            User.query.filter_by(union_dept_cd=union_dept_cd).update({'region_cd': region_cd or None})
+            flash('권역이 배정되었습니다.', 'success')
 
     # ── 회사 부서 비활성화 ────────────────────────────────
     elif action == 'comp_deactivate':

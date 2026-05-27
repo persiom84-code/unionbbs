@@ -130,6 +130,7 @@
                         <th class="px-5 py-4 w-28 text-center cursor-pointer select-none" onclick="sortTable(5)">
                             분회 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-5"></i>
                         </th>
+                        <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortTable(6)">권역 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-6"></i></th>
                         <th class="px-5 py-4 w-24 text-center">계정상태</th>
                         <th class="px-5 py-4 w-24 text-center">비번상태</th>
                         <th class="px-5 py-4 w-36 text-center cursor-pointer select-none" onclick="sortTable(8)">
@@ -185,6 +186,9 @@
                             <span class="badge bg-slate-50 text-slate-500 text-[10px]">
                                 {{ u.union_dept_cd if u.union_dept_cd else '-' }}
                             </span>
+                        </td>
+                        <td class="px-5 py-4 text-center text-xs text-slate-500">
+                            {{ u.region_nm if u.region_nm else '-' }}
                         </td>
                         <td class="px-5 py-4 text-center">
                             {% if u.acct_lock_yn == 'Y' %}

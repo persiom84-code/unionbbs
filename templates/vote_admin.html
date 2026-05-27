@@ -223,6 +223,10 @@
                             <input type="radio" name="target_type" value="LEVEL" onclick="toggleTargetBox('level')" class="custom-radio w-5 h-5 text-yuanta">
                             <span class="font-bold text-slate-700"><i class="fas fa-layer-group text-yuanta mr-1"></i>레벨 지정</span>
                         </label>
+                        <label class="flex items-center gap-2 cursor-pointer p-3 border border-slate-200 rounded-xl hover:bg-slate-50">
+                            <input type="radio" name="target_type" value="REGION" onclick="toggleTargetBox('region')" class="custom-radio w-5 h-5 text-yuanta">
+                            <span class="font-bold text-slate-700"><i class="fas fa-map-marked-alt text-yuanta mr-1"></i>권역 지정</span>
+                        </label>
                     </div>
 
                     <!-- 분회 선택 -->
@@ -277,6 +281,24 @@
                                 <input type="checkbox" name="target_level[]" value="5" class="level-checkbox w-4 h-4 text-yuanta">
                                 <span class="text-sm font-bold text-slate-700">LV5 명예조합원</span>
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- 권역 선택 -->
+                    <div id="region-selection-box" class="hidden bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                        <p class="text-xs text-slate-500 font-bold"><i class="fas fa-map-marked-alt mr-1"></i>선택한 권역 소속 조합원만 투표 가능합니다. 복수 선택 가능합니다.</p>
+                        <div class="flex flex-wrap gap-3">
+                            {% for r in regions %}
+                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 cursor-pointer hover:border-purple-400 transition-all">
+                                <input type="checkbox" name="target_region[]" value="{{ r.region_cd }}" class="region-checkbox w-4 h-4">
+                                <span class="text-sm font-bold text-slate-700">{{ r.region_nm }}</span>
+                                <span class="text-[10px] font-mono text-slate-400 ml-auto">{{ r.region_cd }}</span>
+                            </label>
+                            {% else %}
+                            <p class="text-sm text-slate-400 italic">등록된 권역이 없습니다.
+                                <a href="/admin/union-dept?tab=region" class="text-purple-600 font-bold ml-1">권역 관리 →</a>
+                            </p>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
@@ -341,14 +363,12 @@
         }
 
         function toggleTargetBox(type) {
-            const branchBox = document.getElementById('branch-selection-box');
-            const levelBox  = document.getElementById('level-selection-box');
-            branchBox.classList.add('hidden');
-            levelBox.classList.add('hidden');
-            branchBox.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-            levelBox.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-            if (type === 'branch') { branchBox.classList.remove('hidden'); branchBox.classList.add('fade-in'); }
-            if (type === 'level')  { levelBox.classList.remove('hidden');  levelBox.classList.add('fade-in'); }
+            ['branch-selection-box','level-selection-box','region-selection-box'].forEach(id => {
+                const box = document.getElementById(id);
+                if (box) { box.classList.add('hidden'); box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); }
+            });
+            const map = { branch: 'branch-selection-box', level: 'level-selection-box', region: 'region-selection-box' };
+            if (map[type]) { document.getElementById(map[type]).classList.remove('hidden'); document.getElementById(map[type]).classList.add('fade-in'); }
         }
 
         function toggleGroup(checkbox, groupClass) {

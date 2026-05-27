@@ -21,6 +21,10 @@
                 class="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all">
                 <i class="fas fa-plus mr-2"></i>부서 추가
             </button>
+            <button id="btn-add-region" onclick="openRegionAddModal()" style="display:none;"
+                class="px-5 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-all">
+                <i class="fas fa-plus mr-2"></i>권역 추가
+            </button>
         </div>
     </div>
 
@@ -33,6 +37,10 @@
         <button id="tab-comp" onclick="switchTab('comp')"
             class="px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all">
             <i class="fas fa-building mr-2"></i>부서 관리
+        </button>
+        <button id="tab-region" onclick="switchTab('region')"
+            class="px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all">
+            <i class="fas fa-map-marked-alt mr-2"></i>권역 관리
         </button>
     </div>
 
@@ -65,6 +73,7 @@
                             <th class="px-5 py-4 w-28 cursor-pointer select-none" onclick="sortUnionTable(0)">분회 코드 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-0"></i></th>
                             <th class="px-5 py-4 cursor-pointer select-none" onclick="sortUnionTable(1)">분회명 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-1"></i></th>
                             <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortUnionTable(2)">인원 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-2"></i></th>
+                            <th class="px-5 py-4 w-28 text-center cursor-pointer select-none" onclick="sortUnionTable(3)">권역 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="usort-3"></i></th>
                             <th class="px-5 py-4">소속 회사 부서</th>
                             <th class="px-5 py-4 w-40 text-center">관리</th>
                         </tr>
@@ -77,6 +86,16 @@
                             <td class="px-5 py-4 font-bold text-slate-800">{{ d.nm }}</td>
                             <td class="px-5 py-4 text-center">
                                 <span class="badge bg-blue-50 text-blue-600">{{ d.member_cnt }}명</span>
+                            </td>
+                            <td class="px-5 py-4 text-center">
+                                {% if d.region_nm and d.region_nm != '-' %}
+                                <span class="px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-[10px] font-bold">{{ d.region_nm }}</span>
+                                {% else %}
+                                <button onclick="openAssignRegionModal('{{ d.cd }}','{{ d.nm }}')"
+                                    class="px-2 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-bold hover:bg-purple-50 hover:text-purple-600 transition-all">
+                                    미배정
+                                </button>
+                                {% endif %}
                             </td>
                             <td class="px-5 py-4">
                                 {% if d.comp_depts %}
@@ -217,6 +236,57 @@
         </div>
     </div>
 </div>
+
+    <!-- ══ 권역 탭 ══ -->
+    <div id="view-region" style="display:none;">
+        <div class="content-card overflow-hidden">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/50">
+                <h3 class="font-bold text-slate-700 text-sm"><i class="fas fa-map-marked-alt text-purple-600 mr-2"></i>권역 목록</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-5 py-4 w-32">권역 코드</th>
+                            <th class="px-5 py-4">권역명</th>
+                            <th class="px-5 py-4 w-24 text-center">소속 분회 수</th>
+                            <th class="px-5 py-4 w-36 text-center">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for r in regions %}
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-5 py-4 font-mono font-bold text-purple-700">{{ r.region_cd }}</td>
+                            <td class="px-5 py-4 font-bold text-slate-800">{{ r.region_nm }}</td>
+                            <td class="px-5 py-4 text-center">
+                                <span class="badge bg-purple-50 text-purple-600">
+                                    {{ namespace(cnt=0) }}
+                                    {% for d in dept_list %}{% if d.region_nm == r.region_nm %}{{ namespace(cnt=loop.index) }}{% endif %}{% endfor %}
+                                </span>
+                            </td>
+                            <td class="px-5 py-4 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button onclick="openRegionEditModal('{{ r.region_cd }}','{{ r.region_nm }}')"
+                                        class="px-3 py-1.5 bg-slate-100 hover:bg-purple-600 hover:text-white text-slate-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-pen mr-1"></i>수정
+                                    </button>
+                                    <button onclick="confirmRegionDelete('{{ r.region_cd }}','{{ r.region_nm }}')"
+                                        class="px-3 py-1.5 bg-red-50 hover:bg-red-500 hover:text-white text-red-500 rounded-lg text-[10px] font-black transition-all">
+                                        <i class="fas fa-trash mr-1"></i>삭제
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="py-16 text-center text-slate-300 text-sm italic">등록된 권역이 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
 <!-- ══ 분회 추가 모달 ══ -->
 <div id="add-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
@@ -425,6 +495,104 @@
         </form>
     </div>
 </div>
+<!-- ══ 권역 추가 모달 ══ -->
+<div id="region-add-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-purple-50 border-b border-purple-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-purple-700 flex items-center gap-2"><i class="fas fa-plus"></i>권역 추가</h3>
+            <button onclick="closeModal('region-add-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="region_add">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권역 코드 <span class="text-red-400">*불변</span></label>
+                <input type="text" name="region_cd" required placeholder="예: R001" class="form-input" style="text-transform:uppercase;">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권역명</label>
+                <input type="text" name="region_nm" required placeholder="예: 본사리테일 권역" class="form-input">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('region-add-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 권역 수정 모달 ══ -->
+<div id="region-edit-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-slate-50 border-b border-slate-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-purple-700 flex items-center gap-2"><i class="fas fa-pen"></i>권역 수정</h3>
+            <button onclick="closeModal('region-edit-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="region_edit">
+            <input type="hidden" name="region_cd" id="region-edit-cd">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권역 코드 (불변)</label>
+                <input type="text" id="region-edit-cd-display" class="form-input" disabled>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권역명</label>
+                <input type="text" name="region_nm" id="region-edit-nm" required class="form-input">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('region-edit-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700">저장</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 권역 삭제 확인 모달 ══ -->
+<div id="region-delete-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-red-50 border-b border-red-100 px-6 py-5">
+            <h3 class="font-black text-red-700 flex items-center gap-2"><i class="fas fa-triangle-exclamation"></i>권역 삭제 확인</h3>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="region_delete">
+            <input type="hidden" name="region_cd" id="region-delete-cd">
+            <p id="region-delete-msg" class="text-sm text-slate-600 leading-relaxed"></p>
+            <p class="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">삭제 시 소속 분회의 권역 배정이 해제됩니다.</p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeModal('region-delete-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">삭제</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ 분회 권역 배정 모달 ══ -->
+<div id="assign-region-modal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="bg-purple-50 border-b border-purple-100 px-6 py-5 flex justify-between items-center">
+            <h3 class="font-black text-purple-700 flex items-center gap-2"><i class="fas fa-map-marked-alt"></i>권역 배정</h3>
+            <button onclick="closeModal('assign-region-modal')" class="text-slate-300 hover:text-slate-500 text-xl">✕</button>
+        </div>
+        <form action="/admin/union-dept/save" method="POST" class="p-6 space-y-4">
+            <input type="hidden" name="action" value="assign_region">
+            <input type="hidden" name="union_dept_cd" id="assign-region-union-cd">
+            <p id="assign-region-dept-nm" class="text-sm font-black text-slate-700"></p>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">권역 선택</label>
+                <select name="region_cd" class="form-input">
+                    <option value="">권역 없음</option>
+                    {% for r in regions %}
+                    <option value="{{ r.region_cd }}">{{ r.region_nm }} ({{ r.region_cd }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal('assign-region-modal')" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold">취소</button>
+                <button type="submit" class="flex-1 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700">배정</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block page_script %}
@@ -433,16 +601,22 @@
 
     function switchTab(tab) {
         currentTab = tab;
-        document.getElementById('view-union').style.display = tab === 'union' ? 'block' : 'none';
-        document.getElementById('view-comp').style.display  = tab === 'comp'  ? 'block' : 'none';
-        document.getElementById('tab-union').className = tab === 'union'
-            ? 'px-6 py-2.5 bg-white border-2 border-yuanta text-yuanta rounded-xl text-sm font-bold transition-all'
-            : 'px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all';
-        document.getElementById('tab-comp').className = tab === 'comp'
-            ? 'px-6 py-2.5 bg-white border-2 border-emerald-500 text-emerald-600 rounded-xl text-sm font-bold transition-all'
-            : 'px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all';
-        document.getElementById('btn-add-union').style.display = tab === 'union' ? 'block' : 'none';
-        document.getElementById('btn-add-comp').style.display  = tab === 'comp'  ? 'block' : 'none';
+        document.getElementById('view-union').style.display  = tab === 'union'  ? 'block' : 'none';
+        document.getElementById('view-comp').style.display   = tab === 'comp'   ? 'block' : 'none';
+        document.getElementById('view-region').style.display = tab === 'region' ? 'block' : 'none';
+
+        const tabs = { union: ['border-yuanta','text-yuanta'], comp: ['border-emerald-500','text-emerald-600'], region: ['border-purple-500','text-purple-600'] };
+        ['union','comp','region'].forEach(t => {
+            const btn = document.getElementById('tab-' + t);
+            if (!btn) return;
+            const [bc, tc] = tabs[t];
+            btn.className = t === tab
+                ? `px-6 py-2.5 bg-white border-2 ${bc} ${tc} rounded-xl text-sm font-bold transition-all`
+                : 'px-6 py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold transition-all';
+        });
+        document.getElementById('btn-add-union').style.display  = tab === 'union'  ? 'block' : 'none';
+        document.getElementById('btn-add-comp').style.display   = tab === 'comp'   ? 'block' : 'none';
+        document.getElementById('btn-add-region').style.display = tab === 'region' ? 'block' : 'none';
     }
 
     // ── 분회 모달 ──────────────────────────────────
@@ -530,6 +704,32 @@
     }
 
     // ── 공통 닫기 ──────────────────────────────────
+    // ── 권역 모달 ──────────────────────────────────────────
+    function openRegionAddModal() {
+        const m = document.getElementById('region-add-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function openRegionEditModal(cd, nm) {
+        document.getElementById('region-edit-cd').value          = cd;
+        document.getElementById('region-edit-cd-display').value  = cd;
+        document.getElementById('region-edit-nm').value          = nm;
+        const m = document.getElementById('region-edit-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function confirmRegionDelete(cd, nm) {
+        document.getElementById('region-delete-cd').value = cd;
+        document.getElementById('region-delete-msg').innerHTML =
+            `<strong>${nm} (${cd})</strong> 권역을 삭제하시겠습니까?`;
+        const m = document.getElementById('region-delete-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function openAssignRegionModal(unionCd, unionNm) {
+        document.getElementById('assign-region-union-cd').value = unionCd;
+        document.getElementById('assign-region-dept-nm').textContent = unionNm + ' 분회에 배정할 권역을 선택하세요.';
+        const m = document.getElementById('assign-region-modal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+
     function closeModal(id) {
         const m = document.getElementById(id);
         m.classList.add('hidden'); m.classList.remove('flex');
