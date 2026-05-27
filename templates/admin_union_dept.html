@@ -260,8 +260,8 @@
                             <td class="px-5 py-4 font-bold text-slate-800">{{ r.region_nm }}</td>
                             <td class="px-5 py-4 text-center">
                                 <span class="badge bg-purple-50 text-purple-600">
-                                    {{ namespace(cnt=0) }}
-                                    {% for d in dept_list %}{% if d.region_nm == r.region_nm %}{{ namespace(cnt=loop.index) }}{% endif %}{% endfor %}
+                                    {% set cnt = dept_list | selectattr('region_nm', 'equalto', r.region_nm) | list | length %}
+                                    {{ cnt }}개
                                 </span>
                             </td>
                             <td class="px-5 py-4 text-center">
