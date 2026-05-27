@@ -63,6 +63,18 @@
             </span>
           </div>
         </div>
+        <div>
+          <label style="font-size:.78rem; color:#64748b; display:block; margin-bottom:4px;">소속 권역</label>
+          <div style="font-size:.95rem; color:#1e293b;">
+            {% if region_nm and region_nm != '-' %}
+            <span style="background:#f3e8ff; color:#7e22ce; padding:2px 8px; border-radius:4px; font-size:.82rem; font-weight:600;">
+              {{ region_nm }}
+            </span>
+            {% else %}
+            <span style="color:#94a3b8;">미배정</span>
+            {% endif %}
+          </div>
+        </div>
         {% if current_user.phone_no %}
         <div>
           <label style="font-size:.78rem; color:#64748b; display:block; margin-bottom:4px;">연락처</label>
