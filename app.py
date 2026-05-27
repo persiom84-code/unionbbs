@@ -2432,6 +2432,24 @@ def admin_user_list():
 def init_db():
     db.create_all()
 
+    # 신규 컬럼 자동 추가 (migrate 없이 배포 시 대응)
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
+            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
+                region_seq SERIAL PRIMARY KEY,
+                region_cd  VARCHAR(20) NOT NULL UNIQUE,
+                region_nm  VARCHAR(100) NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                use_yn     VARCHAR(1) DEFAULT 'Y'
+            )'''))
+            conn.commit()
+    except Exception as e:
+        print(f"Auto-migrate warning: {e}")
+
     if User.query.first():
         print("DB already initialized - skipping")
         return
