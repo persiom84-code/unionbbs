@@ -142,9 +142,10 @@
                         <p style="font-size:12px;font-weight:800;color:#1e293b;font-style:italic;">{{ d.emp_nm }}</p>
                     </div>
                     <div style="background:#f8fafc;padding:6px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:3px;align-items:center;">
-                        <span style="font-size:9px;font-weight:800;color:#00479d;text-transform:uppercase;letter-spacing:.05em;">{{ d.union_dept_cd | default('분회미지정') }}</span>
                         {% if d.region_nm %}
-                        <span style="font-size:8px;font-weight:700;background:#f3e8ff;color:#7e22ce;padding:1px 6px;border-radius:20px;">{{ d.region_nm }}</span>
+                        <span style="font-size:9px;font-weight:800;background:#f3e8ff;color:#7e22ce;padding:2px 8px;border-radius:20px;">{{ d.region_nm }}</span>
+                        {% else %}
+                        <span style="font-size:9px;font-weight:800;color:#cbd5e1;">권역미지정</span>
                         {% endif %}
                     </div>
                 </div>
