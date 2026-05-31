@@ -960,6 +960,8 @@ def admin_vote():
         regions=regions,
         active_menu='admin_vote'
     )
+
+@app.route('/admin/book')
 @level_required(0)
 def admin_book():
     current_user = get_current_user()
