@@ -13,18 +13,6 @@
     </div>
 
     <div style="padding:24px;">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-            <div style="padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:.875rem;
-                        background:{% if category=='error' %}#fee2e2{% else %}#dcfce7{% endif %};
-                        color:{% if category=='error' %}#991b1b{% else %}#166534{% endif %};">
-              {{ message }}
-            </div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
-
       <!-- 삭제 대상 안내 -->
       <div style="background:#fafafa; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:20px;">
         <p style="font-size:.82rem; font-weight:700; color:#374151; margin:0 0 10px;">

@@ -2516,7 +2516,8 @@ def admin_reset_data():
         # 1. 일반 사용자 삭제 (LV0 제외)
         User.query.filter(User.user_level != 0).delete()
 
-        # 2. 공지사항 전체 삭제
+        # 2. 공지사항 전체 삭제 (댓글 먼저)
+        NoticeComment.query.delete()
         Notice.query.delete()
 
         # 3. 투표 전체 삭제
