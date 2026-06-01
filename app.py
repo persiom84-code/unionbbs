@@ -2139,6 +2139,14 @@ def about():
     senior_vice   = User.query.filter_by(position_cd='SENIOR_VICE', use_yn='Y').first()
     vice_chairman = User.query.filter_by(position_cd='VICE', use_yn='Y').first()
     about_data    = About.query.first()
+
+    # 위원장 사진: User.profile_img 우선 (없으면 기존 about.chairman_img 폴백)
+    chairman_photo = None
+    if chairman and chairman.profile_img:
+        chairman_photo = chairman.profile_img
+    elif about_data and about_data.chairman_img:
+        chairman_photo = about_data.chairman_img
+
     return render_template('about.html',
         current_user=current_user,
         executives=executives,
@@ -2146,7 +2154,7 @@ def about():
         auditors=auditors,
         chairman=chairman,
         chairman_nm=chairman.emp_nm if chairman else '미등록',
-        chairman_img=about_data.chairman_img if about_data else None,
+        chairman_img=chairman_photo,
         senior_vice=senior_vice,
         vice_chairman=vice_chairman,
         slogan_text=about_data.slogan if about_data else None,
@@ -2183,16 +2191,7 @@ def admin_about_save():
                 user.profile_img = f'/static/uploads/{unique}'
                 flash(f'{user.emp_nm} 프로필 사진이 등록되었습니다.', 'success')
 
-    elif section == 'chairman_img':
-        f = request.files.get('chairman_img')
-        if f and f.filename:
-            import uuid, werkzeug.utils
-            safe_nm  = werkzeug.utils.secure_filename(f.filename)
-            unique   = f'{uuid.uuid4().hex}_{safe_nm}'
-            save_path = os.path.join(UPLOAD_FOLDER, unique)
-            f.save(save_path)
-            about_data.chairman_img = f'/static/uploads/{unique}' 
-            flash('위원장 사진이 등록되었습니다.')
+    # chairman_img section은 profile_img section으로 통합됨 (User.profile_img 사용)
 
     elif section == 'auditor':
         action  = request.form.get('action')
