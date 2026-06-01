@@ -27,7 +27,7 @@
             <i class="fas fa-quote-left"></i>슬로건/인사말
         </button>
         <button class="btn-primary" onclick="openModal('modal-chairman-img')" style="background:#475569;">
-            <i class="fas fa-camera"></i>위원장 사진
+            <i class="fas fa-camera"></i>상근간부 사진
         </button>
     </div>
     {% endif %}
@@ -74,6 +74,12 @@
     <!-- 위원장 -->
     <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:8px;">
         <div style="background:#00479d;color:#fff;border-radius:18px;padding:20px 32px;text-align:center;width:220px;box-shadow:0 8px 24px rgba(0,71,157,.3);">
+            {% set chairman_photo = (chairman.profile_img if chairman and chairman.profile_img else chairman_img) %}
+            {% if chairman_photo %}
+            <div style="width:80px;height:80px;border-radius:50%;background:#fff;overflow:hidden;margin:0 auto 10px;border:3px solid rgba(255,255,255,.3);">
+                <img src="{{ chairman_photo }}" style="width:100%;height:100%;object-fit:cover;" alt="위원장">
+            </div>
+            {% endif %}
             <p style="font-size:9px;color:#fcd34d;font-weight:800;text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;">Chairman</p>
             <p style="font-size:16px;font-weight:700;font-style:italic;">{{ chairman_nm | default('미등록') }}</p>
         </div>
@@ -83,7 +89,16 @@
     <!-- 수석·부위원장 -->
     <div style="display:flex;justify-content:center;gap:16px;margin-bottom:8px;">
         {% for title, person in [('수석부위원장', senior_vice), ('부위원장', vice_chairman)] %}
-        <div class="org-card" style="width:180px;">
+        <div class="org-card" style="width:180px;text-align:center;">
+            {% if person and person.profile_img %}
+            <div style="width:64px;height:64px;border-radius:50%;background:#f1f5f9;overflow:hidden;margin:0 auto 10px;border:2px solid #e2e8f0;">
+                <img src="{{ person.profile_img }}" style="width:100%;height:100%;object-fit:cover;" alt="{{ title }}">
+            </div>
+            {% else %}
+            <div style="width:64px;height:64px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;border:2px solid #e2e8f0;">
+                <i class="fas fa-user" style="color:#cbd5e1;font-size:24px;"></i>
+            </div>
+            {% endif %}
             <p style="font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">{{ title }}</p>
             <p style="font-size:14px;font-weight:700;color:#1e293b;">{{ person.emp_nm if person else '미등록' }}</p>
         </div>
@@ -215,25 +230,94 @@
     </div>
 </div>
 
-<!-- 위원장 사진 -->
+<!-- 상근간부 프로필 사진 -->
 <div id="modal-chairman-img" class="modal-overlay">
     <div class="modal-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">위원장 사진 등록</h3>
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">상근간부 프로필 사진</h3>
             <button onclick="closeModal('modal-chairman-img')" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
         </div>
-        <form action="/admin/about/save" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="section" value="chairman_img">
-            <div style="margin-bottom:20px;">
-                <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">사진 파일 선택</label>
-                <input type="file" name="chairman_img" accept="image/*" class="form-input" style="padding:8px;">
-                <p style="font-size:10px;color:#94a3b8;margin-top:6px;">※ JPG, PNG 권장 / 세로형(3:4) 비율 최적</p>
+
+        <!-- 위원장 -->
+        {% if chairman %}
+        <form action="/admin/about/save" method="POST" enctype="multipart/form-data" style="margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:10px;">
+            <input type="hidden" name="section" value="profile_img">
+            <input type="hidden" name="emp_no" value="{{ chairman.emp_no }}">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                {% if chairman.profile_img %}
+                <img src="{{ chairman.profile_img }}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #00479d;">
+                {% else %}
+                <div style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user" style="color:#94a3b8;font-size:14px;"></i></div>
+                {% endif %}
+                <div>
+                    <p style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Chairman</p>
+                    <p style="font-size:13px;font-weight:700;color:#0f172a;">{{ chairman.emp_nm }}</p>
+                </div>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button type="button" class="btn-secondary" onclick="closeModal('modal-chairman-img')">취소</button>
-                <button type="submit" class="btn-primary"><i class="fas fa-upload"></i>업로드</button>
+            <div style="display:flex;gap:6px;">
+                <input type="file" name="profile_img" accept="image/*" required style="flex:1;font-size:11px;">
+                <button type="submit" class="btn-primary" style="font-size:11px;padding:4px 12px;"><i class="fas fa-upload"></i></button>
             </div>
         </form>
+        {% else %}
+        <p style="font-size:11px;color:#94a3b8;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;margin-bottom:12px;">위원장이 등록되지 않았습니다.</p>
+        {% endif %}
+
+        <!-- 수석부위원장 -->
+        {% if senior_vice %}
+        <form action="/admin/about/save" method="POST" enctype="multipart/form-data" style="margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:10px;">
+            <input type="hidden" name="section" value="profile_img">
+            <input type="hidden" name="emp_no" value="{{ senior_vice.emp_no }}">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                {% if senior_vice.profile_img %}
+                <img src="{{ senior_vice.profile_img }}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #00479d;">
+                {% else %}
+                <div style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user" style="color:#94a3b8;font-size:14px;"></i></div>
+                {% endif %}
+                <div>
+                    <p style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">수석부위원장</p>
+                    <p style="font-size:13px;font-weight:700;color:#0f172a;">{{ senior_vice.emp_nm }}</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <input type="file" name="profile_img" accept="image/*" required style="flex:1;font-size:11px;">
+                <button type="submit" class="btn-primary" style="font-size:11px;padding:4px 12px;"><i class="fas fa-upload"></i></button>
+            </div>
+        </form>
+        {% else %}
+        <p style="font-size:11px;color:#94a3b8;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;margin-bottom:12px;">수석부위원장이 등록되지 않았습니다.</p>
+        {% endif %}
+
+        <!-- 부위원장 -->
+        {% if vice_chairman %}
+        <form action="/admin/about/save" method="POST" enctype="multipart/form-data" style="margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:10px;">
+            <input type="hidden" name="section" value="profile_img">
+            <input type="hidden" name="emp_no" value="{{ vice_chairman.emp_no }}">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                {% if vice_chairman.profile_img %}
+                <img src="{{ vice_chairman.profile_img }}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #00479d;">
+                {% else %}
+                <div style="width:40px;height:40px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user" style="color:#94a3b8;font-size:14px;"></i></div>
+                {% endif %}
+                <div>
+                    <p style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">부위원장</p>
+                    <p style="font-size:13px;font-weight:700;color:#0f172a;">{{ vice_chairman.emp_nm }}</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <input type="file" name="profile_img" accept="image/*" required style="flex:1;font-size:11px;">
+                <button type="submit" class="btn-primary" style="font-size:11px;padding:4px 12px;"><i class="fas fa-upload"></i></button>
+            </div>
+        </form>
+        {% else %}
+        <p style="font-size:11px;color:#94a3b8;text-align:center;padding:10px;background:#f8fafc;border-radius:10px;margin-bottom:12px;">부위원장이 등록되지 않았습니다.</p>
+        {% endif %}
+
+        <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px;">※ JPG, PNG / 정사각형 권장</p>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="button" class="btn-secondary" onclick="closeModal('modal-chairman-img')">닫기</button>
+        </div>
     </div>
 </div>
 

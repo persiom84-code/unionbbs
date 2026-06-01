@@ -51,6 +51,7 @@ class User(db.Model):
     dept_cd       = db.Column(db.String(20))
     union_dept_cd = db.Column(db.String(20))
     region_cd     = db.Column(db.String(20))
+    profile_img   = db.Column(db.String(500))
     emp_type_cd   = db.Column(db.String(10))
     rank_cd       = db.Column(db.String(10))
     position_cd   = db.Column(db.String(20))
@@ -2168,6 +2169,20 @@ def admin_about_save():
         about_data.greeting = request.form.get('greeting_text', '').strip()
         flash('슬로건 및 인사말이 저장되었습니다.')
 
+    elif section == 'profile_img':
+        emp_no = request.form.get('emp_no', '').strip()
+        user = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+        if user and 'profile_img' in request.files:
+            f = request.files['profile_img']
+            if f and f.filename:
+                import uuid, werkzeug.utils
+                safe_nm  = werkzeug.utils.secure_filename(f.filename)
+                unique   = f'{uuid.uuid4().hex}_{safe_nm}'
+                save_path = os.path.join(UPLOAD_FOLDER, unique)
+                f.save(save_path)
+                user.profile_img = f'/static/uploads/{unique}'
+                flash(f'{user.emp_nm} 프로필 사진이 등록되었습니다.', 'success')
+
     elif section == 'chairman_img':
         f = request.files.get('chairman_img')
         if f and f.filename:
@@ -2442,6 +2457,7 @@ def init_db():
     try:
         with db.engine.connect() as conn:
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
@@ -2701,6 +2717,7 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
