@@ -44,6 +44,32 @@
 
       <!-- 확인 폼 -->
       <form method="POST" action="/admin/reset-data">
+
+        <!-- 추가 옵션 -->
+        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:16px; margin-bottom:20px;">
+          <p style="font-size:.82rem; font-weight:700; color:#92400e; margin:0 0 12px;">
+            <i class="fas fa-cog" style="margin-right:6px;"></i>추가 삭제 옵션
+          </p>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:8px; border-radius:6px; margin-bottom:6px;">
+            <input type="checkbox" name="clear_master" value="Y" style="width:16px; height:16px;">
+            <span style="font-size:.85rem; color:#451a03; font-weight:600;">
+              마스터 데이터도 삭제
+              <span style="display:block; font-size:.72rem; color:#92400e; font-weight:400; margin-top:2px;">
+                부서 / 분회 / 권역 마스터까지 모두 삭제 (CSV 재업로드 필수)
+              </span>
+            </span>
+          </label>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:8px; border-radius:6px;">
+            <input type="checkbox" name="clear_condo_history" value="Y" style="width:16px; height:16px;">
+            <span style="font-size:.85rem; color:#451a03; font-weight:600;">
+              콘도 예약 이력 삭제
+              <span style="display:block; font-size:.72rem; color:#92400e; font-weight:400; margin-top:2px;">
+                콘도 시설/객실/시즌은 유지, 예약 신청 이력만 삭제
+              </span>
+            </span>
+          </label>
+        </div>
+
         <div style="margin-bottom:16px;">
           <label style="font-size:.82rem; font-weight:700; color:#374151; display:block; margin-bottom:8px;">
             초기화를 진행하려면 아래에 <strong>RESET</strong> 을 입력하세요.

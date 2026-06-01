@@ -2540,11 +2540,19 @@ def admin_reset_data():
         # 6. 일정 삭제
         Schedule.query.delete()
 
-        # 7. 분회/부서/권역 매핑 초기화 (마스터 데이터는 유지)
+        # 7. 분회/부서/권역 매핑 초기화
         UnionDeptMap.query.delete()
         User.query.filter_by(user_level=0).update({'union_dept_cd': None, 'region_cd': None})
 
-        # ※ 콘도 데이터 (CondoReserve, CondoFacility, CondoRoom 등)는 유지
+        # 8. 옵션 — 마스터 데이터(부서/분회/권역)도 삭제
+        if request.form.get('clear_master') == 'Y':
+            CompDept.query.delete()
+            UnionDept.query.delete()
+            Region.query.delete()
+
+        # 9. 옵션 — 콘도 예약 이력 삭제 (시설/객실/시즌은 유지)
+        if request.form.get('clear_condo_history') == 'Y':
+            CondoReserve.query.delete()
 
         db.session.commit()
         flash('서비스 데이터가 초기화되었습니다. 콘도 데이터는 유지되었습니다.', 'success')
