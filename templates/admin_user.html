@@ -131,6 +131,7 @@
                             분회 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-5"></i>
                         </th>
                         <th class="px-5 py-4 w-24 text-center cursor-pointer select-none" onclick="sortTable(6)">권역 <i class="fas fa-sort text-slate-300 text-[9px] ml-1" id="sort-icon-6"></i></th>
+                        <th class="px-5 py-4 w-20 text-center">투표권</th>
                         <th class="px-5 py-4 w-24 text-center">계정상태</th>
                         <th class="px-5 py-4 w-24 text-center">비번상태</th>
                         <th class="px-5 py-4 w-36 text-center cursor-pointer select-none" onclick="sortTable(8)">
@@ -191,6 +192,15 @@
                             {{ u.region_nm if u.region_nm else '-' }}
                         </td>
                         <td class="px-5 py-4 text-center">
+                            <button onclick="toggleVoter('{{ u.emp_no }}', '{{ u.emp_nm }}')"
+                                id="voter-btn-{{ u.emp_no }}"
+                                class="voter-toggle px-2.5 py-1 rounded-lg text-[10px] font-black transition-all
+                                    {% if u.is_voter == 'Y' %}bg-emerald-50 text-emerald-600 hover:bg-emerald-100{% else %}bg-slate-100 text-slate-400 hover:bg-slate-200{% endif %}"
+                                data-voter="{{ u.is_voter }}">
+                                {% if u.is_voter == 'Y' %}<i class="fas fa-check mr-0.5"></i>포함{% else %}<i class="fas fa-ban mr-0.5"></i>제외{% endif %}
+                            </button>
+                        </td>
+                        <td class="px-5 py-4 text-center">
                             {% if u.acct_lock_yn == 'Y' %}
                             <span class="badge bg-red-50 text-red-600">잠금</span>
                             {% else %}
@@ -218,17 +228,25 @@
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 text-center">
-                            <button onclick="resetPwd('{{ u.emp_no }}', '{{ u.emp_nm }}')"
-                                class="px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600
-                                       text-slate-500 rounded-lg text-[10px] font-black transition-all
-                                       border border-transparent hover:border-red-200">
-                                <i class="fas fa-rotate-left mr-1"></i>초기화
-                            </button>
+                            <div class="flex items-center justify-center gap-1">
+                                <button onclick="resetPwd('{{ u.emp_no }}', '{{ u.emp_nm }}')"
+                                    class="px-3 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600
+                                           text-slate-500 rounded-lg text-[10px] font-black transition-all
+                                           border border-transparent hover:border-red-200">
+                                    <i class="fas fa-rotate-left mr-1"></i>초기화
+                                </button>
+                                <button onclick="deactivateUser('{{ u.emp_no }}', '{{ u.emp_nm }}')"
+                                    class="px-3 py-2 bg-slate-100 hover:bg-slate-700 hover:text-white
+                                           text-slate-500 rounded-lg text-[10px] font-black transition-all"
+                                    title="계정 비활성화">
+                                    <i class="fas fa-user-slash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="py-16 text-center text-slate-300 text-sm italic">
+                        <td colspan="10" class="py-16 text-center text-slate-300 text-sm italic">
                             등록된 사용자가 없습니다.
                         </td>
                     </tr>
@@ -311,6 +329,7 @@
                 </label>
                 <select id="edit-dept-cd" class="form-input">
                     <option value="">변경 없음</option>
+                    <option value="__NONE__" style="color:#dc2626;font-weight:700;">── 부서/분회 없음 (해제) ──</option>
                     {% for d in comp_depts %}
                     <option value="{{ d.dept_cd }}">{{ d.dept_nm }} ({{ d.dept_cd }})</option>
                     {% endfor %}
@@ -357,10 +376,11 @@
 
     document.getElementById('modal-confirm').addEventListener('click', async () => {
         if (!pendingEmpNo) return;
+        const empNo = pendingEmpNo;   // closeModal 전에 값 보존
         closeModal();
 
         const fd = new FormData();
-        fd.append('emp_no', pendingEmpNo);
+        fd.append('emp_no', empNo);
 
         const res  = await fetch('/admin/user/reset-pwd', { method: 'POST', body: fd });
         const data = await res.json();
@@ -368,7 +388,7 @@
 
         if (data.ok) {
             // 해당 행의 비번상태 배지 업데이트
-            const row = document.getElementById('row-' + pendingEmpNo);
+            const row = document.getElementById('row-' + empNo);
             if (row) {
                 const badgeCell = row.querySelectorAll('td')[4];
                 badgeCell.innerHTML = '<span class="badge bg-amber-50 text-amber-600">초기비번</span>';
@@ -387,6 +407,39 @@
             : 'fas fa-circle-xmark text-red-400';
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    // ── 투표권 토글 ──────────────────────────────────────
+    async function toggleVoter(empNo, empNm) {
+        const fd = new FormData();
+        fd.append('emp_no', empNo);
+        const res  = await fetch('/admin/user/toggle-voter', { method: 'POST', body: fd });
+        const data = await res.json();
+        showToast(data.ok, data.msg);
+        if (data.ok) {
+            const btn = document.getElementById('voter-btn-' + empNo);
+            if (data.is_voter === 'Y') {
+                btn.className = 'voter-toggle px-2.5 py-1 rounded-lg text-[10px] font-black transition-all bg-emerald-50 text-emerald-600 hover:bg-emerald-100';
+                btn.innerHTML = '<i class="fas fa-check mr-0.5"></i>포함';
+            } else {
+                btn.className = 'voter-toggle px-2.5 py-1 rounded-lg text-[10px] font-black transition-all bg-slate-100 text-slate-400 hover:bg-slate-200';
+                btn.innerHTML = '<i class="fas fa-ban mr-0.5"></i>제외';
+            }
+        }
+    }
+
+    // ── 사용자 비활성화 ──────────────────────────────────
+    async function deactivateUser(empNo, empNm) {
+        if (!confirm(`${empNm}(${empNo}) 계정을 비활성화하시겠습니까?\n\n비활성화된 계정은 목록에서 사라지며, 로그인할 수 없습니다.\n(데이터는 보존되며 재활성화 가능)`)) return;
+        const fd = new FormData();
+        fd.append('emp_no', empNo);
+        const res  = await fetch('/admin/user/deactivate', { method: 'POST', body: fd });
+        const data = await res.json();
+        showToast(data.ok, data.msg);
+        if (data.ok) {
+            const row = document.getElementById('row-' + empNo);
+            if (row) { row.style.transition = 'opacity .3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+        }
     }
 
     // ── 검색 ──────────────────────────────────────────

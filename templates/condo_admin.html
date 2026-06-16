@@ -163,9 +163,14 @@
                 <h3 style="font-size:13px;font-weight:800;color:#475569;">
                     <i class="fas fa-door-open" style="color:#00479d;margin-right:6px;"></i>객실 목록
                 </h3>
-                <button onclick="openModal('modal-add-room')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
-                    <i class="fas fa-plus"></i>객실 추가
-                </button>
+                <div style="display:flex;gap:6px;">
+                    <a href="/admin/condo/room/export" class="btn-secondary" style="font-size:11px;padding:6px 14px;text-decoration:none;">
+                        <i class="fas fa-download"></i>CSV
+                    </a>
+                    <button onclick="openModal('modal-add-room')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
+                        <i class="fas fa-plus"></i>객실 추가
+                    </button>
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -196,6 +201,14 @@
                                     class="btn-secondary" style="font-size:11px;padding:4px 10px;">
                                     <i class="fas fa-pen"></i>수정
                                 </button>
+                                <form action="/admin/condo/room/save" method="POST" style="display:inline;margin-left:4px;"
+                                      onsubmit="return confirm('{{ r.facility_name }} - {{ r.room_type }} 객실을 삭제하시겠습니까?\n(예약 이력은 보존됩니다)')">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="room_id" value="{{ r.room_id }}">
+                                    <button type="submit" class="btn-secondary" style="font-size:11px;padding:4px 10px;color:#dc2626;">
+                                        <i class="fas fa-trash"></i>삭제
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% else %}
@@ -215,9 +228,14 @@
                     <i class="fas fa-calendar-alt" style="color:#00479d;margin-right:6px;"></i>시즌 관리
                     <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:8px;">날짜 형식: MM-DD (예: 07-15)</span>
                 </h3>
-                <button onclick="openModal('modal-add-season')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
-                    <i class="fas fa-plus"></i>시즌 추가
-                </button>
+                <div style="display:flex;gap:6px;">
+                    <a href="/admin/condo/season/export" class="btn-secondary" style="font-size:11px;padding:6px 14px;text-decoration:none;">
+                        <i class="fas fa-download"></i>CSV
+                    </a>
+                    <button onclick="openModal('modal-add-season')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
+                        <i class="fas fa-plus"></i>시즌 추가
+                    </button>
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -272,9 +290,14 @@
                 <h3 style="font-size:13px;font-weight:800;color:#475569;">
                     <i class="fas fa-hotel" style="color:#00479d;margin-right:6px;"></i>시설 목록
                 </h3>
-                <button onclick="openModal('modal-add-facility')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
-                    <i class="fas fa-plus"></i>시설 추가
-                </button>
+                <div style="display:flex;gap:6px;">
+                    <a href="/admin/condo/facility/export" class="btn-secondary" style="font-size:11px;padding:6px 14px;text-decoration:none;">
+                        <i class="fas fa-download"></i>CSV
+                    </a>
+                    <button onclick="openModal('modal-add-facility')" class="btn-primary" style="font-size:11px;padding:6px 14px;">
+                        <i class="fas fa-plus"></i>시설 추가
+                    </button>
+                </div>
             </div>
             <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -633,9 +656,9 @@
 
 {% block page_script %}
 <script>
-    // URL 파라미터로 탭 복원
+    // URL 파라미터로 탭 복원 (tab 우선, _tab 호환)
     const urlParams = new URLSearchParams(window.location.search);
-    const initTab = urlParams.get('_tab') || 'reserve';
+    const initTab = urlParams.get('tab') || urlParams.get('_tab') || '{{ active_tab | default("reserve") }}';
     showTab(initTab);
 
     function showTab(tab) {

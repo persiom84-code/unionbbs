@@ -52,6 +52,7 @@ class User(db.Model):
     union_dept_cd = db.Column(db.String(20))
     region_cd     = db.Column(db.String(20))
     profile_img   = db.Column(db.String(500))
+    is_voter      = db.Column(db.String(1), default='Y')  # 투표 모수 포함 여부 (운영계정만 N)
     emp_type_cd   = db.Column(db.String(10))
     rank_cd       = db.Column(db.String(10))
     position_cd   = db.Column(db.String(20))
@@ -1094,7 +1095,7 @@ def vote_create():
         start_dt    = start_dt,
         end_dt      = end_dt,
         vote_status = 'OPEN',
-        total_cnt   = User.query.filter(User.user_level <= 4, User.use_yn == 'Y').count(),
+        total_cnt   = User.query.filter(User.use_yn == 'Y', User.is_voter == 'Y').count(),
         reg_user    = current_user.emp_no
     )
     db.session.add(vote)
@@ -1113,7 +1114,7 @@ def vote_create():
         for dept_cd in target_depts:
             if dept_cd.strip():
                 db.session.add(VoteTarget(vote_seq=vote.vote_seq, union_dept_cd=dept_cd.strip()))
-                total += User.query.filter_by(union_dept_cd=dept_cd.strip(), use_yn='Y').count()
+                total += User.query.filter_by(union_dept_cd=dept_cd.strip(), use_yn='Y', is_voter='Y').count()
         vote.total_cnt = total or vote.total_cnt
     elif target_type == 'LEVEL':
         target_levels = request.form.getlist('target_level[]')
@@ -1121,7 +1122,7 @@ def vote_create():
         for lv in target_levels:
             if lv.strip():
                 db.session.add(VoteTarget(vote_seq=vote.vote_seq, target_level=int(lv)))
-                total += User.query.filter_by(user_level=int(lv), use_yn='Y').count()
+                total += User.query.filter_by(user_level=int(lv), use_yn='Y', is_voter='Y').count()
         vote.total_cnt = total or vote.total_cnt
     elif target_type == 'REGION':
         target_regions = request.form.getlist('target_region[]')
@@ -1129,7 +1130,7 @@ def vote_create():
         for region_cd in target_regions:
             if region_cd.strip():
                 db.session.add(VoteTarget(vote_seq=vote.vote_seq, union_dept_cd=region_cd.strip()))
-                total += User.query.filter_by(region_cd=region_cd.strip(), use_yn='Y').count()
+                total += User.query.filter_by(region_cd=region_cd.strip(), use_yn='Y', is_voter='Y').count()
         vote.total_cnt = total or vote.total_cnt
 
     db.session.commit()
@@ -1424,6 +1425,7 @@ def condo_guest_lookup():
 @level_required(0)
 def admin_condo():
     current_user = get_current_user()
+    active_tab = request.args.get('tab', 'reserve')
     brands    = CondoBrand.query.filter_by(use_yn='Y').order_by(CondoBrand.sort_order).all()
     resorts   = CondoResort.query.filter_by(use_yn='Y').order_by(CondoResort.sort_order).all()
     facilities = CondoFacility.query.options(
@@ -1513,6 +1515,7 @@ def admin_condo():
         date_from=date_from,
         date_to=date_to,
         emp_nm_q=emp_nm_q,
+        active_tab=active_tab,
         active_menu='admin_condo'
     )
 
@@ -1550,7 +1553,7 @@ def condo_brand_save():
         brand.use_yn = 'N'
         flash('브랜드가 삭제되었습니다.')
     db.session.commit()
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='master'))
 
 @app.route('/admin/condo/resort/save', methods=['POST'])
 @level_required(0)
@@ -1574,7 +1577,7 @@ def condo_resort_save():
         resort.use_yn = 'N'
         flash('리조트가 삭제되었습니다.')
     db.session.commit()
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='master'))
 
 @app.route('/admin/condo/facility/save', methods=['POST'])
 @level_required(0)
@@ -1611,7 +1614,7 @@ def condo_facility_save():
         f.use_yn = 'N'
         flash('시설이 삭제되었습니다.')
     db.session.commit()
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='facility'))
 
 @app.route('/admin/condo/room/save', methods=['POST'])
 @level_required(0)
@@ -1647,7 +1650,7 @@ def condo_room_save():
         r.use_yn = 'N'
         flash('객실이 삭제되었습니다.')
     db.session.commit()
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='room'))
 @app.route('/admin/condo/import', methods=['POST'])
 @level_required(0)
 def condo_facility_import():
@@ -1730,7 +1733,7 @@ def condo_facility_import():
     except Exception as e:
         db.session.rollback()
         flash(f'오류: {str(e)}', 'error')
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='facility'))
 # ══════════════════════════════════════════════════════════
 @app.route('/admin/condo/reserve/export')
 @level_required(0)
@@ -1772,6 +1775,63 @@ def condo_reserve_export():
         }
     )
 
+@app.route('/admin/condo/room/export')
+@level_required(0)
+def condo_room_export():
+    import csv, io
+    from flask import Response
+    rows = db.session.query(CondoRoom, CondoFacility)\
+        .join(CondoFacility, CondoRoom.facility_id == CondoFacility.facility_id)\
+        .filter(CondoRoom.use_yn == 'Y').order_by(CondoRoom.sort_order).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['시설명','객실유형','비수기','성수기','연휴','기타','비고'])
+    for r, f in rows:
+        writer.writerow([f.facility_name, r.room_type, r.price_offpeak or 0,
+                         r.price_peak or 0, r.price_holiday or 0, r.price_extra or 0, r.extra_info or ''])
+    output.seek(0)
+    return Response('\ufeff' + output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=condo_rooms.csv',
+                 'Cache-Control': 'no-store'})
+
+
+@app.route('/admin/condo/season/export')
+@level_required(0)
+def condo_season_export():
+    import csv, io
+    from flask import Response
+    seasons = CondoSeason.query.filter_by(use_yn='Y').order_by(CondoSeason.start_date).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['시즌명','구분','시작일','종료일'])
+    for s in seasons:
+        writer.writerow([s.season_name, s.season_type, s.start_date, s.end_date])
+    output.seek(0)
+    return Response('\ufeff' + output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=condo_seasons.csv',
+                 'Cache-Control': 'no-store'})
+
+
+@app.route('/admin/condo/facility/export')
+@level_required(0)
+def condo_facility_export():
+    import csv, io
+    from flask import Response
+    rows = db.session.query(CondoFacility, CondoResort, CondoBrand)\
+        .join(CondoResort, CondoFacility.resort_id == CondoResort.resort_id)\
+        .join(CondoBrand, CondoResort.brand_id == CondoBrand.brand_id)\
+        .filter(CondoFacility.use_yn == 'Y').order_by(CondoFacility.sort_order).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['브랜드','리조트','시설명','지역'])
+    for f, rs, b in rows:
+        writer.writerow([b.brand_name, rs.resort_name, f.facility_name, f.region_name or ''])
+    output.seek(0)
+    return Response('\ufeff' + output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=condo_facilities.csv',
+                 'Cache-Control': 'no-store'})
+
+
 @app.route('/admin/condo/season/save', methods=['POST'])
 @level_required(0)
 def condo_season_save():
@@ -1796,7 +1856,7 @@ def condo_season_save():
         s.use_yn = 'N'
         flash('시즌이 삭제되었습니다.')
     db.session.commit()
-    return redirect(url_for('admin_condo'))
+    return redirect(url_for('admin_condo', tab='season'))
 
 # Routes - 도서
 # ══════════════════════════════════════════════════════════
@@ -2377,6 +2437,41 @@ def admin_reset_pwd():
     return jsonify({'ok': True, 'msg': f'{target_user.emp_nm}({target_emp_no}) 비밀번호가 사번으로 초기화되었습니다.'})
 
 
+@app.route('/admin/user/toggle-voter', methods=['POST'])
+@level_required(0)
+def admin_user_toggle_voter():
+    """투표권(is_voter) 토글 — 운영계정 등 모수 제외 대상 관리"""
+    emp_no = request.form.get('emp_no', '').strip()
+    user   = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+    if not user:
+        return jsonify({'ok': False, 'msg': f'사번 {emp_no} 사용자를 찾을 수 없습니다.'})
+    user.is_voter = 'N' if (user.is_voter or 'Y') == 'Y' else 'Y'
+    user.mod_dt   = datetime.now()
+    db.session.commit()
+    state = '포함' if user.is_voter == 'Y' else '제외'
+    return jsonify({'ok': True, 'is_voter': user.is_voter,
+                    'msg': f'{user.emp_nm}({emp_no}) 투표 모수에서 {state} 처리되었습니다.'})
+
+
+@app.route('/admin/user/deactivate', methods=['POST'])
+@level_required(0)
+def admin_user_deactivate():
+    """사용자 비활성화 (소프트 삭제 — use_yn=N)"""
+    emp_no = request.form.get('emp_no', '').strip()
+    user   = User.query.filter_by(emp_no=emp_no, use_yn='Y').first()
+    if not user:
+        return jsonify({'ok': False, 'msg': f'사번 {emp_no} 사용자를 찾을 수 없습니다.'})
+    if user.user_level == 0 and not user.position_cd:
+        # 운영계정 보호: 마지막 관리자 비활성화 방지
+        admin_cnt = User.query.filter_by(user_level=0, use_yn='Y').count()
+        if admin_cnt <= 1:
+            return jsonify({'ok': False, 'msg': '마지막 관리자 계정은 비활성화할 수 없습니다.'})
+    user.use_yn = 'N'
+    user.mod_dt = datetime.now()
+    db.session.commit()
+    return jsonify({'ok': True, 'msg': f'{user.emp_nm}({emp_no}) 계정이 비활성화되었습니다.'})
+
+
 @app.route('/admin/user/update', methods=['POST'])
 @level_required(0)
 def admin_user_update():
@@ -2392,9 +2487,13 @@ def admin_user_update():
         user.position_cd   = position_cd if position_cd else None
         union_dept_cd = request.form.get('union_dept_cd', '').strip()
         user.union_dept_cd = union_dept_cd if union_dept_cd else None
-        # 부서 변경(발령)
+        # 부서 변경(발령) — '__NONE__'이면 부서/분회 모두 해제
         dept_cd = request.form.get('dept_cd', '').strip()
-        if dept_cd:
+        if dept_cd == '__NONE__':
+            user.dept_cd       = None
+            user.union_dept_cd = None
+            user.region_cd     = None
+        elif dept_cd:
             user.dept_cd = dept_cd
             # UnionDeptMap 기반 분회 자동 재배정
             new_map = UnionDeptMap.query.filter_by(dept_cd=dept_cd).first()
@@ -2426,6 +2525,7 @@ def admin_user_list():
             'dept_nm':        dept_map.get(u.dept_cd, u.dept_cd or '-'),
             'region_nm':      region_map.get(u.region_cd, '-') if u.region_cd else '-',
             'union_dept_cd':  u.union_dept_cd or '',
+            'is_voter':       u.is_voter or 'Y',
             'acct_lock_yn':   u.acct_lock_yn,
             'pwd_init_yn':    u.pwd_init_yn,
             'pwd_chg_dt':     u.pwd_chg_dt.strftime('%Y.%m.%d') if u.pwd_chg_dt else '미변경',
@@ -2457,6 +2557,7 @@ def init_db():
         with db.engine.connect() as conn:
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
@@ -2717,6 +2818,7 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
+            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
