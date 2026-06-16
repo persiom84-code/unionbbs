@@ -312,9 +312,11 @@ class GuestUser(db.Model):
 class Book(db.Model):
     __tablename__ = 'TB_BOOK'
     book_seq   = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    reg_no     = db.Column(db.String(50), unique=True)   # 도서등록번호(고유번호)
     title      = db.Column(db.String(200), nullable=False)
     author     = db.Column(db.String(100))
     publisher  = db.Column(db.String(100))
+    pub_year   = db.Column(db.String(10))                # 출판년도
     isbn       = db.Column(db.String(20), unique=True)
     category   = db.Column(db.String(50))
     total_cnt  = db.Column(db.Integer, default=1)
@@ -972,6 +974,7 @@ def admin_book():
     if keyword:
         query = query.filter(
             Book.title.ilike(f'%{keyword}%') | Book.author.ilike(f'%{keyword}%')
+            | Book.reg_no.ilike(f'%{keyword}%')
         )
     book_list = query.order_by(Book.reg_dt.desc()).all()
 
@@ -1001,6 +1004,7 @@ def admin_book():
             'emp_nm':     u.emp_nm if u else '-',
             'emp_no':     r.emp_no,
             'title':      b.title if b else f'도서#{r.book_seq}',
+            'reg_no':     (b.reg_no if b and b.reg_no else '-'),
             'reg_dt':     r.reg_dt.strftime('%Y.%m.%d') if r.reg_dt else '-',
             'rental_dt':  r.rental_dt.strftime('%Y.%m.%d') if r.rental_dt else '-',
             'due_dt':     r.due_dt.strftime('%Y.%m.%d') if r.due_dt else '-',
@@ -2059,9 +2063,11 @@ def book_admin_save():
     action = request.form.get('action')
     if action == 'add':
         db.session.add(Book(
+            reg_no    = request.form.get('reg_no', '').strip() or None,
             title     = request.form.get('title', '').strip(),
             author    = request.form.get('author', '').strip() or None,
             publisher = request.form.get('publisher', '').strip() or None,
+            pub_year  = request.form.get('pub_year', '').strip() or None,
             category  = request.form.get('category', '').strip() or None,
             total_cnt = 1,
             avail_cnt = 1,
@@ -2070,9 +2076,11 @@ def book_admin_save():
         flash('도서가 등록되었습니다.', 'success')
     elif action == 'edit':
         b = Book.query.get_or_404(request.form.get('book_seq'))
+        b.reg_no    = request.form.get('reg_no', '').strip() or None
         b.title     = request.form.get('title', '').strip()
         b.author    = request.form.get('author', '').strip() or None
         b.publisher = request.form.get('publisher', '').strip() or None
+        b.pub_year  = request.form.get('pub_year', '').strip() or None
         b.category  = request.form.get('category', '').strip() or None
         flash('도서 정보가 수정되었습니다.', 'success')
     elif action == 'delete':
@@ -2105,20 +2113,31 @@ def admin_book_import():
             author    = (row.get('author') or '').strip() or None
             publisher = (row.get('publisher') or '').strip() or None
             category  = (row.get('category') or '').strip() or None
+            reg_no    = (row.get('reg_no') or '').strip() or None
+            pub_year  = (row.get('pub_year') or '').strip() or None
 
-            # 중복판정: title + author 조합
-            existing = Book.query.filter_by(title=title, author=author).first()
+            # 중복판정: reg_no(고유번호) 우선, 없으면 title+author
+            existing = None
+            if reg_no:
+                existing = Book.query.filter_by(reg_no=reg_no).first()
+            if not existing:
+                existing = Book.query.filter_by(title=title, author=author).first()
+
             if existing:
+                existing.reg_no    = reg_no    or existing.reg_no
                 existing.publisher = publisher or existing.publisher
+                existing.pub_year  = pub_year  or existing.pub_year
                 existing.category  = category  or existing.category
                 if existing.use_yn == 'N':
                     existing.use_yn = 'Y'
                 updated += 1
             else:
                 db.session.add(Book(
+                    reg_no    = reg_no,
                     title     = title,
                     author    = author,
                     publisher = publisher,
+                    pub_year  = pub_year,
                     category  = category,
                     total_cnt = 1,
                     avail_cnt = 1,
@@ -2141,12 +2160,14 @@ def admin_book_export():
     books = Book.query.filter_by(use_yn='Y').order_by(Book.reg_dt.desc()).all()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['title','author','publisher','category','total_cnt','avail_cnt','use_yn'])
+    writer.writerow(['reg_no','title','author','publisher','pub_year','category','total_cnt','avail_cnt','use_yn'])
     for b in books:
         writer.writerow([
+            b.reg_no or '',
             b.title or '',
             b.author or '',
             b.publisher or '',
+            b.pub_year or '',
             b.category or '',
             b.total_cnt if b.total_cnt is not None else 1,
             b.avail_cnt if b.avail_cnt is not None else 1,
@@ -2558,6 +2579,8 @@ def init_db():
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''))
+            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS reg_no VARCHAR(50)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS pub_year VARCHAR(10)'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
@@ -2819,6 +2842,8 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''))
+            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS reg_no VARCHAR(50)'))
+            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS pub_year VARCHAR(10)'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
