@@ -3,7 +3,6 @@
 
 {% block head_extra %}
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/quill-better-table@1.2.10/dist/quill-better-table.css" rel="stylesheet">
 <style>
 /* Quill 에디터 스타일 커스터마이징 */
 .ql-toolbar.ql-snow {
@@ -189,7 +188,6 @@
 
 {% block page_script %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/quill-better-table@1.2.10/dist/quill-better-table.min.js"></script>
 <script>
     // 전역 변수 (콘솔에서 디버깅 가능하도록)
     var quill = null;
@@ -207,11 +205,6 @@
         Size.whitelist = ['10px','11px','12px','14px','16px','18px','20px','28px'];
         Quill.register(Size, true);
 
-        // better-table 등록 (있을 때만)
-        if (typeof quillBetterTable !== 'undefined') {
-            Quill.register({ 'modules/better-table': quillBetterTable }, true);
-        }
-
         quill = new Quill('#quill-editor', {
             theme: 'snow',
             placeholder: '공지 내용을 입력하세요. 엑셀/워드 내용을 붙여넣기 하면 서식이 유지됩니다.',
@@ -226,28 +219,9 @@
                         [{ 'indent': '-1' }, { 'indent': '+1' }],
                         [{ 'align': [] }],
                         ['link', 'image'],
-                        [{ 'table': 'TD' }],
                         ['clean']
-                    ],
-                    handlers: {
-                        'table': function() {
-                            const tableModule = quill.getModule('better-table');
-                            tableModule.insertTable(3, 3);
-                        }
-                    }
+                    ]
                 },
-                'better-table': { operationMenu: { items: {
-                    insertColumnRight: { text: '오른쪽에 열 추가' },
-                    insertColumnLeft:  { text: '왼쪽에 열 추가' },
-                    insertRowUp:       { text: '위에 행 추가' },
-                    insertRowDown:     { text: '아래에 행 추가' },
-                    mergeCells:        { text: '셀 병합' },
-                    unmergeCells:      { text: '셀 병합 해제' },
-                    deleteColumn:      { text: '열 삭제' },
-                    deleteRow:         { text: '행 삭제' },
-                    deleteTable:       { text: '표 삭제' },
-                }}},
-                keyboard: { bindings: quillBetterTable.keyboardBindings },
                 clipboard: { matchVisual: false }
             }
         });
