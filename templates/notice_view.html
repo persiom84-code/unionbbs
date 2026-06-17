@@ -3,6 +3,41 @@
 
 {% set active_menu = 'notice' %}
 
+{% block page_style %}
+<style>
+    /* Quill.js 콘텐츠 렌더링 스타일 — Tailwind preflight 무효화로 보이지 않던 본문 복구 */
+    .notice-content { font-size: 14px; line-height: 1.8; color: #334155; }
+    .notice-content p { margin: 0.5em 0; min-height: 1.5em; }
+    .notice-content h1 { font-size: 1.5em; font-weight: 800; margin: 1em 0 0.5em; color: #1e293b; }
+    .notice-content h2 { font-size: 1.3em; font-weight: 700; margin: 1em 0 0.5em; color: #1e293b; }
+    .notice-content h3 { font-size: 1.15em; font-weight: 700; margin: 0.8em 0 0.4em; color: #1e293b; }
+    .notice-content ul { list-style: disc; padding-left: 2em; margin: 0.5em 0; }
+    .notice-content ol { list-style: decimal; padding-left: 2em; margin: 0.5em 0; }
+    .notice-content li { margin: 0.25em 0; }
+    .notice-content blockquote { border-left: 4px solid #00479d; padding: 0.5em 1em; margin: 1em 0; background: #f8fafc; color: #64748b; }
+    .notice-content img { max-width: 100%; height: auto; margin: 1em 0; border-radius: 8px; }
+    .notice-content table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+    .notice-content table td, .notice-content table th { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
+    .notice-content table th { background: #f8fafc; font-weight: 700; }
+    .notice-content a { color: #00479d; text-decoration: underline; }
+    .notice-content strong, .notice-content b { font-weight: 700; }
+    .notice-content em, .notice-content i { font-style: italic; }
+    .notice-content u { text-decoration: underline; }
+    .notice-content pre { background: #f1f5f9; padding: 12px; border-radius: 8px; font-family: monospace; overflow-x: auto; }
+    .notice-content code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+    /* Quill 정렬 클래스 */
+    .notice-content .ql-align-center { text-align: center; }
+    .notice-content .ql-align-right { text-align: right; }
+    .notice-content .ql-align-justify { text-align: justify; }
+    /* Quill 폰트 크기 클래스 */
+    .notice-content .ql-size-small { font-size: 0.75em; }
+    .notice-content .ql-size-large { font-size: 1.5em; }
+    .notice-content .ql-size-huge { font-size: 2em; }
+    /* 빈 콘텐츠 메시지 */
+    .notice-empty { color: #cbd5e1; font-style: italic; text-align: center; padding: 40px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
     <div>
@@ -60,7 +95,16 @@
     </div>
 
     <!-- 본문 내용 -->
-    <div class="py-8 text-slate-700 leading-loose min-h-[200px] ck-content">{{ item.content|safe }}</div>
+    <div class="py-8 notice-content min-h-[200px]">
+        {% if item.content %}
+            {{ item.content|safe }}
+        {% else %}
+            <div class="notice-empty">
+                <i class="fas fa-file-alt text-3xl mb-3 block"></i>
+                본문 내용이 없습니다.
+            </div>
+        {% endif %}
+    </div>
 
     <!-- 첨부파일 -->
     {% if item.file_url %}

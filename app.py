@@ -643,14 +643,21 @@ def schedule():
     current_user = get_current_user()
     events = []
 
-    # ① 공지/조합 일정
+    # ① 공지/조합 일정 + 개인일정 구분
     schedules = Schedule.query.filter_by(use_yn='Y').order_by(Schedule.start_dt).all()
     for s in schedules:
+        # 개인일정: schedule_type이 없고 본인이 등록한 일정
+        is_personal = (not s.schedule_type) and (s.reg_user == current_user.emp_no)
         events.append({
+            'id':        f'schedule_{s.schedule_seq}',
             'title':     s.title,
             'start':     s.start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
             'end':       s.end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
-            'className': 'event-notice'
+            'className': 'event-personal' if is_personal else 'event-notice',
+            'extendedProps': {
+                'schedule_seq': s.schedule_seq,
+                'is_personal':  is_personal
+            }
         })
 
     # ② 전체 투표 이력
@@ -712,6 +719,24 @@ def schedule_save():
     db.session.add(schedule)
     db.session.commit()
     return jsonify({'status': 'ok', 'schedule_seq': schedule.schedule_seq})
+
+
+@app.route('/api/schedule/delete/<int:schedule_seq>', methods=['POST'])
+@login_required
+def schedule_delete(schedule_seq):
+    """개인일정 삭제 — 본인이 등록한 일정만 삭제 가능"""
+    current_user = get_current_user()
+    schedule = Schedule.query.get_or_404(schedule_seq)
+    
+    # 권한 체크: 본인 등록 + 개인일정(공지 연동 아님)만 삭제 허용
+    if schedule.reg_user != current_user.emp_no:
+        return jsonify({'status': 'error', 'msg': '본인이 등록한 일정만 삭제할 수 있습니다.'}), 403
+    if schedule.schedule_type:
+        return jsonify({'status': 'error', 'msg': '공지 연동 일정은 공지에서 삭제하세요.'}), 403
+    
+    schedule.use_yn = 'N'
+    db.session.commit()
+    return jsonify({'status': 'ok', 'msg': '일정이 삭제되었습니다.'})
 
 
 # ══════════════════════════════════════════════════════════
@@ -970,13 +995,22 @@ def admin_vote():
 def admin_book():
     current_user = get_current_user()
     keyword = request.args.get('q', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
     query = Book.query.filter_by(use_yn='Y')
     if keyword:
         query = query.filter(
             Book.title.ilike(f'%{keyword}%') | Book.author.ilike(f'%{keyword}%')
             | Book.reg_no.ilike(f'%{keyword}%')
         )
-    book_list = query.order_by(Book.reg_dt.desc()).all()
+    
+    paginated = query.order_by(Book.reg_dt.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    book_list = paginated.items
+    total_books = paginated.total
+    total_pages = paginated.pages
+    has_next = paginated.has_next
+    has_prev = paginated.has_prev
 
     # 카테고리 분포
     categories = db.session.query(Book.category)\
@@ -1038,6 +1072,11 @@ def admin_book():
         keyword=keyword,
         rental_requests=rental_requests,
         purchase_list=purchase_list,
+        page=page,
+        total_pages=total_pages,
+        total_books=total_books,
+        has_next=has_next,
+        has_prev=has_prev,
         active_menu='book_admin'
     )
 
@@ -1124,9 +1163,15 @@ def vote_create():
         target_levels = request.form.getlist('target_level[]')
         total = 0
         for lv in target_levels:
-            if lv.strip():
-                db.session.add(VoteTarget(vote_seq=vote.vote_seq, target_level=int(lv)))
-                total += User.query.filter_by(user_level=int(lv), use_yn='Y', is_voter='Y').count()
+            if lv and lv.strip():
+                try:
+                    lv_int = int(lv.strip())
+                    db.session.add(VoteTarget(vote_seq=vote.vote_seq, target_level=lv_int))
+                    total += User.query.filter_by(user_level=lv_int, use_yn='Y', is_voter='Y').count()
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'레벨 선택 오류: {str(e)}', 'error')
+                    return redirect(url_for('admin_vote'))
         vote.total_cnt = total or vote.total_cnt
     elif target_type == 'REGION':
         target_regions = request.form.getlist('target_region[]')
@@ -1893,17 +1938,27 @@ def book():
     current_user = get_current_user()
     keyword  = request.args.get('q', '').strip()
     category = request.args.get('category', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
 
     query = Book.query.filter_by(use_yn='Y')
     if keyword:
         query = query.filter(
             Book.title.ilike(f'%{keyword}%') |
             Book.author.ilike(f'%{keyword}%') |
-            Book.publisher.ilike(f'%{keyword}%')
+            Book.publisher.ilike(f'%{keyword}%') |
+            Book.reg_no.ilike(f'%{keyword}%')
         )
     if category:
         query = query.filter_by(category=category)
-    books = query.order_by(Book.reg_dt.desc()).all()
+    
+    # 페이지네이션
+    paginated = query.order_by(Book.reg_dt.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    books = paginated.items
+    total_books = paginated.total
+    total_pages = paginated.pages
+    has_next = paginated.has_next
+    has_prev = paginated.has_prev
 
     # 카테고리 목록 (필터 dropdown용)
     categories = db.session.query(Book.category)\
@@ -1962,6 +2017,11 @@ def book():
         my_book_status=my_book_status,
         has_penalty=has_penalty,
         remaining_purchases=remaining_purchases,
+        page=page,
+        total_pages=total_pages,
+        total_books=total_books,
+        has_next=has_next,
+        has_prev=has_prev,
         active_menu='book'
     )
 
@@ -2693,6 +2753,12 @@ def admin_reset_data():
         if request.form.get('clear_condo_history') == 'Y':
             CondoReserve.query.delete()
 
+        # 시퀀스 초기화 (번호 1부터 시작)
+        db.session.execute(db.text('ALTER SEQUENCE "TB_NOTICE_notice_seq_seq" RESTART WITH 1'))
+        db.session.execute(db.text('ALTER SEQUENCE "TB_BOARD_board_seq_seq" RESTART WITH 1'))
+        db.session.execute(db.text('ALTER SEQUENCE "TB_VOTE_vote_seq_seq" RESTART WITH 1'))
+        db.session.execute(db.text('ALTER SEQUENCE "TB_BOOK_book_seq_seq" RESTART WITH 1'))
+        
         db.session.commit()
         flash('서비스 데이터가 초기화되었습니다. 콘도 데이터는 유지되었습니다.', 'success')
         return redirect(url_for('main'))
