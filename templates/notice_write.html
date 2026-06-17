@@ -160,8 +160,8 @@
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">본문 내용</label>
             <!-- Quill 에디터 컨테이너 -->
             <div id="quill-editor" style="min-height:320px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;font-size:14px;"></div>
-            <!-- 폼 제출용 hidden textarea -->
-            <textarea name="content" id="content-hidden" style="display:none;"></textarea>
+            <!-- 폼 제출용 hidden input (textarea보다 안정적) -->
+            <input type="hidden" name="content" id="content-hidden" value="">
         </div>
 
         <!-- 첨부파일 -->
@@ -242,9 +242,23 @@
             }
         });
 
-        // 폼 제출 시 Quill 내용을 hidden textarea에 복사
-        document.querySelector('form').addEventListener('submit', function() {
+        // ① 실시간 동기화 — 타이핑할 때마다 hidden input 업데이트 (가장 안전)
+        quill.on('text-change', function() {
             document.getElementById('content-hidden').value = quill.root.innerHTML;
+        });
+
+        // ② 폼 제출 시 한 번 더 확실히 동기화 (보험)
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const html = quill.root.innerHTML;
+            // 빈 콘텐츠 검증 (Quill의 기본 빈 상태: <p><br></p>)
+            const isEmpty = !html || html === '<p><br></p>' || quill.getText().trim() === '';
+            if (isEmpty) {
+                e.preventDefault();
+                alert('본문 내용을 입력해 주세요.');
+                quill.focus();
+                return false;
+            }
+            document.getElementById('content-hidden').value = html;
         });
     });
 
