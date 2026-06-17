@@ -191,18 +191,28 @@
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/quill-better-table@1.2.10/dist/quill-better-table.min.js"></script>
 <script>
-    // ── Quill 에디터 초기화 ─────────────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
+    // 전역 변수 (콘솔에서 디버깅 가능하도록)
+    var quill = null;
+
+    // ── Quill 에디터 초기화 (DOMContentLoaded + load 양쪽 모두 대응) ─────
+    function initQuillEditor() {
+        if (quill) return; // 중복 초기화 방지
+        if (typeof Quill === 'undefined') {
+            console.error('Quill 라이브러리가 로드되지 않았습니다.');
+            return;
+        }
 
         // 폰트 사이즈 등록
         const Size = Quill.import('attributors/style/size');
         Size.whitelist = ['10px','11px','12px','14px','16px','18px','20px','28px'];
         Quill.register(Size, true);
 
-        // better-table 등록
-        Quill.register({ 'modules/better-table': quillBetterTable }, true);
+        // better-table 등록 (있을 때만)
+        if (typeof quillBetterTable !== 'undefined') {
+            Quill.register({ 'modules/better-table': quillBetterTable }, true);
+        }
 
-        const quill = new Quill('#quill-editor', {
+        quill = new Quill('#quill-editor', {
             theme: 'snow',
             placeholder: '공지 내용을 입력하세요. 엑셀/워드 내용을 붙여넣기 하면 서식이 유지됩니다.',
             modules: {
@@ -242,25 +252,42 @@
             }
         });
 
-        // ① 실시간 동기화 — 타이핑할 때마다 hidden input 업데이트 (가장 안전)
+        // ① 실시간 동기화 — 타이핑할 때마다 hidden input 업데이트
         quill.on('text-change', function() {
-            document.getElementById('content-hidden').value = quill.root.innerHTML;
+            const hidden = document.getElementById('content-hidden');
+            if (hidden) hidden.value = quill.root.innerHTML;
         });
 
-        // ② 폼 제출 시 한 번 더 확실히 동기화 (보험)
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const html = quill.root.innerHTML;
-            // 빈 콘텐츠 검증 (Quill의 기본 빈 상태: <p><br></p>)
-            const isEmpty = !html || html === '<p><br></p>' || quill.getText().trim() === '';
-            if (isEmpty) {
-                e.preventDefault();
-                alert('본문 내용을 입력해 주세요.');
-                quill.focus();
-                return false;
-            }
-            document.getElementById('content-hidden').value = html;
-        });
-    });
+        // ② 폼 제출 시 한 번 더 확실히 동기화 (보험) — submit 이벤트 + 캡처링
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const html = quill.root.innerHTML;
+                const isEmpty = !html || html === '<p><br></p>' || quill.getText().trim() === '';
+                if (isEmpty) {
+                    e.preventDefault();
+                    alert('본문 내용을 입력해 주세요.');
+                    quill.focus();
+                    return false;
+                }
+                const hidden = document.getElementById('content-hidden');
+                if (hidden) hidden.value = html;
+                console.log('[공지 저장] content 길이:', html.length);
+            }, true);  // 캡처링 단계에서 먼저 처리
+        }
+
+        console.log('[Quill] 초기화 완료');
+    }
+
+    // 다양한 시점에 초기화 시도 (안전성 극대화)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initQuillEditor);
+    } else {
+        // 이미 로드된 상태면 즉시 실행
+        initQuillEditor();
+    }
+    // 모든 리소스 로드 후 한 번 더 (보험)
+    window.addEventListener('load', initQuillEditor);
 
     function toggleScheduleFields() {
         const type = document.getElementById('notice-type-select').value;
