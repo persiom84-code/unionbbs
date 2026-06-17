@@ -2644,6 +2644,8 @@ def init_db():
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
+            # union_dept_cd NOT NULL 제약 해제 (LEVEL 타겟은 union_dept_cd 비어있어야 함)
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
@@ -2903,6 +2905,8 @@ def migrate():
             )'''))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
+            # union_dept_cd NOT NULL 제약 해제 (LEVEL 타겟은 union_dept_cd 비어있어야 함)
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
