@@ -145,8 +145,8 @@
         </div>
 
         <!-- 페이지네이션 -->
-        {% if total_pages > 1 %}
-        <div style="display:flex;justify-content:center;align-items:center;gap:6px;padding:20px;border-top:1px solid #f1f5f9;">
+        {% if total_pages and total_pages > 1 %}
+        <div class="flex justify-center items-center gap-1 p-5 border-t border-slate-100">
             {% if has_prev %}
             <a href="/book?page={{ page-1 }}{% if keyword %}&q={{ keyword }}{% endif %}{% if active_category %}&category={{ active_category }}{% endif %}"
                class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">
@@ -158,7 +158,16 @@
             </span>
             {% endif %}
 
-            {% for p in range(1, total_pages + 1) %}
+            {# 페이지 번호 (현재 페이지 기준 ±5개 표시) #}
+            {% set start_p = [1, page - 5] | max %}
+            {% set end_p = [total_pages, page + 5] | min %}
+            {% if start_p > 1 %}
+            <a href="/book?page=1{% if keyword %}&q={{ keyword }}{% endif %}{% if active_category %}&category={{ active_category }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">1</a>
+            {% if start_p > 2 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+            {% endif %}
+
+            {% for p in range(start_p, end_p + 1) %}
                 {% if p == page %}
                 <span class="px-3 py-1.5 rounded-lg bg-yuanta text-white text-xs font-bold">{{ p }}</span>
                 {% else %}
@@ -166,6 +175,12 @@
                    class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ p }}</a>
                 {% endif %}
             {% endfor %}
+
+            {% if end_p < total_pages %}
+            {% if end_p < total_pages - 1 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+            <a href="/book?page={{ total_pages }}{% if keyword %}&q={{ keyword }}{% endif %}{% if active_category %}&category={{ active_category }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ total_pages }}</a>
+            {% endif %}
 
             {% if has_next %}
             <a href="/book?page={{ page+1 }}{% if keyword %}&q={{ keyword }}{% endif %}{% if active_category %}&category={{ active_category }}{% endif %}"
