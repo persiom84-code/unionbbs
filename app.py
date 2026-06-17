@@ -942,27 +942,46 @@ def admin_vote():
     for v in votes:
         total  = v.total_cnt or 1
         cnt    = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
-        status = '진행중' if v.start_dt <= now <= v.end_dt else ('예정' if now < v.start_dt else '종료')
+        # 상태 판정 (start_dt/end_dt None 안전)
+        if v.start_dt and v.end_dt:
+            if v.start_dt <= now <= v.end_dt:
+                status = '진행중'
+            elif now < v.start_dt:
+                status = '예정'
+            else:
+                status = '종료'
+        else:
+            status = '미정'
 
-        # 항목별 결과
+        # 항목별 결과 (item_cnt None 안전 처리)
         items    = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
-        i_total  = sum(i.item_cnt for i in items) or 1
-        max_cnt  = max((i.item_cnt for i in items), default=0)
+        item_cnts = [(i.item_cnt or 0) for i in items]
+        i_total  = sum(item_cnts) or 1
+        max_cnt  = max(item_cnts, default=0)
         results  = [{
             'name':   i.item_nm,
-            'cnt':    i.item_cnt,
-            'pct':    round(i.item_cnt / i_total * 100, 1),
-            'is_max': i.item_cnt == max_cnt and max_cnt > 0,
+            'cnt':    i.item_cnt or 0,
+            'pct':    round((i.item_cnt or 0) / i_total * 100, 1),
+            'is_max': (i.item_cnt or 0) == max_cnt and max_cnt > 0,
         } for i in items]
 
-        # 대상 분회
+        # 대상 분회/권역/레벨 표시 (None 안전 처리)
         targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
         if targets:
-            dept_nms = []
+            level_names = {0: '관리자', 1: '집행위원', 2: '대의원', 3: '분회장', 4: '조합원', 5: '명예조합원'}
+            names = []
             for t in targets:
-                d = UnionDept.query.filter_by(union_dept_cd=t.union_dept_cd).first()
-                dept_nms.append(d.union_dept_nm if d else t.union_dept_cd)
-            target_group = ', '.join(dept_nms)
+                if t.target_level is not None:
+                    names.append(f"LV.{t.target_level} {level_names.get(t.target_level, '')}".strip())
+                elif t.union_dept_cd:
+                    d = UnionDept.query.filter_by(union_dept_cd=t.union_dept_cd).first()
+                    if d:
+                        names.append(d.union_dept_nm)
+                    else:
+                        r = Region.query.filter_by(region_cd=t.union_dept_cd).first()
+                        names.append(r.region_nm if r else t.union_dept_cd)
+            names = [str(n) for n in names if n]
+            target_group = ', '.join(names) if names else '전 조합원'
         else:
             target_group = '전 조합원'
 
@@ -2646,6 +2665,9 @@ def init_db():
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
             # union_dept_cd NOT NULL 제약 해제 (LEVEL 타겟은 union_dept_cd 비어있어야 함)
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'))
+            # VoteItem.item_cnt NULL을 0으로 갱신 + 컬럼 DEFAULT 0 설정
+            conn.execute(db.text('UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
@@ -2907,6 +2929,9 @@ def migrate():
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
             # union_dept_cd NOT NULL 제약 해제 (LEVEL 타겟은 union_dept_cd 비어있어야 함)
             conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'))
+            # VoteItem.item_cnt NULL을 0으로 갱신 + 컬럼 DEFAULT 0 설정
+            conn.execute(db.text('UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'))
+            conn.execute(db.text('ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
