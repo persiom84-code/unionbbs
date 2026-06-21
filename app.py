@@ -10,7 +10,7 @@ KST = timedelta(hours=9)
 
 def now_kst():
     """현재 한국 시간(KST) naive datetime 반환 — 서버 TZ가 UTC여도 안전."""
-    return now_kst()
+    return datetime.utcnow() + KST
 from functools import wraps
 import bcrypt
 import os
