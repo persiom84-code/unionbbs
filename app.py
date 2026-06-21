@@ -478,36 +478,54 @@ def logout():
 @app.route('/')
 @login_required
 def main():
-    current_user = get_current_user()
-    notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
-    now = now_kst()
-    ongoing_vote = Vote.query.filter(
-        Vote.start_dt <= now,
-        Vote.end_dt   >= now,
-        Vote.use_yn   == 'Y'
-    ).first()
+    import traceback
+    try:
+        current_user = get_current_user()
+        notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
+        now = now_kst()
+        ongoing_vote = Vote.query.filter(
+            Vote.start_dt <= now,
+            Vote.end_dt   >= now,
+            Vote.use_yn   == 'Y'
+        ).first()
 
-    today_start = datetime.combine(date.today(), datetime.min.time())
-    today_end   = datetime.combine(date.today(), datetime.max.time())
-    today_schedule = Schedule.query.filter(
-        Schedule.start_dt >= today_start,
-        Schedule.start_dt <= today_end,
-        Schedule.use_yn == 'Y'
-    ).order_by(Schedule.start_dt).all()
+        # KST 기준 오늘 범위
+        today_kst = now.date()
+        today_start = datetime.combine(today_kst, datetime.min.time())
+        today_end   = datetime.combine(today_kst, datetime.max.time())
+        today_schedule = Schedule.query.filter(
+            Schedule.start_dt >= today_start,
+            Schedule.start_dt <= today_end,
+            Schedule.use_yn == 'Y'
+        ).order_by(Schedule.start_dt).all()
 
-    condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
-    book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
+        condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
+        book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
 
-    return render_template('main.html',
-        current_user=current_user,
-        notice_list=notices,
-        ongoing_vote=ongoing_vote,
-        today_schedule=today_schedule,
-        condo_count=condo_count,
-        book_count=book_count,
-        current_date_str=date.today().strftime('%Y년 %m월 %d일'),
-        active_menu='dashboard'
-    )
+        return render_template('main.html',
+            current_user=current_user,
+            notice_list=notices,
+            ongoing_vote=ongoing_vote,
+            today_schedule=today_schedule,
+            condo_count=condo_count,
+            book_count=book_count,
+            current_date_str=today_kst.strftime('%Y년 %m월 %d일'),
+            active_menu='dashboard'
+        )
+    except Exception as e:
+        # 디버그용: 실제 에러 메시지 + traceback을 로그에 명확히 출력
+        tb = traceback.format_exc()
+        print(f"[/  500 ERROR] {e}\n{tb}", flush=True)
+        # 사용자에게도 짧은 에러 메시지 노출 (관리자만)
+        cu = get_current_user()
+        if cu and cu.user_level == 0:
+            return f"""<pre style='padding:20px;font-family:monospace;background:#fee;color:#900;'>
+[메인 페이지 에러 — 관리자 전용 디버그]
+{e}
+
+{tb}
+</pre>""", 500
+        raise
 
 
 # ══════════════════════════════════════════════════════════
@@ -2760,37 +2778,38 @@ def init_db():
     db.create_all()
 
     # 신규 컬럼 자동 추가 (migrate 없이 배포 시 대응)
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
-            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'))
-            conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''))
-            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS reg_no VARCHAR(50)'))
-            conn.execute(db.text('ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS pub_year VARCHAR(10)'))
-            conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
-            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'))
-            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'))
-            # union_dept_cd NOT NULL 제약 해제 (LEVEL 타겟은 union_dept_cd 비어있어야 함)
-            conn.execute(db.text('ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'))
-            # VoteItem.item_cnt NULL을 0으로 갱신 + 컬럼 DEFAULT 0 설정
-            conn.execute(db.text('UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'))
-            conn.execute(db.text('ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'))
-            # 대댓글 지원 — parent_seq 컬럼 추가
-            conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
-            conn.execute(db.text('ALTER TABLE "TB_NOTICE_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
-            # 게시글 수정 지원 — mod_dt, mod_user
-            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'))
-            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'))
-            conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
-                region_seq SERIAL PRIMARY KEY,
-                region_cd  VARCHAR(20) NOT NULL UNIQUE,
-                region_nm  VARCHAR(100) NOT NULL,
-                sort_order INTEGER DEFAULT 0,
-                use_yn     VARCHAR(1) DEFAULT 'Y'
-            )'''))
-            conn.commit()
-    except Exception as e:
-        print(f"Auto-migrate warning: {e}")
+    # 각 명령을 개별 트랜잭션으로 분리 — 하나 실패해도 다음 명령에 영향 없음
+    migration_sqls = [
+        ('TB_USER region_cd', 'ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'),
+        ('TB_USER profile_img', 'ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS profile_img VARCHAR(500)'),
+        ('TB_USER is_voter', 'ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS is_voter VARCHAR(1) DEFAULT \'Y\''),
+        ('TB_BOOK reg_no', 'ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS reg_no VARCHAR(50)'),
+        ('TB_BOOK pub_year', 'ALTER TABLE "TB_BOOK" ADD COLUMN IF NOT EXISTS pub_year VARCHAR(10)'),
+        ('TB_UNION_DEPT region_cd', 'ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'),
+        ('TB_VOTE_TARGET union_dept_cd', 'ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS union_dept_cd VARCHAR(20)'),
+        ('TB_VOTE_TARGET target_level', 'ALTER TABLE "TB_VOTE_TARGET" ADD COLUMN IF NOT EXISTS target_level INTEGER'),
+        ('TB_VOTE_TARGET union_dept_cd NOT NULL drop', 'ALTER TABLE "TB_VOTE_TARGET" ALTER COLUMN union_dept_cd DROP NOT NULL'),
+        ('TB_VOTE_ITEM item_cnt NULL fix', 'UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'),
+        ('TB_VOTE_ITEM item_cnt DEFAULT 0', 'ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'),
+        ('TB_BOARD_COMMENT parent_seq', 'ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'),
+        ('TB_NOTICE_COMMENT parent_seq', 'ALTER TABLE "TB_NOTICE_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'),
+        ('TB_BOARD mod_dt', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'),
+        ('TB_BOARD mod_user', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'),
+        ('TB_REGION create', '''CREATE TABLE IF NOT EXISTS "TB_REGION" (
+            region_seq SERIAL PRIMARY KEY,
+            region_cd  VARCHAR(20) NOT NULL UNIQUE,
+            region_nm  VARCHAR(100) NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            use_yn     VARCHAR(1) DEFAULT 'Y'
+        )'''),
+    ]
+    for label, sql in migration_sqls:
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text(sql))
+                conn.commit()
+        except Exception as e:
+            print(f"[Migrate skip] {label}: {e}")
 
     if User.query.first():
         print("DB already initialized - skipping")
