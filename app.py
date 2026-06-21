@@ -483,11 +483,38 @@ def main():
         current_user = get_current_user()
         notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
         now = now_kst()
-        ongoing_vote = Vote.query.filter(
-            Vote.start_dt <= now,
-            Vote.end_dt   >= now,
-            Vote.use_yn   == 'Y'
-        ).first()
+        # 본인 대상 투표만 메인에 표시 (vote() 라우트와 동일한 필터)
+        ongoing_vote = None
+        if (current_user.is_voter or 'Y') == 'Y':
+            _candidates = Vote.query.filter(
+                Vote.start_dt <= now,
+                Vote.end_dt   >= now,
+                Vote.use_yn   == 'Y'
+            ).order_by(Vote.start_dt.desc()).all()
+            my_dept   = current_user.union_dept_cd
+            my_region = current_user.region_cd
+            my_level  = current_user.user_level
+            for v in _candidates:
+                _targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
+                if not _targets:
+                    ongoing_vote = v
+                    break
+                _is_target = False
+                for t in _targets:
+                    if t.target_level is not None:
+                        if my_level == t.target_level:
+                            _is_target = True
+                            break
+                    elif t.union_dept_cd:
+                        if my_dept and t.union_dept_cd == my_dept:
+                            _is_target = True
+                            break
+                        if my_region and t.union_dept_cd == my_region:
+                            _is_target = True
+                            break
+                if _is_target:
+                    ongoing_vote = v
+                    break
 
         # KST 기준 오늘 범위
         today_kst = now.date()
