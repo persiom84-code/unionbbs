@@ -7,6 +7,10 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import joinedload
 from datetime import datetime, date, timedelta, timezone
 KST = timedelta(hours=9)
+
+def now_kst():
+    """현재 한국 시간(KST) naive datetime 반환 — 서버 TZ가 UTC여도 안전."""
+    return now_kst()
 from functools import wraps
 import bcrypt
 import os
@@ -65,7 +69,7 @@ class User(db.Model):
     pwd_fail_cnt  = db.Column(db.Integer, default=0)
     acct_lock_yn  = db.Column(db.String(1), default='N')
     use_yn        = db.Column(db.String(1), default='Y')
-    reg_dt        = db.Column(db.DateTime, default=datetime.now)
+    reg_dt        = db.Column(db.DateTime, default=now_kst)
     mod_dt        = db.Column(db.DateTime, onupdate=datetime.now)
 
 class CompDept(db.Model):
@@ -121,7 +125,7 @@ class Notice(db.Model):
     is_top      = db.Column(db.String(1), default='N')
     view_cnt    = db.Column(db.Integer, default=0)
     use_yn      = db.Column(db.String(1), default='Y')
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
     reg_user    = db.Column(db.String(20))
     mod_dt        = db.Column(db.DateTime)
     mod_user      = db.Column(db.String(20))
@@ -133,11 +137,12 @@ class NoticeComment(db.Model):
     __tablename__ = 'TB_NOTICE_COMMENT'
     comment_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     notice_seq  = db.Column(db.Integer, db.ForeignKey('TB_NOTICE.notice_seq'), nullable=False)
+    parent_seq  = db.Column(db.Integer)  # 대댓글: 부모 comment_seq
     content     = db.Column(db.Text, nullable=False)
     emp_no      = db.Column(db.String(20), nullable=False)
     emp_nm      = db.Column(db.String(100))
     use_yn      = db.Column(db.String(1), default='Y')
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
 
 class Schedule(db.Model):
     __tablename__ = 'TB_SCHEDULE'
@@ -164,7 +169,7 @@ class Vote(db.Model):
     vote_cnt    = db.Column(db.Integer, default=0)
     use_yn      = db.Column(db.String(1), default='Y')
     reg_user    = db.Column(db.String(20))
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
 
 class VoteItem(db.Model):
     __tablename__ = 'TB_VOTE_ITEM'
@@ -180,7 +185,7 @@ class VoteHistory(db.Model):
     vote_seq    = db.Column(db.Integer, db.ForeignKey('TB_VOTE.vote_seq'), nullable=False)
     item_seq    = db.Column(db.Integer, db.ForeignKey('TB_VOTE_ITEM.item_seq'), nullable=False)
     emp_no      = db.Column(db.String(20), nullable=False)
-    vote_dt     = db.Column(db.DateTime, default=datetime.now)
+    vote_dt     = db.Column(db.DateTime, default=now_kst)
 
 class Suggestion(db.Model):
     __tablename__ = 'TB_SUGGESTION'
@@ -194,7 +199,7 @@ class Suggestion(db.Model):
     reply_emp_no  = db.Column(db.String(20))
     reply_dt      = db.Column(db.DateTime)
     use_yn        = db.Column(db.String(1), default='Y')
-    reg_dt        = db.Column(db.DateTime, default=datetime.now)
+    reg_dt        = db.Column(db.DateTime, default=now_kst)
 
 class Board(db.Model):
     __tablename__ = 'TB_BOARD'
@@ -208,18 +213,19 @@ class Board(db.Model):
     dept_cd       = db.Column(db.String(20))
     union_dept_cd = db.Column(db.String(20))
     use_yn        = db.Column(db.String(1), default='Y')
-    reg_dt        = db.Column(db.DateTime, default=datetime.now)
+    reg_dt        = db.Column(db.DateTime, default=now_kst)
     mod_dt        = db.Column(db.DateTime)
 
 class BoardComment(db.Model):
     __tablename__ = 'TB_BOARD_COMMENT'
     comment_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     board_seq   = db.Column(db.Integer, db.ForeignKey('TB_BOARD.board_seq'), nullable=False)
+    parent_seq  = db.Column(db.Integer)  # 대댓글: 부모 comment_seq
     content     = db.Column(db.Text, nullable=False)
     emp_no      = db.Column(db.String(20), nullable=False)
     emp_nm      = db.Column(db.String(100))
     use_yn      = db.Column(db.String(1), default='Y')
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
 
 class CondoBrand(db.Model):
     __tablename__ = 'TB_CONDO_BRAND'
@@ -252,7 +258,7 @@ class CondoFacility(db.Model):
     sort_order    = db.Column(db.Integer, default=0)
     region_name   = db.Column(db.String(50))
     use_yn        = db.Column(db.String(1), default='Y')
-    created_dt    = db.Column(db.DateTime, default=datetime.now)
+    created_dt    = db.Column(db.DateTime, default=now_kst)
     updated_dt    = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     rooms         = db.relationship('CondoRoom', backref='facility', lazy=True)
 
@@ -287,7 +293,7 @@ class CondoReserve(db.Model):
     guest_phone   = db.Column(db.String(30))
     guest_email   = db.Column(db.String(200))
     use_yn      = db.Column(db.String(1), default='Y')
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
 
 class CondoSeason(db.Model):
     __tablename__ = 'TB_CONDO_SEASON'
@@ -307,7 +313,7 @@ class GuestUser(db.Model):
     pwd_hash  = db.Column(db.String(256), nullable=False)
     relation  = db.Column(db.String(50))
     use_yn    = db.Column(db.String(1), default='Y')
-    reg_dt    = db.Column(db.DateTime, default=datetime.now)
+    reg_dt    = db.Column(db.DateTime, default=now_kst)
 
 class Book(db.Model):
     __tablename__ = 'TB_BOOK'
@@ -323,7 +329,7 @@ class Book(db.Model):
     avail_cnt  = db.Column(db.Integer, default=1)
     is_new     = db.Column(db.String(1), default='N')
     use_yn     = db.Column(db.String(1), default='Y')
-    reg_dt     = db.Column(db.DateTime, default=datetime.now)
+    reg_dt     = db.Column(db.DateTime, default=now_kst)
 
 class BookRental(db.Model):
     __tablename__ = 'TB_BOOK_RENTAL'
@@ -334,7 +340,7 @@ class BookRental(db.Model):
     due_dt     = db.Column(db.Date, nullable=False)
     return_dt  = db.Column(db.Date)
     status     = db.Column(db.String(10), default='APPLY')
-    reg_dt     = db.Column(db.DateTime, default=datetime.now)
+    reg_dt     = db.Column(db.DateTime, default=now_kst)
 
 class BookRequest(db.Model):
     __tablename__ = 'TB_BOOK_REQUEST'
@@ -347,7 +353,7 @@ class BookRequest(db.Model):
     status      = db.Column(db.String(10), default='WAIT')
     emp_no      = db.Column(db.String(20), nullable=False)
     use_yn      = db.Column(db.String(1), default='Y')
-    reg_dt      = db.Column(db.DateTime, default=datetime.now)
+    reg_dt      = db.Column(db.DateTime, default=now_kst)
 
 class About(db.Model):
     __tablename__ = 'TB_ABOUT'
@@ -474,7 +480,7 @@ def logout():
 def main():
     current_user = get_current_user()
     notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
-    now = datetime.utcnow() + KST
+    now = now_kst()
     ongoing_vote = Vote.query.filter(
         Vote.start_dt <= now,
         Vote.end_dt   >= now,
@@ -614,8 +620,10 @@ def notice_save():
 def notice_comment_save():
     current_user = get_current_user()
     notice_seq = request.form.get('notice_seq')
+    parent_seq = request.form.get('parent_seq', type=int)
     comment = NoticeComment(
         notice_seq = notice_seq,
+        parent_seq = parent_seq,
         content    = request.form.get('comment'),
         emp_no     = current_user.emp_no,
         emp_nm     = current_user.emp_nm
@@ -754,6 +762,17 @@ def board():
             Board.title.contains(keyword) | Board.content.contains(keyword)
         )
     posts = query.order_by(Board.reg_dt.desc()).all()
+    # 각 게시글의 댓글 수 (대댓글 포함)
+    comment_counts = {}
+    if posts:
+        seqs = [p.board_seq for p in posts]
+        rows = db.session.query(BoardComment.board_seq, db.func.count(BoardComment.comment_seq))\
+            .filter(BoardComment.board_seq.in_(seqs), BoardComment.use_yn == 'Y')\
+            .group_by(BoardComment.board_seq).all()
+        comment_counts = dict(rows)
+    for p in posts:
+        p.comment_count = comment_counts.get(p.board_seq, 0)
+
     return render_template('board.html',
         current_user=current_user,
         post_list=posts,
@@ -809,21 +828,65 @@ def board_save():
 @app.route('/board/delete/<int:board_seq>', methods=['POST'])
 @login_required
 def board_delete(board_seq):
+    current_user = get_current_user()
     post = Board.query.get_or_404(board_seq)
+    # 권한: 작성자 본인 또는 관리자(LV0)만
+    if post.emp_no != current_user.emp_no and current_user.user_level != 0:
+        flash('본인이 작성한 글만 삭제할 수 있습니다.', 'error')
+        return redirect(url_for('board_view', board_seq=board_seq))
     post.use_yn = 'N'
     db.session.commit()
+    flash('게시글이 삭제되었습니다.', 'success')
     return redirect(url_for('board'))
+
+
+@app.route('/board/edit/<int:board_seq>')
+@login_required
+def board_edit(board_seq):
+    """본인 글 수정 폼"""
+    current_user = get_current_user()
+    post = Board.query.filter_by(board_seq=board_seq, use_yn='Y').first_or_404()
+    # 권한: 작성자 본인만
+    if post.emp_no != current_user.emp_no and current_user.user_level != 0:
+        flash('본인이 작성한 글만 수정할 수 있습니다.', 'error')
+        return redirect(url_for('board_view', board_seq=board_seq))
+    return render_template('board_write.html',
+        current_user=current_user,
+        post=post,
+        is_edit=True,
+        active_menu='board'
+    )
+
+
+@app.route('/board/update/<int:board_seq>', methods=['POST'])
+@login_required
+def board_update(board_seq):
+    """본인 글 수정 저장"""
+    current_user = get_current_user()
+    post = Board.query.get_or_404(board_seq)
+    if post.emp_no != current_user.emp_no and current_user.user_level != 0:
+        flash('본인이 작성한 글만 수정할 수 있습니다.', 'error')
+        return redirect(url_for('board_view', board_seq=board_seq))
+    post.title    = request.form.get('title')
+    post.content  = request.form.get('content')
+    post.mod_dt   = now_kst()
+    post.mod_user = current_user.emp_no
+    db.session.commit()
+    flash('게시글이 수정되었습니다.', 'success')
+    return redirect(url_for('board_view', board_seq=board_seq))
 
 @app.route('/board/comment/save', methods=['POST'])
 @login_required
 def board_comment_save():
     current_user = get_current_user()
     board_seq = request.form.get('board_seq')
+    parent_seq = request.form.get('parent_seq', type=int)  # 대댓글이면 부모 comment_seq
     comment = BoardComment(
-        board_seq = board_seq,
-        content   = request.form.get('comment'),
-        emp_no    = current_user.emp_no,
-        emp_nm    = current_user.emp_nm
+        board_seq  = board_seq,
+        parent_seq = parent_seq,
+        content    = request.form.get('comment'),
+        emp_no     = current_user.emp_no,
+        emp_nm     = current_user.emp_nm
     )
     db.session.add(comment)
     db.session.commit()
@@ -832,8 +895,12 @@ def board_comment_save():
 @app.route('/board/comment/delete/<int:comment_seq>', methods=['POST'])
 @login_required
 def board_comment_delete(comment_seq):
+    current_user = get_current_user()
     comment = BoardComment.query.get_or_404(comment_seq)
     board_seq = comment.board_seq
+    if comment.emp_no != current_user.emp_no and current_user.user_level != 0:
+        flash('본인 댓글만 삭제할 수 있습니다.', 'error')
+        return redirect(url_for('board_view', board_seq=board_seq))
     comment.use_yn = 'N'
     db.session.commit()
     return redirect(url_for('board_view', board_seq=board_seq))
@@ -846,53 +913,93 @@ def board_comment_delete(comment_seq):
 @app.route('/vote')
 @login_required
 def vote():
-    current_user  = get_current_user()
-    now = datetime.utcnow() + KST
-    my_dept = current_user.union_dept_cd if current_user else None
+    current_user = get_current_user()
+    now = now_kst()
 
-    # 전체 진행중 투표 후 분회 필터링
+    # 본인 정보
+    my_dept   = current_user.union_dept_cd
+    my_region = current_user.region_cd
+    my_level  = current_user.user_level
+    is_voter  = (current_user.is_voter or 'Y') == 'Y'
+
+    # 전체 진행중 투표
     all_active = Vote.query.filter(
         Vote.start_dt <= now,
         Vote.end_dt   >= now,
         Vote.use_yn   == 'Y'
-    ).all()
+    ).order_by(Vote.start_dt.desc()).all()
 
+    # 본인 대상 필터링 — LEVEL / REGION / 분회 / 전체 모두 처리
     active_votes = []
     for v in all_active:
+        # 비유권자는 어떤 투표도 표시 안 함
+        if not is_voter:
+            continue
+
         targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
-        if not targets:  # 대상 없으면 전체 공개
+        if not targets:
+            # 대상 미지정 = 전 조합원 공개
             active_votes.append(v)
-        elif my_dept and any(t.union_dept_cd == my_dept for t in targets):
+            continue
+
+        # 본인이 대상 중 하나에 매칭되는지 확인
+        is_target = False
+        for t in targets:
+            if t.target_level is not None:
+                # LEVEL 타겟
+                if my_level == t.target_level:
+                    is_target = True
+                    break
+            elif t.union_dept_cd:
+                # 분회 코드 또는 권역 코드와 비교 (둘 중 어느 쪽에 매칭되어도 OK)
+                if my_dept and t.union_dept_cd == my_dept:
+                    is_target = True
+                    break
+                if my_region and t.union_dept_cd == my_region:
+                    is_target = True
+                    break
+        if is_target:
             active_votes.append(v)
 
+    # 종료 투표 (최근 20개)
     archive_votes = Vote.query.filter(
         Vote.end_dt < now,
         Vote.use_yn == 'Y'
-    ).all()
+    ).order_by(Vote.end_dt.desc()).limit(20).all()
 
+    # 진행중 투표 데이터 보강 (None 안전)
     for v in active_votes:
-        v.items            = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
-        v.has_voted        = VoteHistory.query.filter_by(vote_seq=v.vote_seq, emp_no=current_user.emp_no).first() is not None
-        v.participation_rate = round((v.vote_cnt / v.total_cnt * 100), 1) if v.total_cnt else 0
+        v.items = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
+        v.has_voted = VoteHistory.query.filter_by(
+            vote_seq=v.vote_seq, emp_no=current_user.emp_no
+        ).first() is not None
+        actual_votes = v.vote_cnt or 0
+        total_voters = v.total_cnt or 1
+        v.participation_rate = round((actual_votes / total_voters * 100), 1)
 
+    # 종료 투표 결과 (None 안전)
     for v in archive_votes:
-        items = VoteItem.query.filter_by(vote_seq=v.vote_seq).all()
-        total = sum(i.item_cnt for i in items) or 1
-        max_cnt = max((i.item_cnt for i in items), default=0)
+        items = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
+        item_cnts = [(i.item_cnt or 0) for i in items]
+        total   = sum(item_cnts) or 1
+        max_cnt = max(item_cnts, default=0)
         v.results = [{
             'item_name': i.item_nm,
-            'vote_cnt':  i.item_cnt,
-            'percent':   round(i.item_cnt / total * 100, 1),
-            'is_max':    i.item_cnt == max_cnt
+            'vote_cnt':  i.item_cnt or 0,
+            'percent':   round((i.item_cnt or 0) / total * 100, 1),
+            'is_max':    (i.item_cnt or 0) == max_cnt and max_cnt > 0
         } for i in items]
-        v.participation_rate = round((v.vote_cnt / v.total_cnt * 100), 1) if v.total_cnt else 0
-        v.participant_cnt    = v.vote_cnt
-        v.total_voters       = v.total_cnt
+        actual = v.vote_cnt or 0
+        total_voters = v.total_cnt or 1
+        v.participation_rate = round((actual / total_voters * 100), 1)
+        v.participant_cnt = actual
+        v.total_voters    = v.total_cnt or 0
 
     return render_template('vote.html',
         current_user=current_user,
         active_votes=active_votes,
         archive_votes=archive_votes,
+        is_voter=is_voter,
         active_menu='vote'
     )
 
@@ -938,7 +1045,7 @@ def admin_vote():
     current_user = get_current_user()
     votes = Vote.query.order_by(Vote.reg_dt.desc()).all()
     vote_data = []
-    now = datetime.utcnow() + KST
+    now = now_kst()
     for v in votes:
         total  = v.total_cnt or 1
         cnt    = VoteHistory.query.filter_by(vote_seq=v.vote_seq).count()
@@ -1596,7 +1703,7 @@ def condo_reserve_save():
         reserve.status = 'CONFIRM'
     elif action == 'cancel':
         reserve.status    = 'CANCEL'
-        reserve.cancel_dt = datetime.now()
+        reserve.cancel_dt = now_kst()
     db.session.commit()
     flash('처리 완료되었습니다.')
     return redirect(url_for('admin_condo'))
@@ -1675,7 +1782,7 @@ def condo_facility_save():
         f.extra_info    = request.form.get('extra_info')
         f.sort_order    = int(request.form.get('sort_order', f.sort_order))
         f.region_name   = request.form.get('region_name')
-        f.updated_dt    = datetime.now()
+        f.updated_dt    = now_kst()
         flash('시설 정보가 수정되었습니다.')
     elif action == 'delete':
         f = CondoFacility.query.get_or_404(request.form.get('facility_id'))
@@ -2435,7 +2542,7 @@ def profile_edit():
                 current_user.pwd_hash   = hashed
                 current_user.pwd_chg_dt = date.today()
                 current_user.pwd_init_yn = 'N'
-                current_user.mod_dt     = datetime.now()
+                current_user.mod_dt     = now_kst()
                 db.session.commit()
                 flash('비밀번호가 변경되었습니다.', 'success')
                 return redirect(url_for('profile_edit'))
@@ -2507,7 +2614,7 @@ def force_pwd_change():
             current_user.pwd_hash    = hashed
             current_user.pwd_chg_dt  = date.today()
             current_user.pwd_init_yn = 'N'
-            current_user.mod_dt      = datetime.now()
+            current_user.mod_dt      = now_kst()
             db.session.commit()
             session.pop('force_pwd_change', None)
             flash('비밀번호가 변경되었습니다.', 'success')
@@ -2531,7 +2638,7 @@ def admin_reset_pwd():
     target_user.pwd_chg_dt   = None
     target_user.pwd_fail_cnt = 0
     target_user.acct_lock_yn = 'N'
-    target_user.mod_dt       = datetime.now()
+    target_user.mod_dt       = now_kst()
     db.session.commit()
 
     return jsonify({'ok': True, 'msg': f'{target_user.emp_nm}({target_emp_no}) 비밀번호가 사번으로 초기화되었습니다.'})
@@ -2546,7 +2653,7 @@ def admin_user_toggle_voter():
     if not user:
         return jsonify({'ok': False, 'msg': f'사번 {emp_no} 사용자를 찾을 수 없습니다.'})
     user.is_voter = 'N' if (user.is_voter or 'Y') == 'Y' else 'Y'
-    user.mod_dt   = datetime.now()
+    user.mod_dt   = now_kst()
     db.session.commit()
     state = '포함' if user.is_voter == 'Y' else '제외'
     return jsonify({'ok': True, 'is_voter': user.is_voter,
@@ -2567,7 +2674,7 @@ def admin_user_deactivate():
         if admin_cnt <= 1:
             return jsonify({'ok': False, 'msg': '마지막 관리자 계정은 비활성화할 수 없습니다.'})
     user.use_yn = 'N'
-    user.mod_dt = datetime.now()
+    user.mod_dt = now_kst()
     db.session.commit()
     return jsonify({'ok': True, 'msg': f'{user.emp_nm}({emp_no}) 계정이 비활성화되었습니다.'})
 
@@ -2668,6 +2775,12 @@ def init_db():
             # VoteItem.item_cnt NULL을 0으로 갱신 + 컬럼 DEFAULT 0 설정
             conn.execute(db.text('UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'))
+            # 대댓글 지원 — parent_seq 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
+            conn.execute(db.text('ALTER TABLE "TB_NOTICE_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
+            # 게시글 수정 지원 — mod_dt, mod_user
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'))
             conn.execute(db.text('''CREATE TABLE IF NOT EXISTS "TB_REGION" (
                 region_seq SERIAL PRIMARY KEY,
                 region_cd  VARCHAR(20) NOT NULL UNIQUE,
@@ -2932,6 +3045,12 @@ def migrate():
             # VoteItem.item_cnt NULL을 0으로 갱신 + 컬럼 DEFAULT 0 설정
             conn.execute(db.text('UPDATE "TB_VOTE_ITEM" SET item_cnt = 0 WHERE item_cnt IS NULL'))
             conn.execute(db.text('ALTER TABLE "TB_VOTE_ITEM" ALTER COLUMN item_cnt SET DEFAULT 0'))
+            # 대댓글 지원 — parent_seq 컬럼 추가
+            conn.execute(db.text('ALTER TABLE "TB_BOARD_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
+            conn.execute(db.text('ALTER TABLE "TB_NOTICE_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'))
+            # 게시글 수정 지원 — mod_dt, mod_user
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'))
+            conn.execute(db.text('ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT_MAP" ADD COLUMN IF NOT EXISTS map_seq SERIAL'))
             conn.execute(db.text('ALTER TABLE "TB_UNION_DEPT" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
             conn.execute(db.text('ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS region_cd VARCHAR(20)'))
@@ -3135,7 +3254,7 @@ def admin_user_import():
                 existing.emp_type_cd = row.get('emp_type_cd', '').strip() or existing.emp_type_cd
                 existing.rank_cd     = row.get('rank_cd', '').strip() or existing.rank_cd
                 existing.user_level  = level
-                existing.mod_dt      = datetime.now()
+                existing.mod_dt      = now_kst()
                 if existing.use_yn == 'N':
                     existing.use_yn = 'Y'
                 updated += 1

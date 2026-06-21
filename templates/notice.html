@@ -32,6 +32,7 @@
             <a href="/notice?type=FLASH" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'FLASH' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">노조속보</a>
             <a href="/notice?type=SCHEDULE" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'SCHEDULE' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">일정안내</a>
             <a href="/notice?type=ELECTION" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'ELECTION' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">선거사항</a>
+            <a href="/notice?type=FINANCE" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'FINANCE' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">회계</a>
         </div>
     </div>
 
@@ -54,8 +55,11 @@
                         <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
                             {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else
                                'bg-blue-50 text-blue-600' if item.notice_type == 'SCHEDULE' else
+                               'bg-emerald-50 text-emerald-600' if item.notice_type == 'FINANCE' else
                                'bg-amber-50 text-amber-600' }}">
-                            {{ '노조속보' if item.notice_type == 'FLASH' else '일정안내' if item.notice_type == 'SCHEDULE' else '선거사항' }}
+                            {{ '노조속보' if item.notice_type == 'FLASH' else
+                               '일정안내' if item.notice_type == 'SCHEDULE' else
+                               '회계' if item.notice_type == 'FINANCE' else '선거사항' }}
                         </span>
                     </td>
                     <td class="px-4 py-5 font-semibold text-slate-700 truncate max-w-md">

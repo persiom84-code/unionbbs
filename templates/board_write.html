@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}자유게시판 글 작성{% endblock %}
+{% block title %}{{ '자유게시판 글 수정' if is_edit else '자유게시판 글 작성' }}{% endblock %}
 
 {% set active_menu = 'board' %}
 
@@ -7,9 +7,9 @@
 <header class="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
     <div>
         <h2 class="text-2xl font-black text-slate-800 flex items-center italic">
-            <i class="fas fa-pen-nib text-yuanta mr-3"></i>BOARD WRITE
+            <i class="fas fa-pen-nib text-yuanta mr-3"></i>{{ 'BOARD EDIT' if is_edit else 'BOARD WRITE' }}
         </h2>
-        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">자유게시판 글 작성</p>
+        <p class="text-xs text-slate-400 mt-1 font-medium uppercase tracking-widest">{{ '자유게시판 글 수정' if is_edit else '자유게시판 글 작성' }}</p>
     </div>
     <a href="/board" class="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
         <i class="fas fa-list mr-2"></i>목록 보기
@@ -17,12 +17,13 @@
 </header>
 
 <section class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-    <form action="/board/save" method="POST" class="p-10 space-y-8">
+    <form action="{{ '/board/update/' ~ post.board_seq if is_edit else '/board/save' }}" method="POST" class="p-10 space-y-8">
 
         <!-- 제목 -->
         <div class="space-y-2">
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">제목</label>
             <input type="text" name="title" required placeholder="제목을 입력하세요"
+                value="{{ post.title if is_edit else '' }}"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-yuanta/20">
         </div>
 
@@ -30,13 +31,13 @@
         <div class="space-y-2">
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">내용</label>
             <textarea name="content" rows="16" required placeholder="내용을 입력하세요."
-                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20 resize-y leading-relaxed"></textarea>
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20 resize-y leading-relaxed">{{ post.content if is_edit else '' }}</textarea>
         </div>
 
         <div class="flex justify-end pt-6 border-t border-slate-100">
             <button type="submit"
                 class="px-10 py-3 bg-yuanta text-white rounded-2xl text-xs font-black hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all uppercase tracking-widest">
-                작성완료
+                {{ '수정완료' if is_edit else '작성완료' }}
             </button>
         </div>
     </form>

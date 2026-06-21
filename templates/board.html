@@ -56,6 +56,9 @@
                     <td class="px-6 py-5 text-center text-slate-400 font-mono text-xs">{{ post.board_seq }}</td>
                     <td class="px-6 py-5">
                         <span class="font-bold text-slate-700 hover:text-yuanta transition-colors">{{ post.title }}</span>
+                        {% if post.comment_count and post.comment_count > 0 %}
+                        <span class="ml-2 text-yuanta text-[11px] font-bold">[{{ post.comment_count }}]</span>
+                        {% endif %}
                     </td>
                     <td class="px-6 py-5 text-center">
                         <span class="text-slate-600 font-bold text-xs">{{ post.emp_nm or post.emp_no }}</span>

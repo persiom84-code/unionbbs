@@ -66,8 +66,11 @@
         <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
             {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else
                'bg-blue-50 text-blue-600' if item.notice_type == 'SCHEDULE' else
+               'bg-emerald-50 text-emerald-600' if item.notice_type == 'FINANCE' else
                'bg-amber-50 text-amber-600' }}">
-            {{ '노조속보' if item.notice_type == 'FLASH' else '일정안내' if item.notice_type == 'SCHEDULE' else '선거사항' }}
+            {{ '노조속보' if item.notice_type == 'FLASH' else
+               '일정안내' if item.notice_type == 'SCHEDULE' else
+               '회계' if item.notice_type == 'FINANCE' else '선거사항' }}
         </span>
         {% if item.is_top == 'Y' %}
         <span class="px-2 py-1 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>
@@ -146,33 +149,84 @@
         </div>
     </form>
 
-    <div class="space-y-6">
-        {% for comment in comment_list %}
-        <div class="flex space-x-4 group">
-            <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 shrink-0 mt-1">
-                <i class="fas fa-user text-xs"></i>
-            </div>
-            <div class="flex-1">
-                <div class="flex items-baseline justify-between mb-1">
-                    <div class="space-x-2">
-                        <span class="text-xs font-black text-slate-700">{{ comment.emp_nm or comment.emp_no }}</span>
-                        <span class="text-[9px] text-slate-400 font-mono">{{ comment.reg_dt.strftime('%Y.%m.%d %H:%M') if comment.reg_dt else '' }}</span>
-                    </div>
-                    {% if current_user and (current_user.user_level == 0 or current_user.emp_no == comment.emp_no) %}
-                    <form action="/notice/comment/delete/{{ comment.comment_seq }}" method="POST" class="inline">
-                        <button type="submit" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
-                            <i class="fas fa-times text-xs"></i>
-                        </button>
-                    </form>
-                    {% endif %}
+    <div class="space-y-4">
+        {% set top_comments = comment_list|selectattr('parent_seq', 'none')|list %}
+        {% for comment in top_comments %}
+        <div class="comment-block">
+            <div class="flex space-x-4 group bg-slate-50/40 rounded-2xl p-3 hover:bg-slate-50">
+                <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 shrink-0 mt-1">
+                    <i class="fas fa-user text-xs"></i>
                 </div>
-                <p class="text-sm text-slate-600 leading-relaxed">{{ comment.content }}</p>
+                <div class="flex-1">
+                    <div class="flex items-baseline justify-between mb-1">
+                        <div class="space-x-2">
+                            <span class="text-xs font-black text-slate-700">{{ comment.emp_nm or comment.emp_no }}</span>
+                            <span class="text-[9px] text-slate-400 font-mono">{{ comment.reg_dt.strftime('%Y.%m.%d %H:%M') if comment.reg_dt else '' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleReply({{ comment.comment_seq }})" class="text-[10px] text-slate-400 hover:text-yuanta font-bold">
+                                <i class="fas fa-reply text-[9px] mr-0.5"></i>답글
+                            </button>
+                            {% if current_user and (current_user.user_level == 0 or current_user.emp_no == comment.emp_no) %}
+                            <form action="/notice/comment/delete/{{ comment.comment_seq }}" method="POST" class="inline">
+                                <button type="submit" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                                    <i class="fas fa-times text-xs"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 leading-relaxed">{{ comment.content }}</p>
+                </div>
             </div>
+
+            <form id="reply-form-{{ comment.comment_seq }}" action="/notice/comment/save" method="POST" class="hidden ml-12 mt-2 bg-blue-50/30 p-3 rounded-xl border border-blue-100">
+                <input type="hidden" name="notice_seq" value="{{ item.notice_seq }}">
+                <input type="hidden" name="parent_seq" value="{{ comment.comment_seq }}">
+                <div class="flex gap-2">
+                    <textarea name="comment" rows="1" required placeholder="답글을 남겨주세요." class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-lg outline-none text-sm text-slate-700"></textarea>
+                    <button type="submit" class="px-4 py-2 bg-yuanta text-white rounded-lg text-xs font-bold">등록</button>
+                    <button type="button" onclick="toggleReply({{ comment.comment_seq }})" class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold">취소</button>
+                </div>
+            </form>
+
+            {% set replies = comment_list|selectattr('parent_seq', 'equalto', comment.comment_seq)|list %}
+            {% for reply in replies %}
+            <div class="ml-12 mt-2 flex space-x-3 group bg-blue-50/30 rounded-xl p-3 border-l-2 border-yuanta/30">
+                <i class="fas fa-reply text-[10px] text-yuanta mt-2 flex-shrink-0"></i>
+                <div class="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 shrink-0">
+                    <i class="fas fa-user text-[10px]"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-baseline justify-between mb-1">
+                        <div class="space-x-2">
+                            <span class="text-xs font-black text-slate-700">{{ reply.emp_nm or reply.emp_no }}</span>
+                            <span class="text-[9px] text-slate-400 font-mono">{{ reply.reg_dt.strftime('%Y.%m.%d %H:%M') if reply.reg_dt else '' }}</span>
+                        </div>
+                        {% if current_user and (current_user.user_level == 0 or current_user.emp_no == reply.emp_no) %}
+                        <form action="/notice/comment/delete/{{ reply.comment_seq }}" method="POST" class="inline">
+                            <button type="submit" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-slate-600 leading-relaxed">{{ reply.content }}</p>
+                </div>
+            </div>
+            {% endfor %}
         </div>
         {% else %}
         <div class="py-8 text-center text-slate-400 text-sm italic">첫 번째 댓글을 남겨보세요.</div>
         {% endfor %}
     </div>
 </div>
+
+<script>
+    function toggleReply(seq) {
+        const form = document.getElementById('reply-form-' + seq);
+        if (form) form.classList.toggle('hidden');
+    }
+</script>
 {% endif %}
 {% endblock %}
