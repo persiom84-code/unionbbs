@@ -1,6 +1,70 @@
 {% extends 'base.html' %}
 {% block title %}{{ '자유게시판 글 수정' if is_edit else '자유게시판 글 작성' }}{% endblock %}
 
+{% block head_extra %}
+<!-- Toast UI Editor (NHN, MIT 라이선스, 폐쇄망 친화) -->
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+<style>
+.toastui-editor-defaultUI {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.toastui-editor-toolbar { background: #fff; }
+.toastui-editor-mode-switch { background: #f8fafc; }
+.toastui-editor-md-container .toastui-editor,
+.toastui-editor-ww-container .toastui-editor {
+    background: #f8fafc;
+}
+
+/* 미리보기 모달 */
+.preview-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.preview-overlay.active { display: flex; }
+.preview-modal {
+    background: #fff; border-radius: 20px; max-width: 800px; width: 100%;
+    max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+}
+.preview-modal-header {
+    padding: 18px 24px; border-bottom: 1px solid #f1f5f9;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.preview-modal-body { padding: 28px; overflow-y: auto; flex: 1; }
+.preview-content { font-size: 14px; line-height: 1.8; color: #334155; }
+.preview-content p { margin: 0.5em 0; }
+.preview-content h1, .preview-content h2, .preview-content h3 { font-weight: 800; margin: 1em 0 0.5em; color: #1e293b; }
+.preview-content h1 { font-size: 1.5em; }
+.preview-content h2 { font-size: 1.3em; }
+.preview-content h3 { font-size: 1.15em; }
+.preview-content ul { list-style: disc; padding-left: 2em; margin: 0.5em 0; }
+.preview-content ol { list-style: decimal; padding-left: 2em; margin: 0.5em 0; }
+.preview-content table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+.preview-content table td, .preview-content table th { border: 1px solid #e2e8f0; padding: 8px 12px; }
+.preview-content table th { background: #f8fafc; font-weight: 700; }
+.preview-content blockquote { border-left: 4px solid #00479d; padding: 0.5em 1em; margin: 1em 0; background: #f8fafc; color: #64748b; }
+.preview-content img { max-width: 100%; height: auto; border-radius: 8px; }
+.preview-content a { color: #00479d; text-decoration: underline; }
+.preview-content pre, .preview-content code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+
+.draft-toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1e293b; color: #fff; padding: 12px 20px;
+    border-radius: 12px; font-size: 13px; font-weight: 700;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 200;
+    opacity: 0; transition: opacity 0.3s;
+}
+.draft-toast.show { opacity: 1; }
+
+.draft-restore {
+    background: #fff7ed; border: 1px solid #fed7aa;
+    padding: 14px 18px; border-radius: 12px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+</style>
+{% endblock %}
+
 {% set active_menu = 'board' %}
 
 {% block content %}
@@ -16,30 +80,224 @@
     </a>
 </header>
 
+<!-- 임시저장 복원 알림 -->
+<div id="draft-restore" class="draft-restore" style="display:none;">
+    <div>
+        <div style="font-size:13px;font-weight:800;color:#9a3412;margin-bottom:2px;">
+            <i class="fas fa-history mr-2"></i>이전에 작성하던 글이 있습니다.
+        </div>
+        <div style="font-size:11px;color:#c2410c;" id="draft-info">저장 시각: -</div>
+    </div>
+    <div class="flex gap-2">
+        <button type="button" id="btn-restore" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600">불러오기</button>
+        <button type="button" id="btn-discard" class="px-4 py-2 bg-white text-slate-600 rounded-lg text-xs font-bold border border-slate-200 hover:bg-slate-50">버리기</button>
+    </div>
+</div>
+
 <section class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-    <form action="{{ '/board/update/' ~ post.board_seq if is_edit else '/board/save' }}" method="POST" class="p-10 space-y-8">
+    <form id="board-form" action="{{ '/board/update/' ~ post.board_seq if is_edit else '/board/save' }}" method="POST" class="p-10 space-y-8">
 
         <!-- 제목 -->
         <div class="space-y-2">
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">제목</label>
-            <input type="text" name="title" required placeholder="제목을 입력하세요"
+            <input type="text" name="title" id="board-title" required placeholder="제목을 입력하세요"
                 value="{{ post.title if is_edit else '' }}"
                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-yuanta/20">
         </div>
 
-        <!-- 본문 -->
+        <!-- 본문 (Toast UI Editor) -->
         <div class="space-y-2">
             <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">내용</label>
-            <textarea name="content" rows="16" required placeholder="내용을 입력하세요."
-                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-yuanta/20 resize-y leading-relaxed">{{ post.content if is_edit else '' }}</textarea>
+            <div id="editor"></div>
+            <input type="hidden" name="content" id="content-hidden" value="">
+            <p class="text-[10px] text-slate-400 ml-1">
+                <i class="fas fa-info-circle mr-1"></i>
+                표 · 이미지 · 엑셀/워드 붙여넣기를 지원합니다. 작성 중 5초마다 자동 임시저장됩니다.
+            </p>
         </div>
 
-        <div class="flex justify-end pt-6 border-t border-slate-100">
-            <button type="submit"
-                class="px-10 py-3 bg-yuanta text-white rounded-2xl text-xs font-black hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all uppercase tracking-widest">
+        <!-- 수정 모드: 원본 HTML 저장용 hidden -->
+        {% if is_edit %}
+        <input type="hidden" id="initial-content" value="{{ post.content|e }}">
+        {% endif %}
+
+        <div class="flex justify-between items-center pt-6 border-t border-slate-100 flex-wrap gap-3">
+            <div class="flex gap-2">
+                <button type="button" id="btn-preview" class="px-5 py-3 bg-slate-100 text-slate-700 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all uppercase tracking-widest">
+                    <i class="fas fa-eye mr-1"></i>미리보기
+                </button>
+                {% if not is_edit %}
+                <button type="button" id="btn-save-draft" class="px-5 py-3 bg-amber-50 text-amber-700 rounded-2xl text-xs font-black hover:bg-amber-100 transition-all uppercase tracking-widest">
+                    <i class="fas fa-save mr-1"></i>임시저장
+                </button>
+                {% endif %}
+            </div>
+            <button type="submit" class="px-10 py-3 bg-yuanta text-white rounded-2xl text-xs font-black hover:bg-blue-800 shadow-xl shadow-blue-100 transition-all uppercase tracking-widest">
                 {{ '수정완료' if is_edit else '작성완료' }}
             </button>
         </div>
     </form>
 </section>
+
+<!-- 미리보기 모달 -->
+<div id="preview-overlay" class="preview-overlay" onclick="if(event.target===this) closePreview()">
+    <div class="preview-modal">
+        <div class="preview-modal-header">
+            <h3 style="font-size:16px;font-weight:900;color:#0f172a;">
+                <i class="fas fa-eye text-yuanta mr-2"></i>미리보기
+            </h3>
+            <button type="button" onclick="closePreview()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200">
+                <i class="fas fa-times"></i> 닫기
+            </button>
+        </div>
+        <div class="preview-modal-body">
+            <h2 id="preview-title" style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:16px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;"></h2>
+            <div id="preview-content" class="preview-content"></div>
+        </div>
+    </div>
+</div>
+
+<div id="draft-toast" class="draft-toast">
+    <i class="fas fa-check-circle mr-2"></i><span id="draft-toast-msg">임시저장 되었습니다</span>
+</div>
+
+{% endblock %}
+
+{% block page_script %}
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<script>
+const DRAFT_KEY = 'unionbbs_board_draft_v1';
+const IS_EDIT = {{ 'true' if is_edit else 'false' }};
+let editor = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    editor = new toastui.Editor({
+        el: document.querySelector('#editor'),
+        height: '480px',
+        initialEditType: 'wysiwyg',
+        previewStyle: 'vertical',
+        placeholder: '내용을 입력하세요. 엑셀/워드 표를 붙여넣기 하면 서식이 유지됩니다.',
+        language: 'ko-KR',
+        usageStatistics: false,
+        toolbarItems: [
+            ['heading', 'bold', 'italic', 'strike'],
+            ['hr', 'quote'],
+            ['ul', 'ol', 'task', 'indent', 'outdent'],
+            ['table', 'image', 'link'],
+            ['code', 'codeblock']
+        ]
+    });
+
+    // 수정 모드: 기존 HTML 콘텐츠 로드
+    if (IS_EDIT) {
+        const initialEl = document.getElementById('initial-content');
+        if (initialEl && initialEl.value) {
+            editor.setHTML(initialEl.value);
+        }
+    } else {
+        // 작성 모드만 임시저장 사용
+        checkDraft();
+        setInterval(autoSaveDraft, 5000);
+    }
+
+    document.getElementById('board-form').addEventListener('submit', function(e) {
+        const html = editor.getHTML();
+        const isEmpty = !html || html === '<p><br></p>' || editor.getMarkdown().trim() === '';
+        if (isEmpty) {
+            e.preventDefault();
+            alert('내용을 입력해 주세요.');
+            return false;
+        }
+        document.getElementById('content-hidden').value = html;
+        if (!IS_EDIT) localStorage.removeItem(DRAFT_KEY);
+    });
+
+    document.getElementById('btn-preview').addEventListener('click', openPreview);
+    const draftBtn = document.getElementById('btn-save-draft');
+    if (draftBtn) {
+        draftBtn.addEventListener('click', function() {
+            saveDraft(true);
+        });
+    }
+});
+
+function getCurrentDraft() {
+    return {
+        title: document.getElementById('board-title').value,
+        content: editor ? editor.getMarkdown() : '',
+        saved_at: new Date().toISOString()
+    };
+}
+
+function saveDraft(manual) {
+    const draft = getCurrentDraft();
+    if (!draft.title && !draft.content) return;
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    if (manual) showToast('수동 임시저장 완료');
+}
+
+function autoSaveDraft() {
+    const draft = getCurrentDraft();
+    if (!draft.title && !draft.content) return;
+    const prev = localStorage.getItem(DRAFT_KEY);
+    if (prev) {
+        try {
+            const p = JSON.parse(prev);
+            if (p.title === draft.title && p.content === draft.content) return;
+        } catch(e) {}
+    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    showToast('자동 임시저장됨', 1500);
+}
+
+function checkDraft() {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+        const draft = JSON.parse(raw);
+        if (!draft.title && !draft.content) return;
+        const restoreEl = document.getElementById('draft-restore');
+        const infoEl = document.getElementById('draft-info');
+        const dt = new Date(draft.saved_at);
+        infoEl.textContent = `저장 시각: ${dt.toLocaleString('ko-KR')}`;
+        restoreEl.style.display = 'flex';
+
+        document.getElementById('btn-restore').onclick = function() {
+            document.getElementById('board-title').value = draft.title || '';
+            if (editor && draft.content) editor.setMarkdown(draft.content);
+            restoreEl.style.display = 'none';
+            showToast('임시저장된 내용을 불러왔습니다');
+        };
+        document.getElementById('btn-discard').onclick = function() {
+            if (confirm('임시저장된 내용을 버리시겠습니까?')) {
+                localStorage.removeItem(DRAFT_KEY);
+                restoreEl.style.display = 'none';
+            }
+        };
+    } catch(e) {
+        console.warn('임시저장 데이터 파싱 실패:', e);
+    }
+}
+
+function showToast(msg, duration) {
+    duration = duration || 2000;
+    const t = document.getElementById('draft-toast');
+    document.getElementById('draft-toast-msg').textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function openPreview() {
+    if (!editor) return;
+    const title = document.getElementById('board-title').value || '(제목 없음)';
+    const html = editor.getHTML();
+    document.getElementById('preview-title').textContent = title;
+    document.getElementById('preview-content').innerHTML = html || '<p style="color:#cbd5e1;font-style:italic;">내용이 없습니다.</p>';
+    document.getElementById('preview-overlay').classList.add('active');
+}
+function closePreview() {
+    document.getElementById('preview-overlay').classList.remove('active');
+}
+</script>
 {% endblock %}

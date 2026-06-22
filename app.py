@@ -147,6 +147,7 @@ class NoticeComment(db.Model):
 class Schedule(db.Model):
     __tablename__ = 'TB_SCHEDULE'
     schedule_seq  = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    notice_seq    = db.Column(db.Integer)  # 공지 연동 일정의 경우 원본 Notice.notice_seq
     title         = db.Column(db.String(200), nullable=False)
     content       = db.Column(db.Text)
     start_dt      = db.Column(db.DateTime, nullable=False)
@@ -478,81 +479,66 @@ def logout():
 @app.route('/')
 @login_required
 def main():
-    import traceback
-    try:
-        current_user = get_current_user()
-        notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
-        now = now_kst()
-        # 본인 대상 투표만 메인에 표시 (vote() 라우트와 동일한 필터)
-        ongoing_vote = None
-        if (current_user.is_voter or 'Y') == 'Y':
-            _candidates = Vote.query.filter(
-                Vote.start_dt <= now,
-                Vote.end_dt   >= now,
-                Vote.use_yn   == 'Y'
-            ).order_by(Vote.start_dt.desc()).all()
-            my_dept   = current_user.union_dept_cd
-            my_region = current_user.region_cd
-            my_level  = current_user.user_level
-            for v in _candidates:
-                _targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
-                if not _targets:
-                    ongoing_vote = v
-                    break
-                _is_target = False
-                for t in _targets:
-                    if t.target_level is not None:
-                        if my_level == t.target_level:
-                            _is_target = True
-                            break
-                    elif t.union_dept_cd:
-                        if my_dept and t.union_dept_cd == my_dept:
-                            _is_target = True
-                            break
-                        if my_region and t.union_dept_cd == my_region:
-                            _is_target = True
-                            break
-                if _is_target:
-                    ongoing_vote = v
-                    break
+    current_user = get_current_user()
+    notices      = Notice.query.filter_by(use_yn='Y').order_by(Notice.reg_dt.desc()).limit(5).all()
+    now = now_kst()
+    # 본인 대상 투표만 메인에 표시 (vote() 라우트와 동일한 필터)
+    ongoing_vote = None
+    if (current_user.is_voter or 'Y') == 'Y':
+        _candidates = Vote.query.filter(
+            Vote.start_dt <= now,
+            Vote.end_dt   >= now,
+            Vote.use_yn   == 'Y'
+        ).order_by(Vote.start_dt.desc()).all()
+        my_dept   = current_user.union_dept_cd
+        my_region = current_user.region_cd
+        my_level  = current_user.user_level
+        for v in _candidates:
+            _targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
+            if not _targets:
+                ongoing_vote = v
+                break
+            _is_target = False
+            for t in _targets:
+                if t.target_level is not None:
+                    if my_level == t.target_level:
+                        _is_target = True
+                        break
+                elif t.union_dept_cd:
+                    if my_dept and t.union_dept_cd == my_dept:
+                        _is_target = True
+                        break
+                    if my_region and t.union_dept_cd == my_region:
+                        _is_target = True
+                        break
+            if _is_target:
+                ongoing_vote = v
+                break
 
-        # KST 기준 오늘 범위
-        today_kst = now.date()
-        today_start = datetime.combine(today_kst, datetime.min.time())
-        today_end   = datetime.combine(today_kst, datetime.max.time())
-        today_schedule = Schedule.query.filter(
-            Schedule.start_dt >= today_start,
-            Schedule.start_dt <= today_end,
-            Schedule.use_yn == 'Y'
-        ).order_by(Schedule.start_dt).all()
+    # KST 기준 오늘 범위
+    today_kst = now.date()
+    today_start = datetime.combine(today_kst, datetime.min.time())
+    today_end   = datetime.combine(today_kst, datetime.max.time())
+    today_schedule = Schedule.query.filter(
+        Schedule.start_dt >= today_start,
+        Schedule.start_dt <= today_end,
+        Schedule.use_yn == 'Y'
+    ).order_by(Schedule.start_dt).all()
 
-        condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
-        book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
+    condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
+    book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
 
-        return render_template('main.html',
-            current_user=current_user,
-            notice_list=notices,
-            ongoing_vote=ongoing_vote,
-            today_schedule=today_schedule,
-            condo_count=condo_count,
-            book_count=book_count,
-            current_date_str=today_kst.strftime('%Y년 %m월 %d일'),
-            active_menu='dashboard'
-        )
-    except Exception as e:
-        # 디버그용: 실제 에러 메시지 + traceback을 로그에 명확히 출력
-        tb = traceback.format_exc()
-        print(f"[/  500 ERROR] {e}\n{tb}", flush=True)
-        # 사용자에게도 짧은 에러 메시지 노출 (관리자만)
-        cu = get_current_user()
-        if cu and cu.user_level == 0:
-            return f"""<pre style='padding:20px;font-family:monospace;background:#fee;color:#900;'>
-[메인 페이지 에러 — 관리자 전용 디버그]
-{e}
+    return render_template('main.html',
+        current_user=current_user,
+        notice_list=notices,
+        ongoing_vote=ongoing_vote,
+        today_schedule=today_schedule,
+        condo_count=condo_count,
+        book_count=book_count,
+        current_date_str=today_kst.strftime('%Y년 %m월 %d일'),
+        active_menu='dashboard'
+    )
 
-{tb}
-</pre>""", 500
-        raise
 
 
 # ══════════════════════════════════════════════════════════
@@ -564,14 +550,38 @@ def main():
 def notice():
     current_user = get_current_user()
     notice_type  = request.args.get('type', '')
-    query        = Notice.query.filter_by(use_yn='Y')
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+
+    query = Notice.query.filter_by(use_yn='Y')
     if notice_type:
         query = query.filter_by(notice_type=notice_type)
-    notices = query.order_by(Notice.is_top.desc(), Notice.reg_dt.desc()).all()
+
+    paginated = query.order_by(Notice.is_top.desc(), Notice.reg_dt.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    notices = paginated.items
+
+    # 각 공지의 댓글 수 (대댓글 포함)
+    comment_counts = {}
+    if notices:
+        seqs = [n.notice_seq for n in notices]
+        rows = db.session.query(NoticeComment.notice_seq, db.func.count(NoticeComment.comment_seq))\
+            .filter(NoticeComment.notice_seq.in_(seqs), NoticeComment.use_yn == 'Y')\
+            .group_by(NoticeComment.notice_seq).all()
+        comment_counts = dict(rows)
+    for n in notices:
+        n.comment_count = comment_counts.get(n.notice_seq, 0)
+
     return render_template('notice.html',
         current_user=current_user,
         notice_list=notices,
         notice_type=notice_type,
+        page=page,
+        total_pages=paginated.pages,
+        total_notices=paginated.total,
+        has_next=paginated.has_next,
+        has_prev=paginated.has_prev,
         active_menu='notice'
     )
 
@@ -607,7 +617,10 @@ def notice_view(notice_seq):
 def notice_delete(notice_seq):
     item = Notice.query.get_or_404(notice_seq)
     item.use_yn = 'N'
+    # 연동된 Schedule도 함께 비활성화 (캘린더 잔존 방지)
+    Schedule.query.filter_by(notice_seq=notice_seq).update({'use_yn': 'N'})
     db.session.commit()
+    flash('공지사항이 삭제되었습니다.', 'success')
     return redirect(url_for('notice'))
 
 @app.route('/notice/save', methods=['POST'])
@@ -638,8 +651,11 @@ def notice_save():
     )
     db.session.add(notice)
 
+    db.session.flush()  # notice_seq 확보용
+
     if request.form.get('event_date'):
         schedule = Schedule(
+            notice_seq    = notice.notice_seq,
             title         = request.form.get('title'),
             content       = request.form.get('content'),
             start_dt      = datetime.strptime(
@@ -832,6 +848,7 @@ def board_write():
     current_user = get_current_user()
     return render_template('board_write.html',
         current_user=current_user,
+        is_edit=False,
         active_menu='board'
     )
 
@@ -2822,6 +2839,7 @@ def init_db():
         ('TB_NOTICE_COMMENT parent_seq', 'ALTER TABLE "TB_NOTICE_COMMENT" ADD COLUMN IF NOT EXISTS parent_seq INTEGER'),
         ('TB_BOARD mod_dt', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'),
         ('TB_BOARD mod_user', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'),
+        ('TB_SCHEDULE notice_seq', 'ALTER TABLE "TB_SCHEDULE" ADD COLUMN IF NOT EXISTS notice_seq INTEGER'),
         ('TB_REGION create', '''CREATE TABLE IF NOT EXISTS "TB_REGION" (
             region_seq SERIAL PRIMARY KEY,
             region_cd  VARCHAR(20) NOT NULL UNIQUE,
