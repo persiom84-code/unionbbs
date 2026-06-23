@@ -27,7 +27,13 @@
 
 <section class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
     <div class="p-6 border-b border-slate-50 flex flex-wrap gap-4 items-center justify-between">
-        <div class="flex space-x-2">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                Total <span class="text-yuanta text-sm font-black">{{ total_notices or 0 }}</span>건
+                {% if total_pages %}<span class="ml-2 text-slate-400">· {{ page }}/{{ total_pages }} 페이지</span>{% endif %}
+            </span>
+        </div>
+        <div class="flex space-x-2 flex-wrap">
             <a href="/notice" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if not notice_type else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">전체</a>
             <a href="/notice?type=FLASH" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'FLASH' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">노조속보</a>
             <a href="/notice?type=SCHEDULE" class="px-4 py-1.5 rounded-lg text-[11px] font-bold {{ 'bg-yuanta text-white' if notice_type == 'SCHEDULE' else 'bg-slate-50 text-slate-500 hover:bg-slate-100' }}">일정안내</a>
@@ -64,6 +70,15 @@
                     </td>
                     <td class="px-4 py-5 font-semibold text-slate-700 truncate max-w-md">
                         {{ item.title }}
+                        {% if item.comment_count is defined %}
+                            {% if item.comment_count > 0 %}
+                            <span class="ml-2 text-yuanta text-[11px] font-bold">[{{ item.comment_count }}]</span>
+                            {% else %}
+                            <span class="ml-2 text-slate-300 text-[11px] font-bold">[0]</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="ml-2 text-red-400 text-[10px] font-bold">[데이터 없음]</span>
+                        {% endif %}
                         {% if item.is_top == 'Y' %}<span class="ml-2 px-1.5 py-0.5 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>{% endif %}
                     </td>
                     <td class="px-4 py-5 text-center text-slate-400 font-mono text-xs">{{ item.reg_dt.strftime('%Y.%m.%d') if item.reg_dt else '-' }}</td>
@@ -80,5 +95,56 @@
             </tbody>
         </table>
     </div>
+
+    <!-- 페이지네이션 (1페이지여도 항상 표시 — A안) -->
+    {% if total_pages %}
+    <div class="flex justify-center items-center gap-1 p-5 border-t border-slate-100">
+        {% if has_prev %}
+        <a href="/notice?page={{ page-1 }}{% if notice_type %}&type={{ notice_type }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="px-3 py-1.5 text-slate-300 text-xs font-bold cursor-not-allowed">
+            <i class="fas fa-chevron-left"></i>
+        </span>
+        {% endif %}
+
+        {# 페이지 번호 (현재 페이지 기준 ±5개 표시) #}
+        {% set start_p = [1, page - 5] | max %}
+        {% set end_p = [total_pages, page + 5] | min %}
+        {% if start_p > 1 %}
+        <a href="/notice?page=1{% if notice_type %}&type={{ notice_type }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">1</a>
+        {% if start_p > 2 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start_p, end_p + 1) %}
+            {% if p == page %}
+            <span class="px-3 py-1.5 rounded-lg bg-yuanta text-white text-xs font-bold">{{ p }}</span>
+            {% else %}
+            <a href="/notice?page={{ p }}{% if notice_type %}&type={{ notice_type }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if end_p < total_pages %}
+        {% if end_p < total_pages - 1 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+        <a href="/notice?page={{ total_pages }}{% if notice_type %}&type={{ notice_type }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ total_pages }}</a>
+        {% endif %}
+
+        {% if has_next %}
+        <a href="/notice?page={{ page+1 }}{% if notice_type %}&type={{ notice_type }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="px-3 py-1.5 text-slate-300 text-xs font-bold cursor-not-allowed">
+            <i class="fas fa-chevron-right"></i>
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
 </section>
 {% endblock %}
