@@ -57,6 +57,7 @@ class User(db.Model):
     region_cd     = db.Column(db.String(20))
     profile_img   = db.Column(db.String(500))
     is_voter      = db.Column(db.String(1), default='Y')  # 투표 모수 포함 여부 (운영계정만 N)
+    font_size     = db.Column(db.String(2), default='md')  # 폰트 크기 설정: sm/md/lg/xl
     emp_type_cd   = db.Column(db.String(10))
     rank_cd       = db.Column(db.String(10))
     position_cd   = db.Column(db.String(20))
@@ -817,12 +818,20 @@ def schedule_delete(schedule_seq):
 def board():
     current_user = get_current_user()
     keyword = request.args.get('q', '')
-    query   = Board.query.filter_by(use_yn='Y')
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+
+    query = Board.query.filter_by(use_yn='Y')
     if keyword:
         query = query.filter(
             Board.title.contains(keyword) | Board.content.contains(keyword)
         )
-    posts = query.order_by(Board.reg_dt.desc()).all()
+
+    paginated = query.order_by(Board.reg_dt.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    posts = paginated.items
+
     # 각 게시글의 댓글 수 (대댓글 포함)
     comment_counts = {}
     if posts:
@@ -837,8 +846,12 @@ def board():
     return render_template('board.html',
         current_user=current_user,
         post_list=posts,
-        total_count=len(posts),
+        total_count=paginated.total,
         keyword=keyword,
+        page=page,
+        total_pages=paginated.pages,
+        has_next=paginated.has_next,
+        has_prev=paginated.has_prev,
         active_menu='board'
     )
 
@@ -2581,6 +2594,16 @@ def profile_edit():
     if request.method == 'POST':
         action = request.form.get('action', 'pwd')
 
+        if action == 'font':
+            font = request.form.get('font_size', 'md')
+            if font not in ('sm', 'md', 'lg', 'xl'):
+                font = 'md'
+            current_user.font_size = font
+            current_user.mod_dt    = now_kst()
+            db.session.commit()
+            flash('폰트 크기 설정이 저장되었습니다.', 'success')
+            return redirect(url_for('profile_edit'))
+
         if action == 'pwd':
             cur_pwd = request.form.get('current_password', '')
             new_pwd = request.form.get('new_password', '')
@@ -2840,6 +2863,7 @@ def init_db():
         ('TB_BOARD mod_dt', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_dt TIMESTAMP'),
         ('TB_BOARD mod_user', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'),
         ('TB_SCHEDULE notice_seq', 'ALTER TABLE "TB_SCHEDULE" ADD COLUMN IF NOT EXISTS notice_seq INTEGER'),
+        ('TB_USER font_size', 'ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS font_size VARCHAR(2) DEFAULT \'md\''),
         ('TB_REGION create', '''CREATE TABLE IF NOT EXISTS "TB_REGION" (
             region_seq SERIAL PRIMARY KEY,
             region_cd  VARCHAR(20) NOT NULL UNIQUE,
@@ -2954,12 +2978,29 @@ def admin_reset_data():
         if request.form.get('clear_condo_history') == 'Y':
             CondoReserve.query.delete()
 
-        # 시퀀스 초기화 (번호 1부터 시작)
-        db.session.execute(db.text('ALTER SEQUENCE "TB_NOTICE_notice_seq_seq" RESTART WITH 1'))
-        db.session.execute(db.text('ALTER SEQUENCE "TB_BOARD_board_seq_seq" RESTART WITH 1'))
-        db.session.execute(db.text('ALTER SEQUENCE "TB_VOTE_vote_seq_seq" RESTART WITH 1'))
-        db.session.execute(db.text('ALTER SEQUENCE "TB_BOOK_book_seq_seq" RESTART WITH 1'))
-        
+        # 시퀀스 초기화 (번호 1부터 시작) — 시퀀스 이름이 다르거나 없으면 개별 skip
+        seq_list = [
+            'TB_NOTICE_notice_seq_seq',
+            'TB_NOTICE_COMMENT_comment_seq_seq',
+            'TB_BOARD_board_seq_seq',
+            'TB_BOARD_COMMENT_comment_seq_seq',
+            'TB_VOTE_vote_seq_seq',
+            'TB_VOTE_ITEM_item_seq_seq',
+            'TB_VOTE_HISTORY_history_seq_seq',
+            'TB_VOTE_TARGET_target_seq_seq',
+            'TB_BOOK_book_seq_seq',
+            'TB_BOOK_RENTAL_rental_seq_seq',
+            'TB_SCHEDULE_schedule_seq_seq',
+        ]
+        for seq_name in seq_list:
+            try:
+                # 개별 connection으로 분리 (한 시퀀스 실패가 다음 명령에 영향 없도록)
+                with db.engine.connect() as conn:
+                    conn.execute(db.text(f'ALTER SEQUENCE "{seq_name}" RESTART WITH 1'))
+                    conn.commit()
+            except Exception as se:
+                print(f"[Sequence reset skip] {seq_name}: {se}")
+
         db.session.commit()
         flash('서비스 데이터가 초기화되었습니다. 콘도 데이터는 유지되었습니다.', 'success')
         return redirect(url_for('main'))

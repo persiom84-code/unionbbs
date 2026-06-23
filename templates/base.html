@@ -11,7 +11,15 @@
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
         *, *::before, *::after { box-sizing: border-box; }
         html, body { height: 100%; margin: 0; }
-        body { font-family: 'Pretendard', sans-serif; background: #f1f5f9; display: flex; }
+        body { font-family: 'Pretendard', sans-serif; background: #f1f5f9; display: flex; font-size: 14px; }
+
+        /* ── 폰트 크기 시스템 (사용자 설정 반영) ── */
+        body[data-font-size="sm"] { font-size: 12px; }
+        body[data-font-size="md"] { font-size: 14px; }
+        body[data-font-size="lg"] { font-size: 16px; }
+        body[data-font-size="xl"] { font-size: 18px; }
+        /* 본문 영역은 body 크기 상속 (Tailwind 미적용 영역) */
+        .notice-content, .board-content, .page-body p, .form-input { font-size: inherit; }
 
         /* ── 유안타 브랜드 컬러 ── */
         .bg-yuanta   { background-color: #00479d; }
@@ -209,7 +217,7 @@
         {% block page_style %}{% endblock %}
     </style>
 </head>
-<body>
+<body data-font-size="{{ (current_user.font_size if current_user and current_user.font_size else 'md') }}">
 
 {%- set lv = (current_user.user_level if current_user else 99) | int -%}
 {%- set am = active_menu | default('dashboard') -%}

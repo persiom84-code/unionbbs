@@ -91,7 +91,46 @@
     </div>
   </div>
 
-  <!-- ② 비밀번호 변경 카드 -->
+  <!-- ② 폰트 크기 설정 카드 -->
+  <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:20px; overflow:hidden;">
+    <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:14px 20px;">
+      <span style="font-weight:600; font-size:.95rem; color:#1e293b;">
+        <i class="fas fa-text-height" style="color:#e85d04; margin-right:8px;"></i>폰트 크기 설정
+      </span>
+    </div>
+    <div style="padding:20px;">
+      <p style="font-size:.82rem; color:#64748b; margin-bottom:14px;">
+        화면 전체의 본문 폰트 크기를 조정합니다. 모니터 해상도나 시력에 맞게 선택하세요.
+      </p>
+      <form method="POST" action="/profile">
+        <input type="hidden" name="action" value="font">
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;">
+          {% set current_font = current_user.font_size or 'md' %}
+          {% for opt in [{'val':'sm','name':'작게','px':'12px','desc':'9pt'}, {'val':'md','name':'보통','px':'14px','desc':'11pt (권장)'}, {'val':'lg','name':'크게','px':'16px','desc':'12pt'}, {'val':'xl','name':'매우 크게','px':'18px','desc':'14pt'}] %}
+          <label style="cursor:pointer;">
+            <input type="radio" name="font_size" value="{{ opt.val }}" {% if current_font == opt.val %}checked{% endif %} style="display:none;" onchange="previewFont('{{ opt.val }}')">
+            <div class="font-opt" data-val="{{ opt.val }}" style="border:2px solid {% if current_font == opt.val %}#00479d{% else %}#e2e8f0{% endif %}; border-radius:10px; padding:14px 8px; text-align:center; background:{% if current_font == opt.val %}#eff6ff{% else %}#fff{% endif %}; transition:all .15s;">
+              <div style="font-size:{{ opt.px }}; font-weight:800; color:#1e293b; margin-bottom:4px;">가나다 Aa</div>
+              <div style="font-size:.72rem; font-weight:700; color:#475569;">{{ opt.name }}</div>
+              <div style="font-size:.65rem; color:#94a3b8; margin-top:2px;">{{ opt.desc }}</div>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <p style="font-size:.7rem; color:#94a3b8;">
+            <i class="fas fa-info-circle" style="margin-right:4px;"></i>
+            저장 후 페이지가 새로고침되며 변경된 폰트가 전체에 적용됩니다.
+          </p>
+          <button type="submit" style="padding:9px 22px; background:#00479d; color:#fff; border:none; border-radius:8px; font-size:.85rem; font-weight:700; cursor:pointer;">
+            저장
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ③ 비밀번호 변경 카드 -->
   <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:20px; overflow:hidden;">
     <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:14px 20px;
                 cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
@@ -280,5 +319,19 @@ function checkMatch() {
     });
   {% endif %}
 {% endwith %}
+
+// 폰트 크기 선택 시 즉시 미리보기
+function previewFont(val) {
+    document.body.setAttribute('data-font-size', val);
+    document.querySelectorAll('.font-opt').forEach(el => {
+        if (el.dataset.val === val) {
+            el.style.border = '2px solid #00479d';
+            el.style.background = '#eff6ff';
+        } else {
+            el.style.border = '2px solid #e2e8f0';
+            el.style.background = '#fff';
+        }
+    });
+}
 </script>
 {% endblock %}
