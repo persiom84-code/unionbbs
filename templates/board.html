@@ -26,7 +26,8 @@
 <section class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
     <div class="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-            Total <span class="text-yuanta text-sm font-black">{{ total_count }}</span>
+            Total <span class="text-yuanta text-sm font-black">{{ total_count }}</span>건
+            {% if total_pages %}<span class="ml-2 text-slate-400">· {{ page }}/{{ total_pages }} 페이지</span>{% endif %}
         </div>
         <div class="relative w-full sm:w-80">
             <form action="/board" method="GET">
@@ -43,7 +44,6 @@
         <table class="w-full text-left whitespace-nowrap">
             <thead class="bg-white text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b-2 border-slate-100">
                 <tr>
-                    <th class="px-6 py-4 w-20 text-center">번호</th>
                     <th class="px-6 py-4">제목</th>
                     <th class="px-6 py-4 w-32 text-center">작성자</th>
                     <th class="px-6 py-4 w-32 text-center">등록일</th>
@@ -53,7 +53,6 @@
             <tbody class="text-sm divide-y divide-slate-50">
                 {% for post in post_list %}
                 <tr class="board-row" onclick="location.href='/board/view/{{ post.board_seq }}'">
-                    <td class="px-6 py-5 text-center text-slate-400 font-mono text-xs">{{ post.board_seq }}</td>
                     <td class="px-6 py-5">
                         <span class="font-bold text-slate-700 hover:text-yuanta transition-colors">{{ post.title }}</span>
                         {% if post.comment_count and post.comment_count > 0 %}
@@ -70,7 +69,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="py-20 text-center text-slate-400 italic">
+                    <td colspan="4" class="py-20 text-center text-slate-400 italic">
                         <i class="fas fa-inbox text-4xl mb-4 block text-slate-200"></i>
                         등록된 게시글이 없습니다.
                     </td>
@@ -80,13 +79,53 @@
         </table>
     </div>
 
-    {% if total_count > 0 %}
-    <div class="p-6 border-t border-slate-100 flex justify-center">
-        <div class="flex space-x-1">
-            <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"><i class="fas fa-chevron-left text-xs"></i></button>
-            <button class="w-8 h-8 flex items-center justify-center rounded-lg bg-yuanta text-white font-bold shadow-md">1</button>
-            <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50"><i class="fas fa-chevron-right text-xs"></i></button>
-        </div>
+    <!-- 페이지네이션 (1페이지여도 항상 표시 — A안) -->
+    {% if total_pages %}
+    <div class="flex justify-center items-center gap-1 p-5 border-t border-slate-100">
+        {% if has_prev %}
+        <a href="/board?page={{ page-1 }}{% if keyword %}&q={{ keyword }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="px-3 py-1.5 text-slate-300 text-xs font-bold cursor-not-allowed">
+            <i class="fas fa-chevron-left"></i>
+        </span>
+        {% endif %}
+
+        {% set start_p = [1, page - 5] | max %}
+        {% set end_p = [total_pages, page + 5] | min %}
+        {% if start_p > 1 %}
+        <a href="/board?page=1{% if keyword %}&q={{ keyword }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">1</a>
+        {% if start_p > 2 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start_p, end_p + 1) %}
+            {% if p == page %}
+            <span class="px-3 py-1.5 rounded-lg bg-yuanta text-white text-xs font-bold">{{ p }}</span>
+            {% else %}
+            <a href="/board?page={{ p }}{% if keyword %}&q={{ keyword }}{% endif %}"
+               class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if end_p < total_pages %}
+        {% if end_p < total_pages - 1 %}<span class="px-1 text-slate-400">...</span>{% endif %}
+        <a href="/board?page={{ total_pages }}{% if keyword %}&q={{ keyword }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">{{ total_pages }}</a>
+        {% endif %}
+
+        {% if has_next %}
+        <a href="/board?page={{ page+1 }}{% if keyword %}&q={{ keyword }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="px-3 py-1.5 text-slate-300 text-xs font-bold cursor-not-allowed">
+            <i class="fas fa-chevron-right"></i>
+        </span>
+        {% endif %}
     </div>
     {% endif %}
 </section>

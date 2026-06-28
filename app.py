@@ -516,6 +516,30 @@ def main():
                 ongoing_vote = v
                 break
 
+    # 본인 대상 진행중 투표 전체 건수 (다중 표시 안내용)
+    ongoing_votes_count = 0
+    if (current_user.is_voter or 'Y') == 'Y':
+        for v in _candidates:
+            _targets = VoteTarget.query.filter_by(vote_seq=v.vote_seq).all()
+            if not _targets:
+                ongoing_votes_count += 1
+                continue
+            _is_target = False
+            for t in _targets:
+                if t.target_level is not None:
+                    if my_level == t.target_level:
+                        _is_target = True
+                        break
+                elif t.union_dept_cd:
+                    if my_dept and t.union_dept_cd == my_dept:
+                        _is_target = True
+                        break
+                    if my_region and t.union_dept_cd == my_region:
+                        _is_target = True
+                        break
+            if _is_target:
+                ongoing_votes_count += 1
+
     # KST 기준 오늘 범위
     today_kst = now.date()
     today_start = datetime.combine(today_kst, datetime.min.time())
@@ -533,6 +557,7 @@ def main():
         current_user=current_user,
         notice_list=notices,
         ongoing_vote=ongoing_vote,
+        ongoing_votes_count=ongoing_votes_count,
         today_schedule=today_schedule,
         condo_count=condo_count,
         book_count=book_count,

@@ -46,7 +46,6 @@
         <table class="w-full text-left">
             <thead class="bg-slate-50/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <tr>
-                    <th class="px-8 py-4 w-24 text-center">번호</th>
                     <th class="px-4 py-4 w-32">구분</th>
                     <th class="px-4 py-4">제목</th>
                     <th class="px-4 py-4 w-32 text-center">등록일</th>
@@ -56,7 +55,6 @@
             <tbody class="text-sm">
                 {% for item in notice_list %}
                 <tr class="notice-row cursor-pointer" onclick="location.href='/notice/view/{{ item.notice_seq }}'">
-                    <td class="px-8 py-5 text-center text-slate-400 font-mono">{{ item.notice_seq }}</td>
                     <td class="px-4 py-5">
                         <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
                             {{ 'bg-red-50 text-red-600' if item.notice_type == 'FLASH' else
@@ -70,14 +68,8 @@
                     </td>
                     <td class="px-4 py-5 font-semibold text-slate-700 truncate max-w-md">
                         {{ item.title }}
-                        {% if item.comment_count is defined %}
-                            {% if item.comment_count > 0 %}
-                            <span class="ml-2 text-yuanta text-[11px] font-bold">[{{ item.comment_count }}]</span>
-                            {% else %}
-                            <span class="ml-2 text-slate-300 text-[11px] font-bold">[0]</span>
-                            {% endif %}
-                        {% else %}
-                        <span class="ml-2 text-red-400 text-[10px] font-bold">[데이터 없음]</span>
+                        {% if item.comment_count and item.comment_count > 0 %}
+                        <span class="ml-2 text-yuanta text-[11px] font-bold">[{{ item.comment_count }}]</span>
                         {% endif %}
                         {% if item.is_top == 'Y' %}<span class="ml-2 px-1.5 py-0.5 bg-yuanta text-white rounded text-[9px] font-black">TOP</span>{% endif %}
                     </td>
@@ -86,7 +78,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="py-20 text-center text-slate-300 italic">
+                    <td colspan="4" class="py-20 text-center text-slate-300 italic">
                         <i class="fas fa-inbox text-4xl mb-4 block"></i>
                         등록된 공지사항이 없습니다.
                     </td>
