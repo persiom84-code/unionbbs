@@ -140,7 +140,14 @@
         <div class="card" style="padding:28px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
                 <div>
-                    <span class="badge badge-gray" style="margin-bottom:8px;display:inline-flex;">종료</span>
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+                        <span class="badge badge-gray" style="display:inline-flex;">종료</span>
+                        {% if vote.result_open %}
+                        <span class="badge badge-green" style="display:inline-flex;"><i class="fas fa-unlock" style="margin-right:4px;font-size:9px;"></i>결과 공개</span>
+                        {% else %}
+                        <span class="badge badge-yellow" style="display:inline-flex;"><i class="fas fa-lock" style="margin-right:4px;font-size:9px;"></i>승인 대기 {{ vote.approval_cnt }}/3</span>
+                        {% endif %}
+                    </div>
                     <h3 style="font-size:16px;font-weight:900;color:#0f172a;">{{ vote.title }}</h3>
                     <p style="font-size:11px;color:#94a3b8;margin-top:4px;">{{ vote.start_dt.strftime('%Y.%m.%d') if vote.start_dt else '-' }} ~ {{ vote.end_dt.strftime('%Y.%m.%d') if vote.end_dt else '-' }}</p>
                 </div>
@@ -149,6 +156,34 @@
                     <p style="font-size:10px;color:#94a3b8;">최종 투표율 ({{ vote.participant_cnt }}/{{ vote.total_voters }}명)</p>
                 </div>
             </div>
+
+            {% if vote.can_view_result %}
+            <!-- 결과 표시 (공개됨 또는 승인권자) -->
+            {% if not vote.result_open and is_approver %}
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+                <p style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px;">
+                    <i class="fas fa-user-shield" style="margin-right:6px;"></i>승인권자 전용 열람 — 아직 전체 공개되지 않았습니다
+                </p>
+                <p style="font-size:11px;color:#a16207;">
+                    현재 서명: {{ vote.approval_cnt }}/3명
+                    {% if vote.approval_names %}({{ vote.approval_names|join(', ') }}){% endif %}
+                    — 2명 이상 서명 시 전체 조합원에게 공개됩니다.
+                </p>
+                {% if not vote.i_signed %}
+                <form action="/vote/approve-result" method="POST" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                    <input type="hidden" name="vote_seq" value="{{ vote.vote_seq }}">
+                    <input type="password" name="auth_password" class="form-input" placeholder="비밀번호 입력 (서명 날인)" required style="flex:1;min-width:200px;">
+                    <button type="submit" class="btn-primary" style="background:#b45309;" onclick="return confirm('투표 결과를 확인하였음을 서명합니다. 계속하시겠습니까?')">
+                        <i class="fas fa-signature"></i>결과 확인 서명
+                    </button>
+                </form>
+                {% else %}
+                <p style="font-size:11px;color:#15803d;font-weight:700;margin-top:8px;">
+                    <i class="fas fa-check-circle" style="margin-right:4px;"></i>본인 서명 완료
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
             <div style="display:flex;flex-direction:column;gap:10px;">
                 {% for r in vote.results %}
                 <div>
@@ -165,6 +200,14 @@
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <!-- 결과 비공개 (일반 조합원) -->
+            <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:28px;text-align:center;">
+                <i class="fas fa-lock" style="font-size:24px;color:#94a3b8;margin-bottom:10px;display:block;"></i>
+                <p style="font-size:13px;font-weight:800;color:#475569;margin-bottom:4px;">투표 결과 승인 절차 진행 중입니다</p>
+                <p style="font-size:11px;color:#94a3b8;">위원장단의 결과 확인 서명(2인 이상) 후 공개됩니다.</p>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     {% else %}

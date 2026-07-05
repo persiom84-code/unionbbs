@@ -73,6 +73,11 @@
                                 <span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">예정</span>
                                 {% else %}
                                 <span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold">종료</span>
+                                {% if vote.result_open %}
+                                <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-lg text-xs font-bold"><i class="fas fa-unlock mr-1"></i>결과공개</span>
+                                {% else %}
+                                <span class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-bold"><i class="fas fa-lock mr-1"></i>승인 {{ vote.approval_cnt }}/3</span>
+                                {% endif %}
                                 {% endif %}
                                 <i class="fas fa-chevron-down text-slate-300 text-[10px] block mt-1 result-chevron-{{ vote.vote_seq }}"></i>
                             </td>

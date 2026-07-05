@@ -165,17 +165,29 @@ class Schedule(db.Model):
 
 class Vote(db.Model):
     __tablename__ = 'TB_VOTE'
-    vote_seq    = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title       = db.Column(db.String(200), nullable=False)
-    content     = db.Column(db.Text)
-    start_dt    = db.Column(db.DateTime, nullable=False)
-    end_dt      = db.Column(db.DateTime, nullable=False)
-    vote_status = db.Column(db.String(10), default='READY')
-    total_cnt   = db.Column(db.Integer, default=0)
-    vote_cnt    = db.Column(db.Integer, default=0)
-    use_yn      = db.Column(db.String(1), default='Y')
-    reg_user    = db.Column(db.String(20))
-    reg_dt      = db.Column(db.DateTime, default=now_kst)
+    vote_seq       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title          = db.Column(db.String(200), nullable=False)
+    content        = db.Column(db.Text)
+    start_dt       = db.Column(db.DateTime, nullable=False)
+    end_dt         = db.Column(db.DateTime, nullable=False)
+    vote_status    = db.Column(db.String(10), default='READY')
+    total_cnt      = db.Column(db.Integer, default=0)
+    vote_cnt       = db.Column(db.Integer, default=0)
+    result_open_yn = db.Column(db.String(1), default='N')  # 결과 공개 여부 (승인 2인 이상 시 Y)
+    use_yn         = db.Column(db.String(1), default='Y')
+    reg_user       = db.Column(db.String(20))
+    reg_dt         = db.Column(db.DateTime, default=now_kst)
+
+
+class VoteApproval(db.Model):
+    """투표결과 확인 서명 — 위원장/수석부위원장/부위원장 3인 중 2인 서명 시 결과 공개"""
+    __tablename__ = 'TB_VOTE_APPROVAL'
+    approval_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    vote_seq     = db.Column(db.Integer, db.ForeignKey('TB_VOTE.vote_seq'), nullable=False)
+    emp_no       = db.Column(db.String(20), nullable=False)
+    emp_nm       = db.Column(db.String(100))
+    position_cd  = db.Column(db.String(20))   # 서명 당시 직책
+    sign_dt      = db.Column(db.DateTime, default=now_kst)
 
 class VoteItem(db.Model):
     __tablename__ = 'TB_VOTE_ITEM'
@@ -1082,18 +1094,34 @@ def vote():
         total_voters = v.total_cnt or 1
         v.participation_rate = round((actual_votes / total_voters * 100), 1)
 
-    # 종료 투표 결과 (None 안전)
+    # 결과 승인권자 여부 (위원장/수석부위원장/부위원장)
+    APPROVER_POSITIONS = ('CHAIRMAN', 'SENIOR_VICE', 'VICE')
+    is_approver = current_user.position_cd in APPROVER_POSITIONS
+
+    # 종료 투표 결과 (None 안전 + 결과 공개 승인 분기)
     for v in archive_votes:
-        items = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
-        item_cnts = [(i.item_cnt or 0) for i in items]
-        total   = sum(item_cnts) or 1
-        max_cnt = max(item_cnts, default=0)
-        v.results = [{
-            'item_name': i.item_nm,
-            'vote_cnt':  i.item_cnt or 0,
-            'percent':   round((i.item_cnt or 0) / total * 100, 1),
-            'is_max':    (i.item_cnt or 0) == max_cnt and max_cnt > 0
-        } for i in items]
+        # 승인 서명 현황
+        approvals = VoteApproval.query.filter_by(vote_seq=v.vote_seq).order_by(VoteApproval.sign_dt).all()
+        v.approval_cnt   = len(approvals)
+        v.approval_names = [f"{a.emp_nm}" for a in approvals]
+        v.result_open    = (v.result_open_yn or 'N') == 'Y'
+        v.i_signed       = any(a.emp_no == current_user.emp_no for a in approvals)
+        # 결과 열람 가능 여부: 공개됐거나, 승인권자 본인
+        v.can_view_result = v.result_open or is_approver
+
+        if v.can_view_result:
+            items = VoteItem.query.filter_by(vote_seq=v.vote_seq).order_by(VoteItem.sort_order).all()
+            item_cnts = [(i.item_cnt or 0) for i in items]
+            total   = sum(item_cnts) or 1
+            max_cnt = max(item_cnts, default=0)
+            v.results = [{
+                'item_name': i.item_nm,
+                'vote_cnt':  i.item_cnt or 0,
+                'percent':   round((i.item_cnt or 0) / total * 100, 1),
+                'is_max':    (i.item_cnt or 0) == max_cnt and max_cnt > 0
+            } for i in items]
+        else:
+            v.results = []
         actual = v.vote_cnt or 0
         total_voters = v.total_cnt or 1
         v.participation_rate = round((actual / total_voters * 100), 1)
@@ -1105,8 +1133,69 @@ def vote():
         active_votes=active_votes,
         archive_votes=archive_votes,
         is_voter=is_voter,
+        is_approver=is_approver,
         active_menu='vote'
     )
+
+@app.route('/vote/approve-result', methods=['POST'])
+@login_required
+def vote_approve_result():
+    """투표결과 확인 서명 — 승인권자(위원장/수석부위원장/부위원장)가 비밀번호로 서명.
+    2인 이상 서명 시 결과 자동 공개."""
+    current_user = get_current_user()
+    APPROVER_POSITIONS = ('CHAIRMAN', 'SENIOR_VICE', 'VICE')
+
+    # 권한 체크
+    if current_user.position_cd not in APPROVER_POSITIONS:
+        flash('투표결과 승인 권한이 없습니다.', 'error')
+        return redirect(url_for('vote'))
+
+    vote_seq = request.form.get('vote_seq', type=int)
+    auth_pwd = request.form.get('auth_password', '')
+
+    v = Vote.query.get_or_404(vote_seq)
+
+    # 종료된 투표만 서명 가능
+    if v.end_dt and v.end_dt > now_kst():
+        flash('아직 종료되지 않은 투표입니다.', 'error')
+        return redirect(url_for('vote'))
+
+    # 비밀번호 검증 (서명 날인)
+    try:
+        pw_match = bcrypt.checkpw(auth_pwd.encode(), current_user.pwd_hash.encode())
+    except Exception:
+        pw_match = False
+    if not pw_match:
+        flash('비밀번호가 일치하지 않습니다. 서명이 취소되었습니다.', 'error')
+        return redirect(url_for('vote'))
+
+    # 중복 서명 방지
+    existing = VoteApproval.query.filter_by(vote_seq=vote_seq, emp_no=current_user.emp_no).first()
+    if existing:
+        flash('이미 서명하셨습니다.', 'error')
+        return redirect(url_for('vote'))
+
+    # 서명 기록
+    approval = VoteApproval(
+        vote_seq    = vote_seq,
+        emp_no      = current_user.emp_no,
+        emp_nm      = current_user.emp_nm,
+        position_cd = current_user.position_cd
+    )
+    db.session.add(approval)
+    db.session.flush()
+
+    # 2인 이상 서명 시 결과 공개
+    total_signs = VoteApproval.query.filter_by(vote_seq=vote_seq).count()
+    if total_signs >= 2 and (v.result_open_yn or 'N') != 'Y':
+        v.result_open_yn = 'Y'
+        flash(f'서명이 완료되었습니다. 승인 2인 충족 — 투표 결과가 전체 조합원에게 공개되었습니다.', 'success')
+    else:
+        flash(f'서명이 완료되었습니다. (현재 {total_signs}/3명 서명, 2명 이상 서명 시 결과 공개)', 'success')
+
+    db.session.commit()
+    return redirect(url_for('vote'))
+
 
 @app.route('/vote/submit', methods=['POST'])
 @login_required
@@ -1202,6 +1291,8 @@ def admin_vote():
             'title':              v.title,
             'content':            v.content or '',
             'target_group':       target_group,
+            'result_open':        (v.result_open_yn or 'N') == 'Y',
+            'approval_cnt':       VoteApproval.query.filter_by(vote_seq=v.vote_seq).count(),
             'start_dt':           v.start_dt.strftime('%Y.%m.%d') if v.start_dt else '-',
             'end_dt':             v.end_dt.strftime('%Y.%m.%d')   if v.end_dt   else '-',
             'participation_rate': round(cnt / total * 100, 1),
@@ -2909,6 +3000,7 @@ def init_db():
         ('TB_BOARD mod_user', 'ALTER TABLE "TB_BOARD" ADD COLUMN IF NOT EXISTS mod_user VARCHAR(20)'),
         ('TB_SCHEDULE notice_seq', 'ALTER TABLE "TB_SCHEDULE" ADD COLUMN IF NOT EXISTS notice_seq INTEGER'),
         ('TB_USER font_size', 'ALTER TABLE "TB_USER" ADD COLUMN IF NOT EXISTS font_size VARCHAR(2) DEFAULT \'md\''),
+        ('TB_VOTE result_open_yn', 'ALTER TABLE "TB_VOTE" ADD COLUMN IF NOT EXISTS result_open_yn VARCHAR(1) DEFAULT \'N\''),
         ('TB_REGION create', '''CREATE TABLE IF NOT EXISTS "TB_REGION" (
             region_seq SERIAL PRIMARY KEY,
             region_cd  VARCHAR(20) NOT NULL UNIQUE,
