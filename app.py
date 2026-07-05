@@ -11,6 +11,10 @@ KST = timedelta(hours=9)
 def now_kst():
     """현재 한국 시간(KST) naive datetime 반환 — 서버 TZ가 UTC여도 안전."""
     return datetime.utcnow() + KST
+
+def today_kst():
+    """현재 한국 날짜(KST) 반환 — 서버 로컬 날짜는 UTC 기준이라 오전 9시 이전 -1일 버그 발생."""
+    return now_kst().date()
 from functools import wraps
 import bcrypt
 import os
@@ -338,7 +342,7 @@ class BookRental(db.Model):
     rental_seq = db.Column(db.Integer, primary_key=True, autoincrement=True)
     book_seq   = db.Column(db.Integer, db.ForeignKey('TB_BOOK.book_seq'), nullable=False)
     emp_no     = db.Column(db.String(20), nullable=False)
-    rental_dt  = db.Column(db.Date, default=date.today)
+    rental_dt  = db.Column(db.Date, default=today_kst)
     due_dt     = db.Column(db.Date, nullable=False)
     return_dt  = db.Column(db.Date)
     status     = db.Column(db.String(10), default='APPLY')
@@ -449,7 +453,7 @@ def login():
                 return redirect(url_for('force_pwd_change'))
 
             if user.pwd_chg_dt:
-                days_since = (date.today() - user.pwd_chg_dt).days
+                days_since = (today_kst() - user.pwd_chg_dt).days
                 if days_since >= 90:
                     session['pwd_expired'] = True
                     flash(f'비밀번호 변경 후 {days_since}일이 경과했습니다. 변경을 권장합니다.', 'info')
@@ -551,7 +555,7 @@ def main():
     ).order_by(Schedule.start_dt).all()
 
     condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
-    book_count  = BookRental.query.filter_by(emp_no=current_user.emp_no, status='RENTAL').count() if current_user else 0
+    book_count  = BookRental.query.filter(BookRental.emp_no == current_user.emp_no, BookRental.status.in_(['LOAN', 'OVERDUE'])).count() if current_user else 0
 
     return render_template('main.html',
         current_user=current_user,
@@ -781,8 +785,9 @@ def schedule():
         })
 
     # ④ 본인 도서 대출 중 반납기한
-    book_list = BookRental.query.filter_by(
-        emp_no=current_user.emp_no, status='RENTAL').all()
+    book_list = BookRental.query.filter(
+        BookRental.emp_no == current_user.emp_no,
+        BookRental.status.in_(['LOAN', 'OVERDUE'])).all()
     for b in book_list:
         book = Book.query.get(b.book_seq)
         nm = book.title if book else '도서'
@@ -1322,8 +1327,8 @@ def admin_book_rental_process():
             flash('승인 가능한 상태가 아닙니다.', 'error')
         else:
             r.status = 'LOAN'
-            r.rental_dt = date.today()
-            r.due_dt = date.today() + timedelta(days=16)  # 14일 + 발송버퍼 2일
+            r.rental_dt = today_kst()
+            r.due_dt = today_kst() + timedelta(days=16)  # 14일 + 발송버퍼 2일
             if b and b.avail_cnt and b.avail_cnt > 0:
                 b.avail_cnt -= 1
             flash(f'"{title}" 대출 승인 완료. 반납기한: {r.due_dt.strftime("%Y.%m.%d")}', 'success')
@@ -1340,7 +1345,7 @@ def admin_book_rental_process():
             flash('반납 가능한 상태가 아닙니다.', 'error')
         else:
             r.status = 'RETURN'
-            r.return_dt = date.today()
+            r.return_dt = today_kst()
             if b:
                 b.avail_cnt = (b.avail_cnt or 0) + 1
             flash(f'"{title}" 반납 처리되었습니다.', 'success')
@@ -1597,7 +1602,7 @@ def condo_guest_apply():
             return redirect(url_for('condo_guest'))
 
         # 3주 이내 신청 차단 (조합원 정책과 동일)
-        if (check_in - date.today()).days < 21:
+        if (check_in - today_kst()).days < 21:
             flash('체크인 3주 이전에는 신청이 불가합니다.', 'error')
             return redirect(url_for('condo_guest'))
 
@@ -2138,7 +2143,7 @@ def condo_season_save():
 
 def _check_overdue(rentals):
     """대출 목록의 연체 자동 판정 — D+17(due_dt+3) 부터 OVERDUE로 변경"""
-    today = date.today()
+    today = today_kst()
     changed = False
     for r in rentals:
         if r.status == 'LOAN' and r.due_dt and (today - r.due_dt).days > 3:
@@ -2223,7 +2228,7 @@ def book():
     pending_book_seqs = set(my_book_status.keys())
 
     # 매입 신청 잔여 카운트 (연간 5권, 승인기준)
-    this_year = date.today().year
+    this_year = today_kst().year
     approved_this_year = BookRequest.query.filter(
         BookRequest.emp_no == current_user.emp_no,
         BookRequest.req_year == this_year,
@@ -2293,7 +2298,7 @@ def book_rental(book_seq):
         book_seq  = book_seq,
         emp_no    = current_user.emp_no,
         rental_dt = None,
-        due_dt    = date.today() + timedelta(days=14),  # 임시값, 승인 시점에 재설정
+        due_dt    = today_kst() + timedelta(days=14),  # 임시값, 승인 시점에 재설정
         status    = 'APPLY',
     )
     db.session.add(rental)
@@ -2313,7 +2318,7 @@ def book_request():
         flash('연체된 도서가 있어 매입 신청이 불가합니다.', 'error')
         return redirect(url_for('book'))
 
-    this_year = date.today().year
+    this_year = today_kst().year
     approved_cnt = BookRequest.query.filter(
         BookRequest.emp_no == current_user.emp_no,
         BookRequest.req_year == this_year,
@@ -2494,9 +2499,13 @@ def book_request_process():
 @login_required
 def about():
     current_user  = get_current_user()
-    executives    = User.query.filter_by(user_level=1, use_yn='Y').all()
-    region_map    = {r.region_cd: r.region_nm for r in Region.query.filter_by(use_yn='Y').all()}
-    raw_delegates = User.query.filter_by(user_level=2, use_yn='Y').all()
+    raw_executives = User.query.filter_by(user_level=1, use_yn='Y').all()
+    region_map     = {r.region_cd: r.region_nm for r in Region.query.filter_by(use_yn='Y').all()}
+    raw_delegates  = User.query.filter_by(user_level=2, use_yn='Y').all()
+    # 집행위원에 region_nm 동적 추가 (대의원과 동일 패턴)
+    for e in raw_executives:
+        e.region_nm = region_map.get(e.region_cd, '') if e.region_cd else ''
+    executives = raw_executives
     # 대의원에 region_nm 동적 추가
     for d in raw_delegates:
         d.region_nm = region_map.get(d.region_cd, '') if d.region_cd else ''
@@ -2528,6 +2537,17 @@ def about():
         greeting_text=about_data.greeting if about_data else None,
         active_menu='about'
     )
+
+@app.route('/rules')
+@login_required
+def rules():
+    """노동조합 규약 페이지 — 좌측 네비 + 우측 본문 (클릭 점프)"""
+    current_user = get_current_user()
+    return render_template('rules.html',
+        current_user=current_user,
+        active_menu='about'  # 사이드바는 '조합소개' 활성
+    )
+
 
 @app.route('/admin/about/save', methods=['POST'])
 @level_required(0)
@@ -2650,7 +2670,7 @@ def profile_edit():
             else:
                 hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
                 current_user.pwd_hash   = hashed
-                current_user.pwd_chg_dt = date.today()
+                current_user.pwd_chg_dt = today_kst()
                 current_user.pwd_init_yn = 'N'
                 current_user.mod_dt     = now_kst()
                 db.session.commit()
@@ -2722,7 +2742,7 @@ def force_pwd_change():
         else:
             hashed = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
             current_user.pwd_hash    = hashed
-            current_user.pwd_chg_dt  = date.today()
+            current_user.pwd_chg_dt  = today_kst()
             current_user.pwd_init_yn = 'N'
             current_user.mod_dt      = now_kst()
             db.session.commit()
@@ -2827,7 +2847,7 @@ def admin_user_update():
 def admin_user_list():
     current_user = get_current_user()
     users = User.query.filter_by(use_yn='Y').order_by(User.user_level, User.emp_no).all()
-    today    = date.today()
+    today    = today_kst()
     dept_map   = {d.dept_cd:   d.dept_nm   for d in CompDept.query.filter_by(use_yn='Y').all()}
     region_map = {r.region_cd: r.region_nm for r in Region.query.filter_by(use_yn='Y').all()}
     user_rows = []
@@ -2932,7 +2952,7 @@ def init_db():
              email='admin@yuanta.com', dept_cd='D001',
              user_level=0,
              pwd_hash=make_pw('Admin1234!'),
-             pwd_chg_dt=date.today(),
+             pwd_chg_dt=today_kst(),
              pwd_init_yn='N',
              use_yn='Y')
     )
