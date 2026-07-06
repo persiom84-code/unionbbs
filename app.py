@@ -532,6 +532,37 @@ def main():
                 ongoing_vote = v
                 break
 
+    # 진행중 투표가 없으면 오늘 시작 예정인 본인 대상 투표 안내
+    upcoming_vote = None
+    if ongoing_vote is None and (current_user.is_voter or 'Y') == 'Y':
+        _today_end_tmp = datetime.combine(now.date(), datetime.max.time())
+        _upcomings = Vote.query.filter(
+            Vote.start_dt > now,
+            Vote.start_dt <= _today_end_tmp,
+            Vote.use_yn == 'Y'
+        ).order_by(Vote.start_dt).all()
+        for uv in _upcomings:
+            _u_targets = VoteTarget.query.filter_by(vote_seq=uv.vote_seq).all()
+            if not _u_targets:
+                upcoming_vote = uv
+                break
+            _u_match = False
+            for t in _u_targets:
+                if t.target_level is not None:
+                    if current_user.user_level == t.target_level:
+                        _u_match = True
+                        break
+                elif t.union_dept_cd:
+                    if current_user.union_dept_cd and t.union_dept_cd == current_user.union_dept_cd:
+                        _u_match = True
+                        break
+                    if current_user.region_cd and t.union_dept_cd == current_user.region_cd:
+                        _u_match = True
+                        break
+            if _u_match:
+                upcoming_vote = uv
+                break
+
     # 본인 대상 진행중 투표 전체 건수 (다중 표시 안내용)
     ongoing_votes_count = 0
     if (current_user.is_voter or 'Y') == 'Y':
@@ -566,6 +597,21 @@ def main():
         Schedule.use_yn == 'Y'
     ).order_by(Schedule.start_dt).all()
 
+    # 오늘 진행/시작되는 투표도 '오늘 일정'에 포함 (캘린더와 동일하게)
+    from types import SimpleNamespace
+    todays_votes = Vote.query.filter(
+        Vote.use_yn == 'Y',
+        Vote.start_dt <= today_end,
+        Vote.end_dt >= today_start
+    ).all()
+    for tv in todays_votes:
+        today_schedule.append(SimpleNamespace(
+            title    = f'[투표] {tv.title}',
+            start_dt = tv.start_dt if tv.start_dt >= today_start else today_start,
+            location = None
+        ))
+    today_schedule.sort(key=lambda s: s.start_dt)
+
     condo_count = CondoReserve.query.filter_by(emp_no=current_user.emp_no, status='CONFIRM', use_yn='Y').count() if current_user else 0
     book_count  = BookRental.query.filter(BookRental.emp_no == current_user.emp_no, BookRental.status.in_(['LOAN', 'OVERDUE'])).count() if current_user else 0
 
@@ -573,6 +619,7 @@ def main():
         current_user=current_user,
         notice_list=notices,
         ongoing_vote=ongoing_vote,
+        upcoming_vote=upcoming_vote,
         ongoing_votes_count=ongoing_votes_count,
         today_schedule=today_schedule,
         condo_count=condo_count,

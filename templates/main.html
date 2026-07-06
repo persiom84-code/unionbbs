@@ -138,12 +138,9 @@
         <div class="dash-card-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;text-align:center;">
             {% if ongoing_vote %}
             <div style="width:100%;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                     <span style="font-size:8px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:20px;font-weight:900;letter-spacing:.05em;">LIVE</span>
                     <span style="font-size:8px;color:#94a3b8;font-weight:600;">진행 중인 투표</span>
-                    {% if ongoing_votes_count and ongoing_votes_count > 1 %}
-                    <a href="/vote" style="font-size:8px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-weight:800;text-decoration:none;letter-spacing:.05em;border:1px solid #bfdbfe;">+ {{ ongoing_votes_count - 1 }}건 더</a>
-                    {% endif %}
                 </div>
                 <p style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:14px;text-align:left;">{{ ongoing_vote.title }}</p>
                 <div style="background:#f1f5f9;border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px;">
@@ -152,6 +149,23 @@
                 <p style="font-size:10px;color:#94a3b8;font-weight:700;text-align:right;margin-bottom:16px;">투표율 {{ (ongoing_vote.vote_cnt / ongoing_vote.total_cnt * 100)|round(1) if ongoing_vote.total_cnt > 0 else 0 }}%</p>
                 <a href="/vote" class="btn-primary" style="width:100%;justify-content:center;padding:12px;">
                     <i class="fas fa-check-circle"></i>투표 참여하기
+                </a>
+            </div>
+            {% elif upcoming_vote %}
+            <!-- 오늘 시작 예정 투표 -->
+            <div style="width:100%;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <span style="font-size:8px;background:#f59e0b;color:#fff;padding:2px 8px;border-radius:20px;font-weight:900;letter-spacing:.05em;">예정</span>
+                    <span style="font-size:8px;color:#94a3b8;font-weight:600;">오늘 시작 예정인 투표</span>
+                </div>
+                <p style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:10px;text-align:left;">{{ upcoming_vote.title }}</p>
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;">
+                    <p style="font-size:12px;font-weight:800;color:#92400e;">
+                        <i class="fas fa-clock" style="margin-right:6px;"></i>{{ upcoming_vote.start_dt.strftime('%H:%M') }} 시작 · {{ upcoming_vote.end_dt.strftime('%H:%M') }} 마감
+                    </p>
+                </div>
+                <a href="/vote" class="btn-secondary" style="width:100%;justify-content:center;padding:12px;text-decoration:none;">
+                    <i class="fas fa-hourglass-start"></i>투표 페이지 가기
                 </a>
             </div>
             {% else %}
