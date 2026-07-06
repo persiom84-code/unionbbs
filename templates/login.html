@@ -84,15 +84,100 @@
                 <span class="text-xs font-bold text-gray-600 group-hover:text-yuanta text-center">비조합원 전용<br>콘도 예약</span>
             </a>
 
-            <!-- 가입 문의: 이메일 작성 기능 추가 -->
-            <a href="mailto:union_admin@yuanta.co.kr?subject=[가입문의] 유안타증권 노동조합 가입 상담 요청&body=성명: %0D%0A부서: %0D%0A연락처: %0D%0A%0D%0A문의내용을 여기에 작성해주세요." class="flex flex-col items-center group transition-all duration-200 w-1/2">
+            <!-- 가입 문의: SMTP 서버 발송 -->
+            <button type="button" onclick="openInquiry()" class="flex flex-col items-center group transition-all duration-200 w-1/2 bg-transparent border-none cursor-pointer">
                 <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-100 mb-3 group-hover:bg-orange-50 group-hover:scale-110 transition-all">
                     <i class="fas fa-envelope text-orange-500 text-xl"></i>
                 </div>
                 <span class="text-xs font-bold text-gray-600 group-hover:text-orange-600 text-center">노동조합<br>가입 문의</span>
-            </a>
+            </button>
         </div>
     </div>
 
     <!-- 푸터 -->
-    <footer class="mt-12 te
+    <footer class="mt-12 text-center text-xs text-gray-400 font-medium">
+        <p>&copy; 2026 Yuanta Securities Labor Union. All rights reserved.</p>
+        <p class="mt-1">UnionBBS — 유안타증권 노동조합 통합 시스템</p>
+    </footer>
+
+    <!-- 가입문의 모달 -->
+    <div id="inquiry-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:100;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:#fff;border-radius:24px;max-width:440px;width:100%;padding:32px;box-shadow:0 25px 60px rgba(0,0,0,.3);" onclick="event.stopPropagation()">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="font-size:18px;font-weight:900;color:#0f172a;">
+                    <i class="fas fa-envelope" style="color:#f97316;margin-right:8px;"></i>노동조합 가입 문의
+                </h3>
+                <button type="button" onclick="closeInquiry()" style="background:none;border:none;font-size:18px;color:#94a3b8;cursor:pointer;">✕</button>
+            </div>
+            <div id="inquiry-form-area">
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <input type="text" id="inq-name" placeholder="성명 *" style="width:100%;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;outline:none;font-size:14px;">
+                    <input type="text" id="inq-dept" placeholder="부서" style="width:100%;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;outline:none;font-size:14px;">
+                    <input type="text" id="inq-phone" placeholder="연락처" style="width:100%;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;outline:none;font-size:14px;">
+                    <textarea id="inq-message" rows="4" placeholder="문의 내용을 입력해 주세요 *" style="width:100%;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;outline:none;font-size:14px;resize:none;"></textarea>
+                    <input type="text" id="inq-website" style="position:absolute;left:-9999px;" tabindex="-1" autocomplete="off">
+                </div>
+                <button type="button" id="inq-submit" onclick="submitInquiry()" style="width:100%;margin-top:16px;background:#f97316;color:#fff;border:none;padding:14px;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;">
+                    문의 보내기
+                </button>
+                <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:10px;">접수된 문의는 노동조합 담당자에게 이메일로 전달됩니다.</p>
+            </div>
+            <div id="inquiry-done" style="display:none;text-align:center;padding:24px 0;">
+                <i class="fas fa-check-circle" style="font-size:40px;color:#16a34a;margin-bottom:12px;display:block;"></i>
+                <p style="font-size:15px;font-weight:800;color:#15803d;">문의가 접수되었습니다</p>
+                <p style="font-size:12px;color:#64748b;margin-top:6px;">담당자가 확인 후 연락드리겠습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function openInquiry() {
+        const m = document.getElementById('inquiry-modal');
+        m.style.display = 'flex';
+        m.addEventListener('click', closeInquiryBackdrop);
+    }
+    function closeInquiry() {
+        document.getElementById('inquiry-modal').style.display = 'none';
+    }
+    function closeInquiryBackdrop(e) {
+        if (e.target.id === 'inquiry-modal') closeInquiry();
+    }
+    function submitInquiry() {
+        const name = document.getElementById('inq-name').value.trim();
+        const message = document.getElementById('inq-message').value.trim();
+        if (!name || !message) {
+            alert('성명과 문의 내용은 필수입니다.');
+            return;
+        }
+        const btn = document.getElementById('inq-submit');
+        btn.disabled = true;
+        btn.textContent = '전송 중...';
+
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('dept', document.getElementById('inq-dept').value.trim());
+        fd.append('phone', document.getElementById('inq-phone').value.trim());
+        fd.append('message', message);
+        fd.append('website', document.getElementById('inq-website').value);
+
+        fetch('/join-inquiry', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    document.getElementById('inquiry-form-area').style.display = 'none';
+                    document.getElementById('inquiry-done').style.display = 'block';
+                } else {
+                    alert(data.msg || '전송에 실패했습니다.');
+                    btn.disabled = false;
+                    btn.textContent = '문의 보내기';
+                }
+            })
+            .catch(() => {
+                alert('전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+                btn.disabled = false;
+                btn.textContent = '문의 보내기';
+            });
+    }
+    </script>
+</body>
+</html>

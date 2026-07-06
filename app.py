@@ -6,6 +6,12 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import joinedload
 from datetime import datetime, date, timedelta, timezone
+import smtplib
+import threading
+import os
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.header import Header
 KST = timedelta(hours=9)
 
 def now_kst():
@@ -15,6 +21,75 @@ def now_kst():
 def today_kst():
     """현재 한국 날짜(KST) 반환 — 서버 로컬 날짜는 UTC 기준이라 오전 9시 이전 -1일 버그 발생."""
     return now_kst().date()
+
+
+# ══════════════════════════════════════════════════════════
+# SMTP 메일 발송 (환경변수 기반 — 폐쇄망 이전 시 값만 교체)
+#   SMTP_HOST     : smtp.gmail.com (사내 이전 시 내부 SMTP 호스트)
+#   SMTP_PORT     : 587
+#   SMTP_USER     : 발신 계정 (Gmail 주소)
+#   SMTP_PASS     : Gmail 앱 비밀번호 (2단계 인증 → 앱 비밀번호 발급)
+#   SMTP_FROM     : 표시 발신자 (미설정 시 SMTP_USER)
+#   JOIN_INQUIRY_EMAIL : 가입문의 수신 메일 (부위원장 등)
+# ══════════════════════════════════════════════════════════
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
+SMTP_FROM = os.environ.get('SMTP_FROM', '') or SMTP_USER
+JOIN_INQUIRY_EMAIL = os.environ.get('JOIN_INQUIRY_EMAIL', '')
+
+MAIL_BATCH_SIZE = 80  # BCC 배치 크기 (Gmail 회당 수신자 제한 대응)
+
+
+def _send_mail_worker(subject, html_body, recipients, reply_to=None):
+    """백그라운드 발송 워커 — BCC 배치로 분할 발송"""
+    if not (SMTP_USER and SMTP_PASS):
+        print('[MAIL skip] SMTP_USER/SMTP_PASS 미설정')
+        return
+    if not recipients:
+        print('[MAIL skip] 수신자 없음')
+        return
+    try:
+        sent = 0
+        for i in range(0, len(recipients), MAIL_BATCH_SIZE):
+            batch = recipients[i:i + MAIL_BATCH_SIZE]
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = Header(subject, 'utf-8')
+            msg['From']    = SMTP_FROM
+            msg['To']      = SMTP_FROM          # 표시용 (실수신은 BCC)
+            if reply_to:
+                msg['Reply-To'] = reply_to
+            msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_FROM, batch, msg.as_string())
+            sent += len(batch)
+        print(f'[MAIL ok] "{subject}" → {sent}명 발송 완료')
+    except Exception as e:
+        print(f'[MAIL error] {e}')
+
+
+def send_mail_async(subject, html_body, recipients, reply_to=None):
+    """메일 비동기 발송 — 요청 응답을 막지 않음"""
+    t = threading.Thread(
+        target=_send_mail_worker,
+        args=(subject, html_body, list(recipients), reply_to),
+        daemon=True
+    )
+    t.start()
+
+
+def get_all_member_emails():
+    """활성 조합원 중 이메일이 등록된 대상 목록"""
+    rows = User.query.filter(
+        User.use_yn == 'Y',
+        User.email.isnot(None),
+        User.email != ''
+    ).all()
+    return [u.email for u in rows]
 from functools import wraps
 import bcrypt
 import os
@@ -430,6 +505,41 @@ def get_current_user():
 # Routes - Auth
 # ══════════════════════════════════════════════════════════
 
+@app.route('/join-inquiry', methods=['POST'])
+def join_inquiry():
+    """로그인 화면 가입문의 — SMTP로 담당자에게 발송 (비로그인 접근 가능)"""
+    name    = (request.form.get('name') or '').strip()
+    dept    = (request.form.get('dept') or '').strip()
+    phone   = (request.form.get('phone') or '').strip()
+    message = (request.form.get('message') or '').strip()
+    website = (request.form.get('website') or '').strip()  # honeypot (봇이면 채움)
+
+    if website:  # 스팸 봇 차단
+        return jsonify({'status': 'ok'})
+
+    if not (name and message):
+        return jsonify({'status': 'error', 'msg': '성명과 문의내용은 필수입니다.'}), 400
+
+    to_addr = JOIN_INQUIRY_EMAIL or SMTP_USER
+    if not to_addr:
+        return jsonify({'status': 'error', 'msg': '문의 수신 메일이 설정되지 않았습니다. 관리자에게 연락해 주세요.'}), 500
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+        <h2 style="color:#00479d;">[가입문의] 유안타증권 노동조합</h2>
+        <table style="border-collapse:collapse;width:100%;font-size:14px;">
+            <tr><td style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;width:100px;font-weight:bold;">성명</td><td style="padding:8px;border:1px solid #e2e8f0;">{name}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">부서</td><td style="padding:8px;border:1px solid #e2e8f0;">{dept or '-'}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">연락처</td><td style="padding:8px;border:1px solid #e2e8f0;">{phone or '-'}</td></tr>
+        </table>
+        <div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;white-space:pre-wrap;font-size:14px;">{message}</div>
+        <p style="color:#cbd5e1;font-size:11px;margin-top:20px;">UnionBBS 로그인 화면에서 접수된 문의입니다.</p>
+    </div>"""
+
+    send_mail_async('[가입문의] ' + name + '님의 노동조합 가입 상담 요청', html, [to_addr])
+    return jsonify({'status': 'ok', 'msg': '문의가 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.'})
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -761,7 +871,28 @@ def notice_save():
         db.session.add(schedule)
 
     db.session.commit()
-    flash('공지사항이 등록되었습니다.')
+
+    # 전 조합원 메일 발송 옵션
+    if request.form.get('send_mail') == 'Y':
+        _title = request.form.get('title', '')
+        _link  = request.url_root.rstrip('/') + url_for('notice_view', notice_seq=notice.notice_seq)
+        _html  = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <div style="background:#00479d;color:#fff;padding:20px;border-radius:12px 12px 0 0;">
+                <h2 style="margin:0;font-size:18px;">유안타증권 노동조합 공지</h2>
+            </div>
+            <div style="border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
+                <h3 style="margin:0 0 12px;color:#0f172a;">{_title}</h3>
+                <p style="color:#64748b;font-size:13px;">새로운 공지사항이 등록되었습니다. 아래 버튼을 눌러 확인해 주세요.</p>
+                <a href="{_link}" style="display:inline-block;margin-top:12px;background:#00479d;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">공지 확인하기</a>
+                <p style="color:#cbd5e1;font-size:11px;margin-top:20px;">본 메일은 UnionBBS에서 자동 발송되었습니다.</p>
+            </div>
+        </div>"""
+        _recipients = get_all_member_emails()
+        send_mail_async(f'[노조공지] {_title}', _html, _recipients)
+        flash(f'공지사항이 등록되었습니다. 조합원 {len(_recipients)}명에게 메일 발송 중입니다.')
+    else:
+        flash('공지사항이 등록되었습니다.')
     return redirect(url_for('notice'))
 
 
@@ -987,6 +1118,26 @@ def board_save():
     )
     db.session.add(post)
     db.session.commit()
+
+    # 전 조합원 메일 발송 옵션 (관리자/집행위원만)
+    if request.form.get('send_mail') == 'Y' and current_user.user_level <= 1:
+        _title = request.form.get('title', '')
+        _link  = request.url_root.rstrip('/') + '/board/view/' + str(post.board_seq)
+        _html  = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <div style="background:#00479d;color:#fff;padding:20px;border-radius:12px 12px 0 0;">
+                <h2 style="margin:0;font-size:18px;">유안타증권 노동조합 게시판</h2>
+            </div>
+            <div style="border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 12px 12px;">
+                <h3 style="margin:0 0 12px;color:#0f172a;">{_title}</h3>
+                <p style="color:#64748b;font-size:13px;">자유게시판에 새 글이 등록되었습니다.</p>
+                <a href="{_link}" style="display:inline-block;margin-top:12px;background:#00479d;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">글 확인하기</a>
+                <p style="color:#cbd5e1;font-size:11px;margin-top:20px;">본 메일은 UnionBBS에서 자동 발송되었습니다.</p>
+            </div>
+        </div>"""
+        _recipients = get_all_member_emails()
+        send_mail_async(f'[노조게시판] {_title}', _html, _recipients)
+        flash(f'조합원 {len(_recipients)}명에게 메일 발송 중입니다.')
     return redirect(url_for('board'))
 
 @app.route('/board/delete/<int:board_seq>', methods=['POST'])
