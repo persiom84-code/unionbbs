@@ -121,19 +121,6 @@
         <input type="hidden" id="initial-content" value="{{ post.content|e }}">
         {% endif %}
 
-        {% if current_user and current_user.user_level <= 1 and not is_edit %}
-        <!-- 전 조합원 메일 발송 옵션 (관리자/집행위원 전용) -->
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;">
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                <input type="checkbox" name="send_mail" value="Y" class="w-4 h-4 text-yuanta">
-                <div>
-                    <span style="font-size:13px;font-weight:800;color:#1e40af;"><i class="fas fa-envelope" style="margin-right:6px;"></i>전 조합원 메일 발송</span>
-                    <p style="font-size:10px;color:#60a5fa;margin-top:2px;">체크 시 이메일이 등록된 전 조합원에게 알림 메일이 발송됩니다. (관리자/집행위원 전용)</p>
-                </div>
-            </label>
-        </div>
-        {% endif %}
-
         <div class="flex justify-between items-center pt-6 border-t border-slate-100 flex-wrap gap-3">
             <div class="flex gap-2">
                 <button type="button" id="btn-preview" class="px-5 py-3 bg-slate-100 text-slate-700 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all uppercase tracking-widest">
